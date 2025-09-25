@@ -1,0 +1,3 @@
+BasedOnStyle: LLVM   # výchozí LLVM styl
+IndentWidth: 4       # odsazení 4 mezery
+UseTab: Never        # vždy mezery, nikdy tabulátor
