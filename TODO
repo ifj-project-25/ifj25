@@ -1,0 +1,35 @@
+Compiler -> preklada jazyk na strojovy kod 
+
+4 hlavni casti:
+	lexikalni analyza - tvorba tokenu
+	syntakticka analyza - kontrola syntaxe jazyka a tvorba vv binarniho stromu
+	semanticka analyza - kontrola semantiky (deleni nulou, nedefinovana promenna, apod.)
+	generator kodu - prochazi strom a generuje vysledny strojovy kod
+
+25.9. 11:00 - prvni meeting, seznameni s tymem, urceni konvenci a jazyku
+
+jazyk: anglictina (promenne, soubory, komentare, commity, ...)
+
+psaci konvence:
+	mezery místo tabu s velikostí 4 mezer pro jednu úroveň odsazení,
+	unixové nové řádky LF místo windowsovských CR LF,
+	snake_case pro názvy funkcí a proměnných a PascalCase pro názvy tříd a modulů,
+	snake_case pro názvy souborů bez velkých písmen a jen s ascii znaky (to se doporučuje při práci na více operačních systémech).
+
+konvence commitu:
+	https://www.conventionalcommits.org/en/v1.0.0/
+
+	ukazka, jak by napriklad commit podle teto konvence mohl vypadat:
+
+	feat(tracker): add basic HTTP GET request implementation
+	- Implemented HttpGet.c/.h for tracker communication
+	- Integrated HTTP GET request into Tracker.c and main.c
+	- Extended ErrorCodes.{c,h} with new error handling cases
+	- Current version handles plain HTTP; HTTPS and detailed response code handling still pending
+
+	chatgpt dokaze pomoct krasne sepsat commit messages
+
+
+28.9. 16:00 - druhy meeting, seznameni s projektem a rozdeleni prace
+
+...
