@@ -13,7 +13,7 @@ jazyk: anglictina (promenne, soubory, komentare, commity, ...)
 psaci konvence:
 	mezery místo tabu s velikostí 4 mezer pro jednu úroveň odsazení,
 	unixové nové řádky LF místo windowsovských CR LF,
-	snake_case pro názvy funkcí a proměnných a PascalCase pro názvy tříd a modulů,
+	snake_case pro názvy funkcí a proměnných a PascalCase pro názvy tříd a modulů (struct, union, enum),
 	snake_case pro názvy souborů bez velkých písmen a jen s ascii znaky (to se doporučuje při práci na více operačních systémech).
 
 konvence commitu:
@@ -32,4 +32,14 @@ konvence commitu:
 
 28.9. 16:00 - druhy meeting, seznameni s projektem a rozdeleni prace
 
-...
+Honza lexikalni analyza
+Matej syntakticka analyza
+Michal semanticka analyza
+Alex generovanie kodu
+
+Do nedele je potreba udelat scanner (lexikalni analyza)
+
+5.10. 14:00 - treti meeting, kontrola prace a konzultace
+- Kontrola pokroku na scanneru
+- Diskuze o implementaci a případných problémech
+- Plánování další práce na syntaktické a sémantické analýze

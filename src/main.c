@@ -1,13 +1,21 @@
 /**
  * @file main.c
- * @author xcernoj00 
- * @brief main function of interpret
+ * @author xcernoj00
+ * @brief Main function of interpret
  */
 
+#include "error.h"
+#include "scanner.h"
 #include <stdio.h>
 
-int main () {
+int main() {
 
-	printf("Hello World!\n");
-	return 0;
+    FILE *source_file;
+    source_file = stdin;
+
+    set_source_file(source_file);
+
+    print_token_types();
+
+    return NO_ERROR;
 }
