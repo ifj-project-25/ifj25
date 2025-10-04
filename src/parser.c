@@ -7,6 +7,7 @@
 #include "parser.h"
 #include "scanner.h"
 #include "error.h"
+Keyword expexpected_keyword;
 static Token token; 
 int return_code = NO_ERROR;
 int token_output = NO_ERROR;
@@ -32,68 +33,78 @@ static int token_control(TokenType expected_type, const void *expected_value){
                 return_code = SYNTAX_ERROR;
             }
             return return_code;
+        case TOKEN_IDENTIFIER:
+                if(expected_value != NULL){
+                if(token.value.string == NULL || d_string_cmp(token.value.string,expected_value)){
+                    return_code = SYNTAX_ERROR;
+                }
+            }
+            return return_code;
         default:
             return return_code;
     }
 
 }
 int CLASS(){
+    next_token();
+    if(return_code != NO_ERROR)return return_code;
+    expexpected_keyword = KEYWORD_CLASS;
+    return_code = token_control(TOKEN_KEYWORD,&expexpected_keyword);
+    if (return_code != NO_ERROR)return return_code;
     
+    next_token();
+    if (return_code != NO_ERROR)return return_code;
+    return_code = (token_control(TOKEN_IDENTIFIER,"Program"));
+    if (return_code != NO_ERROR)return return_code;
+
+    next_token();
+    if (return_code != NO_ERROR)return return_code;
+    return_code = (token_control(TOKEN_LCURLY,NULL));
+    if (return_code != NO_ERROR)return return_code;
+
     return return_code;
 
 }
 int PROLOG(){
-    if (token.type != TOKEN_KEYWORD || token.value.keyword != KEYWORD_IMPORT)
-    {
-        return_code = SYNTAX_ERROR;
-    }
     next_token();
-    if((token.type != TOKEN_STRING) || token.value.string == NULL || d_string_cmp(token.value.string,"ifj25"))
-    {
-        return_code = SYNTAX_ERROR;
-    }
-    next_token();
-    if(token.type != TOKEN_KEYWORD || token.value.keyword != KEYWORD_FOR)
-    {
-        return_code = SYNTAX_ERROR;
-    }
-    next_token();
-    if(token.type != TOKEN_KEYWORD || token.value.keyword != KEYWORD_IFJ)
-    {
-        return_code = SYNTAX_ERROR;
-    } 
-    return return_code;
-    
-}
+    if(return_code != NO_ERROR)return return_code;
+    expexpected_keyword = KEYWORD_IMPORT;
+    return_code = (token_control(TOKEN_KEYWORD,&expexpected_keyword));
+    if (return_code != NO_ERROR)return return_code;
 
-int PROGRAM(void){
-    if (PROLOG() != NO_ERROR)
-    {
-        return return_code;
-    }
     next_token();
-    if ( token_control(TOKEN_EOL,NULL) != NO_ERROR)
-    {
-        return return_code;
-    }
+    if (return_code != NO_ERROR)return return_code;
+    return_code = token_control(TOKEN_STRING,"ifj25");
+    if (return_code != NO_ERROR)return return_code;
+
     next_token();
-    if (CLASS() != NO_ERROR)
-    {
-        return return_code;
-    }
+    if (return_code != NO_ERROR)return return_code;
+    expexpected_keyword = KEYWORD_FOR;
+    return_code = (token_control(TOKEN_KEYWORD,&expexpected_keyword));
+    if (return_code != NO_ERROR)return return_code;
+
+    next_token();
+    if (return_code != NO_ERROR)return return_code;
+    expexpected_keyword = KEYWORD_IFJ;
+    return_code = (token_control(TOKEN_KEYWORD,&expexpected_keyword));
+    if (return_code != NO_ERROR)return return_code;
 
     return return_code;
-    
-    
-
 }
 
 
 int parser(){
+    return_code = PROLOG();
+    if(return_code != NO_ERROR)return return_code;
+
     next_token();
-    if (return_code != NO_ERROR){
-        return return_code;
-    }
-    PROGRAM();
+    if(return_code != NO_ERROR)return return_code;
+    return_code = token_control(TOKEN_EOL,NULL);
+    if(return_code != NO_ERROR)return return_code;
+
+
+    return_code = CLASS();
+    if(return_code != NO_ERROR)return return_code;
+    
     return return_code;
 }
