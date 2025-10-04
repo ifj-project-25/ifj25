@@ -75,7 +75,7 @@ PREDICT(PARAMETER_LIST) -> {id,' )' }
 PREDICT(BLOCK) -> { '{' }
 PREDICT(PARAMETER_TAIL) -> { ',' , ')' }
 PREDICT(STML) -> {var, id, if, while, return}
-PREDICT(STML_ID) -> {id, getter_id, literal_num, literal_string, literal_null, id, global_id, getter_id, ε}#EXPRESSION
+PREDICT(STML_ID) -> {id, getter_id, literal_num, literal_string, literal_null, global_id}#EXPRESSION
 PREDICT(STML_LIST) -> {var, id, if, while, return, '}' } 
 PREDICT(STML_LINE) -> {var, id, if, while, return}
 PREDICT(VAR) -> {var}
