@@ -16,7 +16,32 @@ static void next_token(void){
         return_code = token_output;
     } 
 }
+static int token_control(TokenType expected_type, const void *expected_value){
+    if(token.type != expected_type){
+        return_code = SYNTAX_ERROR;
+        return return_code;
+    } 
+    switch( expected_type){
+        case TOKEN_KEYWORD:
+            if(token.value.keyword != *(const Keyword*)expected_value){
+                return_code = SYNTAX_ERROR;
+            }
+            return return_code; 
+        case TOKEN_STRING:
+            if(token.value.string == NULL || d_string_cmp(token.value.string,expected_value)){
+                return_code = SYNTAX_ERROR;
+            }
+            return return_code;
+        default:
+            return return_code;
+    }
 
+}
+int CLASS(){
+    
+    return return_code;
+
+}
 int PROLOG(){
     if (token.type != TOKEN_KEYWORD || token.value.keyword != KEYWORD_IMPORT)
     {
@@ -47,11 +72,15 @@ int PROGRAM(void){
         return return_code;
     }
     next_token();
-    if (token.type != TOKEN_EOL)
+    if ( token_control(TOKEN_EOL,NULL) != NO_ERROR)
     {
-        return_code = SYNTAX_ERROR;
+        return return_code;
     }
-    next_token{};
+    next_token();
+    if (CLASS() != NO_ERROR)
+    {
+        return return_code;
+    }
 
     return return_code;
     
