@@ -1,22 +1,29 @@
-PROGRAM -> PROLOG EOL CLASS  
+#Nonterminals: (PROGRAM, PROLOG, CLASS, DEF_FUN, DEF_FUN_TAIL, DEF_FUN_LIST, 
+PARAMETER_LIST, BLOCK, PARAMETER_TAIL, STML, STML_ID, STML_LIST, STML_LINE,
+VAR, IF, WHILE, RETURN, ARGUMENT_LIST, ARGUMENT_TAIL,
+TERM)
+
+PROGRAM -> PROLOG eol CLASS  
 PROLOG -> import "ifj25" for Ifj
-CLASS -> class Program { EOL DEF_FUN_LIST } 
+CLASS -> class Program { eol DEF_FUN_LIST } 
 
 DEF_FUN_LIST -> DEF_FUN  DEF_FUN_LIST | ε
-DEF_FUN -> static id ( PARAMETER_LIST ) BLOCK EOL | static id BLOCK EOL | static id = ( id ) BLOCK EOL
+DEF_FUN -> static id DEF_FUN_TAIL
+DEF_FUN_TAIL -> (PARAMETER_LIST) BLOCK eol | BLOCK eol | = (id) BLOCK eol
 PARAMETER_LIST -> id PARAMETER_TAIL | ε
 PARAMETER_TAIL -> , id PARAMETER_TAIL | ε 
-BLOCK -> { EOL STML_LIST } | { ε }
+BLOCK -> { eol STML_LIST } 
 STML_LIST -> STML_LINE  STML_LIST | ε
-STML_LINE -> STML EOL
-STML -> VAR | ASSIGN | IF | WHILE | CALL | RETURN  
+STML_LINE -> STML eol
+STML -> VAR | IF | WHILE | RETURN | id = STML_ID 
+STML_ID -> EXPRESSION | id ( ARGUMENT_LIST ) | getter_id #ASSIGN, CALL
 VAR -> var id
-ASSIGN -> id = EXPRESSION
 IF -> if ( EXPRESSION ) BLOCK else BLOCK
-WHILE -> while ( EXPRESSION ) BLOCK
-CALL -> id = id ( ARGUMENT_LIST ) | id = GETTER_ID 
+WHILE -> while ( EXPRESSION ) BLOCK  
 ARGUMENT_LIST -> TERM ARGUMENT_TAIL | ε
 ARGUMENT_TAIL -> , TERM ARGUMENT_TAIL | ε
-TERM -> LITERAL_NUM | LITERAL_STRING | LITERAL_NULL | id | GLOBAL_ID | GETTER_ID
+TERM -> literal_num | literal_string | literal_null | id | global_id | getter_id
 RETURN -> return EXPRESSION
-EXPRESSION -> */Handeled by precedence parser/*
+EXPRESSION -> */Handeled by precedence parser/* Place Holder
+
+

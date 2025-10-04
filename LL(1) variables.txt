@@ -1,0 +1,87 @@
+#FIRST
+FIRST(PROGRAM) -> {import}
+FIRST(PROLOG)-> {import}
+FIRST(CLASS) -> {class}
+FIRST(DEF_FUN) -> {static}
+FIRST(DEF_FUN_TAIL) -> {'(' , '{' , =}
+FIRST(DEF_FUN_LIST) -> {static, ε}
+FIRST(PARAMETER_LIST) -> {id, ε}
+FIRST(BLOCK) -> { { }
+FIRST(PARAMETER_TAIL) -> {, , ε}
+FIRST(STML) -> {var, id, if, while, return}
+FIRST(STML_ID) -> {id, getter_id, literal_num, literal_string, literal_null, id, global_id, getter_id}#EXPRESSION
+FIRST(STML_LIST) -> {var, id, if, while, return, ε}
+FIRST(STML_LINE) -> {var, id, if, while, return}
+FIRST(VAR) -> {var}
+FIRST(IF) -> {if}
+FIRST(WHILE) -> {while}
+FIRST(RETURN) -> {return}
+FIRST(ARGUMENT_LIST) -> {literal_num, literal_string, literal_null, id, global_id, getter_id, ε}
+FIRST(ARGUMENT_TAIL) -> {, , ε}
+FIRST(TERM) -> {literal_num, literal_string, literal_null, id, global_id, getter_id}
+
+#FOLLOW
+FOLLOW(PROGRAM) -> $
+FOLLOW(PROLOG) -> eol
+FOLLOW(CLASS) -> $
+FOLLOW(DEF_FUN) -> {static, '}' }
+FOLLOW(DEF_FUN_TAIL) -> {'}'}
+FOLLOW(DEF_FUN_LIST) -> { '}' }
+FOLLOW(PARAMETER_LIST) -> { ')' }
+FOLLOW(BLOCK) -> { eol, else}
+FOLLOW(PARAMETER_TAIL) -> { ')' }
+FOLLOW(STML) -> {eol}
+FOLLOW(STML_ID) -> {eol}
+FOLLOW(STML_LIST) -> { '}' }
+FOLLOW(STML_LINE) -> {var, id, if, while, return , '}' }
+FOLLOW(VAR) -> {eol}
+FOLLOW(IF) -> {eol}
+FOLLOW(WHILE) -> {eol}
+FOLLOW(RETURN) -> {eol}
+FOLLOW(ARGUMENT_LIST) -> { ')' }
+FOLLOW(ARGUMENT_TAIL) -> { ')' }
+FOLLOW(TERM) -> {',', ')' }
+
+#EMPTY ∅ ε
+EMPTY(PROGRAM) -> ε
+EMPTY(PROLOG) -> ∅
+EMPTY(CLASS) -> ε
+EMPTY(DEF_FUN) -> ε
+EMPTY(DEF_FUN_TAIL) -> ε
+EMPTY(DEF_FUN_LIST) -> ε
+EMPTY(PARAMETER_LIST) -> ε
+EMPTY(BLOCK) -> ∅
+EMPTY(PARAMETER_TAIL) -> ε
+EMPTY(STML) -> ∅
+EMPTY(STML_ID) -> ∅
+EMPTY(STML_LIST) -> ε 
+EMPTY(STML_LINE) -> ∅
+EMPTY(VAR) -> ∅
+EMPTY(IF) -> ∅
+EMPTY(WHILE) -> ∅
+EMPTY(RETURN) -> ∅
+EMPTY(ARGUMENT_LIST) -> ε 
+EMPTY(ARGUMENT_TAIL) -> ε 
+EMPTY(TERM) -> ∅
+
+#PREDICT
+PREDICT(PROGRAM) -> {import}
+PREDICT(PROLOG) -> {import}
+PREDICT(CLASS) -> {class}
+PREDICT(DEF_FUN) -> { static }
+PREDICT(DEF_FUN_TAIL) -> {'(','{',= }
+PREDICT(DEF_FUN_LIST) -> {static, '}' }
+PREDICT(PARAMETER_LIST) -> {id,' )' }
+PREDICT(BLOCK) -> { '{' }
+PREDICT(PARAMETER_TAIL) -> { ',' , ')' }
+PREDICT(STML) -> {var, id, if, while, return}
+PREDICT(STML_ID) -> {id, getter_id, literal_num, literal_string, literal_null, id, global_id, getter_id, ε}#EXPRESSION
+PREDICT(STML_LIST) -> {var, id, if, while, return, '}' } 
+PREDICT(STML_LINE) -> {var, id, if, while, return}
+PREDICT(VAR) -> {var}
+PREDICT(IF) -> {if}
+PREDICT(WHILE) -> {while}
+PREDICT(RETURN) -> {return}
+PREDICT(ARGUMENT_LIST) -> {literal_num, literal_string, literal_null, id, global_id, getter_id, ')' }
+PREDICT(ARGUMENT_TAIL) -> { ',' , ')' } 
+PREDICT(TERM) -> {literal_num, literal_string, literal_null, id, global_id, getter_id}
