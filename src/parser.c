@@ -17,6 +17,8 @@ static void next_token(void){
         return_code = token_output;
     } 
 }
+
+
 static int token_control(TokenType expected_type, const void *expected_value){
     if(token.type != expected_type){
         return_code = SYNTAX_ERROR;
@@ -45,6 +47,15 @@ static int token_control(TokenType expected_type, const void *expected_value){
     }
 
 }
+int eol(){
+    next_token();
+    if(return_code != NO_ERROR)return return_code;
+    return_code = token_control(TOKEN_EOL,NULL);
+    return return_code;
+}
+int DEF_FUN_LIST(){
+    return return_code;
+}
 int CLASS(){
     next_token();
     if(return_code != NO_ERROR)return return_code;
@@ -61,6 +72,9 @@ int CLASS(){
     if (return_code != NO_ERROR)return return_code;
     return_code = (token_control(TOKEN_LCURLY,NULL));
     if (return_code != NO_ERROR)return return_code;
+
+    return_code = eol();
+    if(return_code != NO_ERROR)return return_code;
 
     return return_code;
 
@@ -97,11 +111,8 @@ int parser(){
     return_code = PROLOG();
     if(return_code != NO_ERROR)return return_code;
 
-    next_token();
+    return_code = eol();
     if(return_code != NO_ERROR)return return_code;
-    return_code = token_control(TOKEN_EOL,NULL);
-    if(return_code != NO_ERROR)return return_code;
-
 
     return_code = CLASS();
     if(return_code != NO_ERROR)return return_code;
