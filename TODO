@@ -43,3 +43,7 @@ Do nedele je potreba udelat scanner (lexikalni analyza)
 - Kontrola pokroku na scanneru
 - Diskuze o implementaci a případných problémech
 - Plánování další práce na syntaktické a sémantické analýze
+
+na meetingu jsme se dohodli, ze kazdy bude delat na sve casti a pokud bude mit nekdo problem, tak se ozve a ostatni mu pomuzou
+-Skener, gramatika hotové
+-Michal - výškově vyvážený binárny vyhľadávací strom
