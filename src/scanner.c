@@ -125,6 +125,11 @@ int get_token(Token *token) {
         switch (state) {
         case STATE_START:
             if (c == '\n') {
+                // Skip multiple newlines, return only one EOL token
+                do {
+                    c = fgetc(source_file);
+                } while (c == '\n');
+                ungetc(c, source_file); // push back the first non-newline
                 token->type = TOKEN_EOL;
                 return NO_ERROR;
             } else if (isspace(c)) { // Skip whitespace except newline
