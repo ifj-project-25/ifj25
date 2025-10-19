@@ -9,113 +9,224 @@
 #include "error.h"
 Keyword expexpected_keyword;
 static Token token; 
-int return_code = NO_ERROR;
+int rc = NO_ERROR;
 int token_output = NO_ERROR;
 static void next_token(void){
     token_output = get_token(&token);
     if (token_output != NO_ERROR){
-        return_code = token_output;
+        rc = token_output;
     } 
 }
 
 
+
 static int token_control(TokenType expected_type, const void *expected_value){
     if(token.type != expected_type){
-        return_code = SYNTAX_ERROR;
-        return return_code;
+        rc = SYNTAX_ERROR;
+        return rc;
     } 
     switch( expected_type){
         case TOKEN_KEYWORD:
             if(token.value.keyword != *(const Keyword*)expected_value){
-                return_code = SYNTAX_ERROR;
+                return SYNTAX_ERROR;
             }
-            return return_code; 
+        return NO_ERROR;
         case TOKEN_STRING:
             if(token.value.string == NULL || d_string_cmp(token.value.string,expected_value)){
-                return_code = SYNTAX_ERROR;
+                return SYNTAX_ERROR;
             }
-            return return_code;
+            return NO_ERROR;
         case TOKEN_IDENTIFIER:
                 if(expected_value != NULL){
                 if(token.value.string == NULL || d_string_cmp(token.value.string,expected_value)){
-                    return_code = SYNTAX_ERROR;
+                    return SYNTAX_ERROR;
                 }
             }
-            return return_code;
+            return NO_ERROR;
         default:
-            return return_code;
+            return NO_ERROR;
     }
 
 }
 int eol(){
     next_token();
-    if(return_code != NO_ERROR)return return_code;
-    return_code = token_control(TOKEN_EOL,NULL);
-    return return_code;
+    if(rc != NO_ERROR)return rc;
+    rc = token_control(TOKEN_EOL,NULL);
+    return rc;
+}
+
+int BLOCK(){
+    rc = (token_control(TOKEN_LCURLY,NULL));
+    if (rc != NO_ERROR)return rc;
+
+    eol();
+    if (rc != NO_ERROR)return rc;
+    return NO_ERROR;
+}
+int PARAMETER_TAIL(){
+    if (!((token.type == TOKEN_RPAREN))){
+        rc = token_control(TOKEN_COMMA,NULL);
+        if (rc != NO_ERROR)return rc;
+        next_token();
+        if (rc != NO_ERROR)return rc;
+        
+        rc = token_control(TOKEN_IDENTIFIER,NULL);
+        if (rc != NO_ERROR)return rc;
+        
+        next_token();
+        if (rc != NO_ERROR)return rc;
+        PARAMETER_TAIL();
+        if (rc != NO_ERROR)return rc;
+    }
+
+    return NO_ERROR;
+}
+int PARAMETER_LIST(){
+    if (!((token.type == TOKEN_RPAREN))){
+        rc = token_control(TOKEN_IDENTIFIER,NULL);
+        if (rc != NO_ERROR)return rc;
+        
+        next_token();
+        if (rc != NO_ERROR)return rc;
+        PARAMETER_TAIL();
+        if (rc != NO_ERROR)return rc;
+
+
+    }
+    return NO_ERROR;
+}
+int DEF_FUN_TAIL(){
+    if(!((token.type == TOKEN_RPAREN))){
+        next_token();
+        if (rc != NO_ERROR)return rc;
+        PARAMETER_LIST();
+
+        rc = (token_control(TOKEN_RPAREN,NULL));
+        if (rc != NO_ERROR)return rc;
+
+        next_token();
+        if (rc != NO_ERROR)return rc;
+        BLOCK();
+        if (rc != NO_ERROR)return rc;
+        
+        return NO_ERROR;
+
+    }
+    else if(token_control(TOKEN_LCURLY,NULL)==NO_ERROR){
+
+        //BLOCK();
+        return NO_ERROR;
+
+    }
+    else if(token_control(TOKEN_EQUAL,NULL)){
+    }
+    else{
+        return SYNTAX_ERROR;
+    }
+    return NO_ERROR;
+}
+int DEF_FUN(){
+    
+    expexpected_keyword = KEYWORD_STATIC;
+    rc =token_control(TOKEN_KEYWORD,&expexpected_keyword);
+    if (rc != NO_ERROR)return rc;
+
+    next_token();
+    if (rc != NO_ERROR)return rc;
+    rc = token_control(TOKEN_IDENTIFIER,NULL);
+    if (rc != NO_ERROR)return rc; 
+    next_token();
+    if (rc != NO_ERROR)return rc;
+    rc = DEF_FUN_TAIL();
+    if (rc != NO_ERROR)return rc;  
+
+    return rc;
 }
 int DEF_FUN_LIST(){
-    return return_code;
+    if (!((token.type == TOKEN_RCURLY))){
+        rc = DEF_FUN();
+        if (rc != NO_ERROR)return rc;
+        next_token();
+        if(rc != NO_ERROR)return rc;
+        rc = DEF_FUN_LIST();
+
+        if (rc != NO_ERROR)return rc; 
+        
+    }
+    else{
+    }
+    return rc;
 }
 int CLASS(){
-    next_token();
-    if(return_code != NO_ERROR)return return_code;
     expexpected_keyword = KEYWORD_CLASS;
-    return_code = token_control(TOKEN_KEYWORD,&expexpected_keyword);
-    if (return_code != NO_ERROR)return return_code;
+    rc = token_control(TOKEN_KEYWORD,&expexpected_keyword);
+    if (rc != NO_ERROR)return rc;
     
     next_token();
-    if (return_code != NO_ERROR)return return_code;
-    return_code = (token_control(TOKEN_IDENTIFIER,"Program"));
-    if (return_code != NO_ERROR)return return_code;
+    if (rc != NO_ERROR)return rc;
+    rc = (token_control(TOKEN_IDENTIFIER,"Program"));
+    if (rc != NO_ERROR)return rc;
 
     next_token();
-    if (return_code != NO_ERROR)return return_code;
-    return_code = (token_control(TOKEN_LCURLY,NULL));
-    if (return_code != NO_ERROR)return return_code;
+    if (rc != NO_ERROR)return rc;
+    rc = (token_control(TOKEN_LCURLY,NULL));
+    if (rc != NO_ERROR)return rc;
 
-    return_code = eol();
-    if(return_code != NO_ERROR)return return_code;
+    eol();
+    if(rc != NO_ERROR)return rc;
 
-    return return_code;
+    next_token();
+    if(rc != NO_ERROR)return rc;
+    rc = DEF_FUN_LIST();
+    printf("after def fun list %d\n",rc);
+    if(rc != NO_ERROR)return rc; 
+    
+    /* next_token();
+    if (rc != NO_ERROR)return rc;
+    (token_control(TOKEN_RCURLY,NULL));
+    if (rc != NO_ERROR)return rc; */
+
+    return rc;
 
 }
 int PROLOG(){
-    next_token();
-    if(return_code != NO_ERROR)return return_code;
+    
     expexpected_keyword = KEYWORD_IMPORT;
-    return_code = (token_control(TOKEN_KEYWORD,&expexpected_keyword));
-    if (return_code != NO_ERROR)return return_code;
+    rc = (token_control(TOKEN_KEYWORD,&expexpected_keyword));
+    if (rc != NO_ERROR)return rc;
 
     next_token();
-    if (return_code != NO_ERROR)return return_code;
-    return_code = token_control(TOKEN_STRING,"ifj25");
-    if (return_code != NO_ERROR)return return_code;
+    if (rc != NO_ERROR)return rc;
+    rc = token_control(TOKEN_STRING,"ifj25");
+    if (rc != NO_ERROR)return rc;
 
     next_token();
-    if (return_code != NO_ERROR)return return_code;
+    if (rc != NO_ERROR)return rc;
     expexpected_keyword = KEYWORD_FOR;
-    return_code = (token_control(TOKEN_KEYWORD,&expexpected_keyword));
-    if (return_code != NO_ERROR)return return_code;
-
+    rc = (token_control(TOKEN_KEYWORD,&expexpected_keyword));
+    if (rc != NO_ERROR)return rc;
     next_token();
-    if (return_code != NO_ERROR)return return_code;
+    if (rc != NO_ERROR)return rc;
     expexpected_keyword = KEYWORD_IFJ;
-    return_code = (token_control(TOKEN_KEYWORD,&expexpected_keyword));
-    if (return_code != NO_ERROR)return return_code;
+    rc = (token_control(TOKEN_KEYWORD,&expexpected_keyword));
+    if (rc != NO_ERROR)return rc;
 
-    return return_code;
+    return rc;
 }
 
 
 int parser(){
-    return_code = PROLOG();
-    if(return_code != NO_ERROR)return return_code;
+    next_token();
+    if(rc != NO_ERROR)return rc;
+    rc = PROLOG();
+    if(rc != NO_ERROR)return rc;
+    eol();
+    if(rc != NO_ERROR)return rc;
 
-    return_code = eol();
-    if(return_code != NO_ERROR)return return_code;
-
-    return_code = CLASS();
-    if(return_code != NO_ERROR)return return_code;
+    next_token();
+    if(rc != NO_ERROR)return rc;
+    rc = CLASS();
+    if(rc != NO_ERROR)return rc;
     
-    return return_code;
+    return rc;
 }
