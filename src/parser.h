@@ -6,8 +6,9 @@
 #ifndef PARSER_H
 #define PARSER_H
 #include "scanner.h"
+#include "symtable.h"
 
 
-int parser();
+int parser(SymTable *AVL);
 
 #endif
