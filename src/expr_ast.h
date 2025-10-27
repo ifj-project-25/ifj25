@@ -50,5 +50,6 @@ ExprNode* create_null_literal_node();
 ExprNode* create_identifier_node(const char* name);
 ExprNode* create_binary_op_node(BinaryOpType op, ExprNode* left, ExprNode* right);
 void free_expr_node(ExprNode* node);
+void print_expr_ast(ExprNode* node, int indent);
 
 #endif //EXPR_AST_H

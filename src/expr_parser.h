@@ -8,9 +8,10 @@
 #include "scanner.h"
 #include "symtable.h"
 #include "expr_stack.h"
+#include "expr_ast.h"
 
-int expression_parser_main(SymTable *AVL);
-int expression_parser(const Token *token, Tstack *stack, int *number_of_lparen, int *number_of_rparen, int *rc, SymTable *AVL);
+
+ExprNode*  expression_parser_main(int *error_code);
 
 
 
