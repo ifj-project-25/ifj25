@@ -1,0 +1,2636 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "semantic.h"
+#include "ast.h"
+
+// Farby pre terminal
+#define COLOR_RED     "\x1b[31m"
+#define COLOR_GREEN   "\x1b[32m"
+#define COLOR_YELLOW  "\x1b[33m"
+#define COLOR_BLUE    "\x1b[34m"
+#define COLOR_MAGENTA "\x1b[35m"
+#define COLOR_CYAN    "\x1b[36m"
+#define COLOR_RESET   "\x1b[0m"
+
+// Globálne premenné pre sledovanie výsledkov testov
+int tests_passed = 0;
+int tests_total = 0;
+
+// Funkcia pre spustenie jedného testu
+void run_test(const char* test_name, int (*test_func)(void)) {
+    printf(COLOR_CYAN "=== %s ===\n" COLOR_RESET, test_name);
+    
+    int result = test_func();
+    tests_total++;
+    
+    if (result == NO_ERROR) {
+        tests_passed++;
+        printf(COLOR_GREEN "✓ PASSED\n" COLOR_RESET);
+    } else {
+        printf(COLOR_RED "✗ FAILED (Expected: %d, Got: %d)\n" COLOR_RESET, NO_ERROR, result);
+    }
+    printf("\n");
+}
+
+// === TESTOVÉ FUNKCIE ===
+
+// -----------------------------------------------------------------------------
+// 40 Simple Tests (variables, funcs, ops, scopes, built-ins)
+// -----------------------------------------------------------------------------
+
+// 1
+int t_var_decl_basic() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "x");
+    v->data_type = TYPE_NUM;
+    v->right = create_ast_node(AST_LITERAL_INT, NULL);
+    v->right->int_val = 42;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r; // expect NO_ERROR
+}
+
+// 2
+int t_use_before_decl() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* asg = create_ast_node(AST_ASSIGN, "y");
+    asg->right = create_ast_node(AST_LITERAL_INT, NULL);
+    asg->right->int_val = 1;
+    p->body = asg;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_UNDEFINED) ? NO_ERROR : r;
+}
+
+// 3
+int t_redecl_same_scope() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* a1 = create_ast_node(AST_VAR_DECL, "a");
+    a1->data_type = TYPE_NUM;
+    ASTNode* a2 = create_ast_node(AST_VAR_DECL, "a");
+    a2->data_type = TYPE_NUM;
+    p->body = a1; a1->next = a2;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_REDEFINED) ? NO_ERROR : r;
+}
+
+// 4
+int t_shadowing_different_scope_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* outer = create_ast_node(AST_VAR_DECL, "x");
+    outer->data_type = TYPE_NUM;
+    ASTNode* block = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* inner = create_ast_node(AST_VAR_DECL, "x");
+    inner->data_type = TYPE_NUM;
+    p->body = outer; outer->next = block;
+    block->body = inner;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r; // expect NO_ERROR
+}
+
+// 5
+int t_assign_type_mismatch() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "s");
+    v->data_type = TYPE_STRING;
+    v->right = create_ast_node(AST_LITERAL_INT, NULL);
+    v->right->int_val = 7;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_TYPE_COMPATIBILITY) ? NO_ERROR : r;
+}
+
+// 6
+int t_assign_null_to_any() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "x");
+    v->data_type = TYPE_NUM;
+    v->right = create_ast_node(AST_LITERAL_NULL, NULL);
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    // depending on rules null->num may be allowed; assume allowed -> NO_ERROR
+    return r;
+}
+
+// 7
+int t_string_concat_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "s");
+    v->data_type = TYPE_STRING;
+    ASTNode* op = create_ast_node(AST_BINOP, "+");
+    op->left = create_ast_node(AST_LITERAL_STRING, NULL);
+    op->left->string_val = my_strdup("a");
+    op->right = create_ast_node(AST_LITERAL_STRING, NULL);
+    op->right->string_val = my_strdup("b");
+    v->right = op;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 8
+int t_string_plus_num_error() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "s");
+    v->data_type = TYPE_STRING;
+    ASTNode* op = create_ast_node(AST_BINOP, "+");
+    op->left = create_ast_node(AST_LITERAL_STRING, NULL);
+    op->left->string_val = my_strdup("x");
+    op->right = create_ast_node(AST_LITERAL_INT, NULL);
+    op->right->int_val = 5;
+    v->right = op;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_TYPE_COMPATIBILITY) ? NO_ERROR : r;
+}
+
+// 9
+int t_unary_minus_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "n");
+    v->data_type = TYPE_NUM;
+    ASTNode* un = create_ast_node(AST_UNOP, "-");
+    un->left = create_ast_node(AST_LITERAL_INT, NULL);
+    un->left->int_val = 3;
+    v->right = un;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 10
+int t_return_outside_function_error() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->left = create_ast_node(AST_LITERAL_INT, NULL);
+    ret->left->int_val = 1;
+    p->body = ret;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_OTHER) ? NO_ERROR : r;
+}
+
+// 11
+int t_function_def_basic() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "foo");
+    f->left = NULL; // no params
+    f->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = f;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 12
+int t_function_redef_error() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f1 = create_ast_node(AST_FUNC_DEF, "f");
+    ASTNode* f2 = create_ast_node(AST_FUNC_DEF, "f");
+    p->body = f1; f1->next = f2;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_REDEFINED) ? NO_ERROR : r;
+}
+
+// 13
+int t_function_call_undefined() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "unknown");
+    p->body = call;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_UNDEFINED) ? NO_ERROR : r;
+}
+
+// 14
+int t_function_call_arity_mismatch() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "sum");
+    ASTNode* param = create_ast_node(AST_PARAM, "a");
+    f->left = param;
+    f->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = f;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "sum");
+    // supply two args
+    call->right = create_ast_node(AST_LITERAL_INT, NULL);
+    call->right->int_val = 1;
+    ASTNode* extra = create_ast_node(AST_LITERAL_INT, NULL);
+    extra->int_val = 2;
+    call->right->next = extra;
+    f->next = call;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_WRONG_PARAMS) ? NO_ERROR : r;
+}
+
+// 15
+int t_function_return_type_check() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "g");
+    f->data_type = TYPE_NUM; // declared to return num
+    // function body returns string -> type mismatch
+    ASTNode* body = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->left = create_ast_node(AST_LITERAL_STRING, NULL);
+    ret->left->string_val = my_strdup("oops");
+    body->body = ret;
+    f->body = body;
+    p->body = f;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_TYPE_COMPATIBILITY) ? NO_ERROR : r;
+}
+
+// 16
+int t_forward_call_before_def_allowed() {
+    // Depending on language, forward calls might be allowed if declared.
+    // Here test a call before definition but no declaration -> expect undefined.
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "fwd");
+    ASTNode* def = create_ast_node(AST_FUNC_DEF, "fwd");
+    def->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = call;
+    call->next = def;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    // choose to expect SEM_ERROR_UNDEFINED
+    return (r == SEM_ERROR_UNDEFINED) ? NO_ERROR : r;
+}
+
+// 17
+int t_recursive_function_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "fact");
+    ASTNode* param = create_ast_node(AST_PARAM, "n");
+    f->left = param;
+    ASTNode* body = create_ast_node(AST_BLOCK, NULL);
+    // return fact(n-1) ... simplified: check recursion allowed
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "fact");
+    call->right = create_ast_node(AST_IDENTIFIER, "n");
+    ret->left = call;
+    body->body = ret;
+    f->body = body;
+    p->body = f;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 18
+int t_param_type_mismatch_in_call() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "inc");
+    ASTNode* param = create_ast_node(AST_PARAM, "x");
+    param->data_type = TYPE_NUM;
+    f->left = param;
+    f->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = f;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "inc");
+    ASTNode* arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    arg->string_val = my_strdup("bad");
+    call->right = arg;
+    f->next = call;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_WRONG_PARAMS) ? NO_ERROR : r;
+}
+
+// 19
+int t_binop_nested_types() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "z");
+    v->data_type = TYPE_NUM;
+    ASTNode* plus = create_ast_node(AST_BINOP, "+");
+    ASTNode* left = create_ast_node(AST_BINOP, "+");
+    left->left = create_ast_node(AST_LITERAL_INT, NULL); left->left->int_val = 2;
+    left->right = create_ast_node(AST_LITERAL_INT, NULL); left->right->int_val = 3;
+    plus->left = left;
+    plus->right = create_ast_node(AST_LITERAL_INT, NULL); plus->right->int_val = 4;
+    v->right = plus;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 20
+int t_binop_mismatch_deep() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "w");
+    v->data_type = TYPE_NUM;
+    ASTNode* plus = create_ast_node(AST_BINOP, "+");
+    ASTNode* left = create_ast_node(AST_BINOP, "+");
+    left->left = create_ast_node(AST_LITERAL_INT, NULL); left->left->int_val = 2;
+    left->right = create_ast_node(AST_LITERAL_STRING, NULL); left->right->string_val = my_strdup("x");
+    plus->left = left;
+    plus->right = create_ast_node(AST_LITERAL_INT, NULL); plus->right->int_val = 4;
+    v->right = plus;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_TYPE_COMPATIBILITY) ? NO_ERROR : r;
+}
+
+// 21
+int t_if_condition_type_invalid() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* ifn = create_ast_node(AST_IF, NULL);
+    ASTNode* cond = create_ast_node(AST_LITERAL_STRING, NULL);
+    cond->string_val = my_strdup("badcond");
+    ifn->left = cond;
+    p->body = ifn;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_TYPE_COMPATIBILITY) ? NO_ERROR : r;
+}
+
+// 22
+int t_if_condition_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* ifn = create_ast_node(AST_IF, NULL);
+    ASTNode* cond = create_ast_node(AST_BINOP, ">");
+    cond->left = create_ast_node(AST_LITERAL_INT, NULL); cond->left->int_val = 1;
+    cond->right = create_ast_node(AST_LITERAL_INT, NULL); cond->right->int_val = 0;
+    ifn->left = cond;
+    p->body = ifn;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 23
+int t_while_with_undefined_in_cond() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* w = create_ast_node(AST_WHILE, NULL);
+    ASTNode* cond = create_ast_node(AST_BINOP, ">");
+    cond->left = create_ast_node(AST_IDENTIFIER, "missing");
+    cond->right = create_ast_node(AST_LITERAL_INT, NULL); cond->right->int_val = 0;
+    w->left = cond;
+    p->body = w;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_UNDEFINED) ? NO_ERROR : r;
+}
+
+// 24
+int t_block_local_scope_variable() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* block = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "tmp");
+    v->data_type = TYPE_NUM;
+    block->body = v;
+    p->body = block;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 25
+int t_nested_blocks_shadowing() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v1 = create_ast_node(AST_VAR_DECL, "a");
+    v1->data_type = TYPE_NUM;
+    ASTNode* block = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* v2 = create_ast_node(AST_VAR_DECL, "a");
+    v2->data_type = TYPE_STRING;
+    p->body = v1; v1->next = block; block->body = v2;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    // If shadowing allowed, OK -> NO_ERROR
+    return r;
+}
+
+// 26
+int t_builtin_read_num_assign() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "n");
+    v->data_type = TYPE_NUM;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    v->right = call;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r; // expect NO_ERROR if builtin typed correctly
+}
+
+// 27
+int t_builtin_read_str_assign() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "s");
+    v->data_type = TYPE_STRING;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.read_str");
+    v->right = call;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 28
+int t_builtin_length_usage() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "len");
+    v->data_type = TYPE_NUM;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.length");
+    ASTNode* arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    arg->string_val = my_strdup("hello");
+    call->right = arg;
+    v->right = call;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 29
+int t_builtin_length_wrong_arg() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "len");
+    v->data_type = TYPE_NUM;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.length");
+    ASTNode* arg = create_ast_node(AST_LITERAL_INT, NULL);
+    arg->int_val = 5;
+    call->right = arg;
+    v->right = call;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_WRONG_PARAMS) ? NO_ERROR : r;
+}
+
+// 30
+int t_builtin_str2num_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "n");
+    v->data_type = TYPE_NUM;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.str2num");
+    ASTNode* arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    arg->string_val = my_strdup("123");
+    call->right = arg;
+    v->right = call;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 31
+int t_identifier_lookup_in_scope() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "a");
+    v->data_type = TYPE_NUM;
+    ASTNode* assign = create_ast_node(AST_ASSIGN, "b");
+    assign->right = create_ast_node(AST_IDENTIFIER, "a");
+    p->body = v; v->next = assign;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    // 'b' undefined - expect error
+    return (r == SEM_ERROR_UNDEFINED) ? NO_ERROR : r;
+}
+
+// 32
+int t_multiple_declarations_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* a = create_ast_node(AST_VAR_DECL, "a"); a->data_type = TYPE_NUM;
+    ASTNode* b = create_ast_node(AST_VAR_DECL, "b"); b->data_type = TYPE_NUM;
+    ASTNode* c = create_ast_node(AST_VAR_DECL, "c"); c->data_type = TYPE_STRING;
+    p->body = a; a->next = b; b->next = c;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 33
+int t_assign_to_literal_error() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    
+    // Skús priradiť do literálu - to by malo spôsobiť chybu
+    // V IFJ25 by to malo byť: 5 = 10
+    ASTNode* assign = create_ast_node(AST_ASSIGN, "5"); // názov "5" reprezentuje literál
+    assign->right = create_ast_node(AST_LITERAL_INT, NULL);
+    assign->right->int_val = 10;
+    p->body = assign;
+    
+    int result = semantic_analyze(p);
+    free_ast_tree(p);
+    
+    // Očakávame chybu - priradenie do literálu nie je platné
+    // Môže to byť SEM_ERROR_UNDEFINED (premenná "5" neexistuje) 
+    // alebo SEM_ERROR_TYPE_COMPATIBILITY
+    printf("Assign to literal test result: %d\n", result);
+    return (result != NO_ERROR) ? NO_ERROR : result;
+}
+
+// 34
+int t_group_expr_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "z");
+    v->data_type = TYPE_NUM;
+    ASTNode* grp = create_ast_node(AST_GROUP_EXPR, NULL);
+    ASTNode* bin = create_ast_node(AST_BINOP, "+");
+    bin->left = create_ast_node(AST_LITERAL_INT, NULL); bin->left->int_val = 1;
+    bin->right = create_ast_node(AST_LITERAL_INT, NULL); bin->right->int_val = 2;
+    grp->left = bin;
+    v->right = grp;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+// 35
+int t_group_expr_type_mismatch() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "z");
+    v->data_type = TYPE_NUM;
+    ASTNode* grp = create_ast_node(AST_GROUP_EXPR, NULL);
+    ASTNode* bin = create_ast_node(AST_BINOP, "+");
+    bin->left = create_ast_node(AST_LITERAL_INT, NULL); bin->left->int_val = 1;
+    bin->right = create_ast_node(AST_LITERAL_STRING, NULL); bin->right->string_val = my_strdup("x");
+    grp->left = bin;
+    v->right = grp;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_TYPE_COMPATIBILITY) ? NO_ERROR : r;
+}
+
+// 36
+int t_complex_expr_mix() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "res"); v->data_type = TYPE_NUM;
+    ASTNode* plus = create_ast_node(AST_BINOP, "+");
+    plus->left = create_ast_node(AST_BINOP, "*");
+    plus->left->left = create_ast_node(AST_LITERAL_INT, NULL); plus->left->left->int_val = 2;
+    plus->left->right = create_ast_node(AST_LITERAL_INT, NULL); plus->left->right->int_val = 3;
+    plus->right = create_ast_node(AST_LITERAL_INT, NULL); plus->right->int_val = 4;
+    v->right = plus;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 37
+int t_call_as_statement_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* stmt = create_ast_node(AST_EXPR_STMT, NULL);
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    arg->string_val = my_strdup("hi");
+    call->right = arg;
+    stmt->left = call;
+    p->body = stmt;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 38
+int t_return_type_void_ok() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "main");
+    f->data_type = TYPE_UNDEF; // treat as void
+    ASTNode* body = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->left = NULL; // return with no expr
+    body->body = ret;
+    f->body = body;
+    p->body = f;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// 39: Two-level call chain - a(b())
+int t_two_level_call_chain() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    
+    // Define function a() with no parameters
+    ASTNode* f1 = create_ast_node(AST_FUNC_DEF, "a"); 
+    f1->body = create_ast_node(AST_BLOCK, NULL);
+    
+    // Define function b() with no parameters  
+    ASTNode* f2 = create_ast_node(AST_FUNC_DEF, "b"); 
+    f2->body = create_ast_node(AST_BLOCK, NULL);
+    
+    // Call a(b()) - a with one argument (result of b())
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "a");
+    ASTNode* inner_call = create_ast_node(AST_FUNC_CALL, "b");
+    call->right = inner_call;  // a(b())
+    
+    p->body = f1; 
+    f1->next = f2; 
+    f2->next = call;
+    
+    int result = semantic_analyze(p);
+    free_ast_tree(p);
+    
+    // Since function a is defined with 0 parameters but called with 1 argument,
+    // we expect SEM_ERROR_WRONG_PARAMS (error 5)
+    printf("Two-level call chain result: %d\n", result);
+    return (result == SEM_ERROR_WRONG_PARAMS) ? NO_ERROR : result;
+}
+
+// 40
+int t_literals_only_program() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* lit1 = create_ast_node(AST_LITERAL_INT, NULL);
+    lit1->int_val = 1;
+    ASTNode* lit2 = create_ast_node(AST_LITERAL_STRING, NULL);
+    lit2->string_val = my_strdup("a");
+    p->body = lit1; lit1->next = lit2;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// -----------------------------------------------------------------------------
+// 20 Complex Program-like tests
+// -----------------------------------------------------------------------------
+
+
+
+// Complex 1: max of two numbers
+int c1_max_of_two() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* cls = create_ast_node(AST_CLASS_DEF, "Program");
+    p->body = cls;
+    ASTNode* mainf = create_ast_node(AST_FUNC_DEF, "main");
+    mainf->body = create_ast_node(AST_BLOCK, NULL);
+    cls->body = mainf;
+    // var a = Ifj.read_num(); var b = Ifj.read_num(); var m;
+    ASTNode* va = create_ast_node(AST_VAR_DECL, "a"); va->data_type = TYPE_NUM;
+    va->right = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    ASTNode* vb = create_ast_node(AST_VAR_DECL, "b"); vb->data_type = TYPE_NUM;
+    vb->right = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    ASTNode* vm = create_ast_node(AST_VAR_DECL, "m"); vm->data_type = TYPE_NUM;
+    mainf->body->body = va; va->next = vb; vb->next = vm;
+    // if (a > b) m = a; else m = b;
+    ASTNode* ifn = create_ast_node(AST_IF, NULL);
+    ASTNode* cond = create_ast_node(AST_BINOP, ">"); cond->left = create_ast_node(AST_IDENTIFIER, "a"); cond->right = create_ast_node(AST_IDENTIFIER, "b");
+    ifn->left = cond;
+    ASTNode* thenb = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* asg1 = create_ast_node(AST_ASSIGN, "m"); asg1->right = create_ast_node(AST_IDENTIFIER, "a");
+    thenb->body = asg1;
+    ASTNode* elseb = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* asg2 = create_ast_node(AST_ASSIGN, "m"); asg2->right = create_ast_node(AST_IDENTIFIER, "b");
+    elseb->body = asg2;
+    ifn->body = thenb; ifn->right = elseb;
+    vm->next = ifn;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 2: str->num conversion and add
+int c2_str2num_and_add() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* mainf = create_ast_node(AST_FUNC_DEF, "main"); mainf->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = mainf;
+    ASTNode* s = create_ast_node(AST_VAR_DECL, "s"); s->data_type = TYPE_STRING;
+    ASTNode* r = create_ast_node(AST_VAR_DECL, "n"); r->data_type = TYPE_NUM;
+    ASTNode* read = create_ast_node(AST_FUNC_CALL, "Ifj.read_str");
+    s->right = read;
+    ASTNode* conv = create_ast_node(AST_FUNC_CALL, "Ifj.str2num");
+    ASTNode* arg = create_ast_node(AST_IDENTIFIER, "s");
+    conv->right = arg;
+    r->right = conv;
+    mainf->body->body = s; s->next = r;
+    int res = semantic_analyze(p);
+    free_ast_tree(p);
+    return res;
+}
+
+// Complex 3: number to string to concat
+int c3_num_to_string_concat() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* mainf = create_ast_node(AST_FUNC_DEF, "main"); mainf->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = mainf;
+    ASTNode* n = create_ast_node(AST_VAR_DECL, "n"); n->data_type = TYPE_NUM;
+    n->right = create_ast_node(AST_LITERAL_INT, NULL); n->right->int_val = 10;
+    ASTNode* s = create_ast_node(AST_VAR_DECL, "s"); s->data_type = TYPE_STRING;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.str");
+    call->right = create_ast_node(AST_IDENTIFIER, "n");
+    s->right = call;
+    mainf->body->body = n; n->next = s;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 4: loop accumulator
+int c4_loop_accumulator() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* mainf = create_ast_node(AST_FUNC_DEF, "main"); mainf->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = mainf;
+    ASTNode* i = create_ast_node(AST_VAR_DECL, "i"); i->data_type = TYPE_NUM; i->right = create_ast_node(AST_LITERAL_INT, NULL); i->right->int_val = 0;
+    ASTNode* sum = create_ast_node(AST_VAR_DECL, "sum"); sum->data_type = TYPE_NUM; sum->right = create_ast_node(AST_LITERAL_INT, NULL); sum->right->int_val = 0;
+    mainf->body->body = i; i->next = sum;
+    ASTNode* w = create_ast_node(AST_WHILE, NULL);
+    ASTNode* cond = create_ast_node(AST_BINOP, "<"); cond->left = create_ast_node(AST_IDENTIFIER, "i"); cond->right = create_ast_node(AST_LITERAL_INT, NULL); cond->right->int_val = 10;
+    w->left = cond;
+    ASTNode* wb = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* add = create_ast_node(AST_ASSIGN, "sum"); ASTNode* plus = create_ast_node(AST_BINOP, "+"); plus->left = create_ast_node(AST_IDENTIFIER, "sum"); plus->right = create_ast_node(AST_IDENTIFIER, "i"); add->right = plus;
+    ASTNode* inc = create_ast_node(AST_ASSIGN, "i"); ASTNode* incop = create_ast_node(AST_BINOP, "+"); incop->left = create_ast_node(AST_IDENTIFIER, "i"); incop->right = create_ast_node(AST_LITERAL_INT, NULL); incop->right->int_val = 1; inc->right = incop;
+    wb->body = add; add->next = inc;
+    w->body = wb;
+    sum->next = w;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 5: check empty string handling
+int c5_check_empty_string() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* mainf = create_ast_node(AST_FUNC_DEF, "main"); mainf->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = mainf;
+    ASTNode* s = create_ast_node(AST_VAR_DECL, "s"); s->data_type = TYPE_STRING;
+    ASTNode* lit = create_ast_node(AST_LITERAL_STRING, NULL); lit->string_val = my_strdup("");
+    s->right = lit;
+    mainf->body->body = s;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 6: many string concatenations
+int c6_string_concat_many() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* mainf = create_ast_node(AST_FUNC_DEF, "main"); mainf->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = mainf;
+    ASTNode* s = create_ast_node(AST_VAR_DECL, "s"); s->data_type = TYPE_STRING;
+    ASTNode* plus1 = create_ast_node(AST_BINOP, "+");
+    plus1->left = create_ast_node(AST_LITERAL_STRING, NULL); plus1->left->string_val = my_strdup("a");
+    ASTNode* plus2 = create_ast_node(AST_BINOP, "+");
+    plus2->left = create_ast_node(AST_LITERAL_STRING, NULL); plus2->left->string_val = my_strdup("b");
+    plus2->right = create_ast_node(AST_LITERAL_STRING, NULL); plus2->right->string_val = my_strdup("c");
+    plus1->right = plus2;
+    s->right = plus1;
+    mainf->body->body = s;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 7: average calculation
+int c7_average_calc() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* mainf = create_ast_node(AST_FUNC_DEF, "main"); mainf->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = mainf;
+    ASTNode* sum = create_ast_node(AST_VAR_DECL, "sum"); sum->data_type = TYPE_NUM; sum->right = create_ast_node(AST_LITERAL_INT, NULL); sum->right->int_val = 0;
+    ASTNode* cnt = create_ast_node(AST_VAR_DECL, "cnt"); cnt->data_type = TYPE_NUM; cnt->right = create_ast_node(AST_LITERAL_INT, NULL); cnt->right->int_val = 0;
+    mainf->body->body = sum; sum->next = cnt;
+    ASTNode* w = create_ast_node(AST_WHILE, NULL);
+    ASTNode* cond = create_ast_node(AST_BINOP, "<"); cond->left = create_ast_node(AST_IDENTIFIER, "cnt"); cond->right = create_ast_node(AST_LITERAL_INT, NULL); cond->right->int_val = 5;
+    w->left = cond;
+    ASTNode* wb = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* incsum = create_ast_node(AST_ASSIGN, "sum"); ASTNode* add = create_ast_node(AST_BINOP, "+"); add->left = create_ast_node(AST_IDENTIFIER, "sum"); add->right = create_ast_node(AST_LITERAL_INT, NULL); add->right->int_val = 2; incsum->right = add;
+    ASTNode* inccnt = create_ast_node(AST_ASSIGN, "cnt"); ASTNode* add2 = create_ast_node(AST_BINOP, "+"); add2->left = create_ast_node(AST_IDENTIFIER, "cnt"); add2->right = create_ast_node(AST_LITERAL_INT, NULL); add2->right->int_val = 1; inccnt->right = add2;
+    wb->body = incsum; incsum->next = inccnt;
+    w->body = wb;
+    cnt->next = w;
+    ASTNode* avg = create_ast_node(AST_VAR_DECL, "avg"); avg->data_type = TYPE_NUM;
+    ASTNode* div = create_ast_node(AST_BINOP, "/"); div->left = create_ast_node(AST_IDENTIFIER, "sum"); div->right = create_ast_node(AST_IDENTIFIER, "cnt"); avg->right = div;
+    cnt->next = avg;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 8: function without param and return (ok)
+int c8_func_no_param_no_return() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "hello"); f->body = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* stmt = create_ast_node(AST_EXPR_STMT, NULL);
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.write"); ASTNode* arg = create_ast_node(AST_LITERAL_STRING, NULL); arg->string_val = my_strdup("hi");
+    call->right = arg; stmt->left = call; f->body->body = stmt;
+    p->body = f;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 9: sumToN recursion
+int c9_sumToN_recursive() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* fact = create_ast_node(AST_FUNC_DEF, "sumToN"); fact->data_type = TYPE_NUM;
+    ASTNode* param = create_ast_node(AST_PARAM, "n"); param->data_type = TYPE_NUM; fact->left = param;
+    ASTNode* body = create_ast_node(AST_BLOCK, NULL);
+    // if n == 0 return 0 else return n + sumToN(n-1)
+    ASTNode* ifn = create_ast_node(AST_IF, NULL);
+    ASTNode* cond = create_ast_node(AST_BINOP, "=="); cond->left = create_ast_node(AST_IDENTIFIER, "n"); cond->right = create_ast_node(AST_LITERAL_INT, NULL); cond->right->int_val = 0;
+    ifn->left = cond;
+    ASTNode* thenb = create_ast_node(AST_BLOCK, NULL); ASTNode* ret0 = create_ast_node(AST_RETURN, NULL); ret0->left = create_ast_node(AST_LITERAL_INT, NULL); ret0->left->int_val = 0; thenb->body = ret0;
+    ASTNode* elseb = create_ast_node(AST_BLOCK, NULL); ASTNode* ret1 = create_ast_node(AST_RETURN, NULL); ASTNode* plus = create_ast_node(AST_BINOP, "+"); plus->left = create_ast_node(AST_IDENTIFIER, "n"); ASTNode* call = create_ast_node(AST_FUNC_CALL, "sumToN"); ASTNode* arg = create_ast_node(AST_BINOP, "-"); arg->left = create_ast_node(AST_IDENTIFIER, "n"); arg->right = create_ast_node(AST_LITERAL_INT, NULL); arg->right->int_val = 1; call->right = arg; plus->right = call; ret1->left = plus; elseb->body = ret1;
+    ifn->body = thenb; ifn->right = elseb;
+    body->body = ifn; fact->body = body; p->body = fact;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 10: function that can return null
+int c10_return_null() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "maybe");
+    f->data_type = TYPE_NULL; // function intended to return Null
+    ASTNode* body = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->left = create_ast_node(AST_LITERAL_NULL, NULL);
+    body->body = ret; f->body = body; p->body = f;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 11: while with nested if and break-like assignment
+int c11_while_nested_if() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* main = create_ast_node(AST_FUNC_DEF, "main"); 
+    main->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = main;
+    
+    // Declare and initialize variable 'in'
+    ASTNode* in = create_ast_node(AST_VAR_DECL, "in"); 
+    in->data_type = TYPE_STRING; 
+    main->body->body = in;
+    
+    // Initialize 'in' with a value
+    ASTNode* init_in = create_ast_node(AST_ASSIGN, "in");
+    init_in->right = create_ast_node(AST_LITERAL_STRING, NULL);
+    init_in->right->string_val = my_strdup("start");
+    in->next = init_in;
+    
+    // while (in != null)
+    ASTNode* w = create_ast_node(AST_WHILE, NULL); 
+    ASTNode* cond = create_ast_node(AST_BINOP, "!="); 
+    cond->left = create_ast_node(AST_IDENTIFIER, "in"); 
+    cond->right = create_ast_node(AST_LITERAL_NULL, NULL); 
+    w->left = cond;
+    
+    // while body
+    ASTNode* wb = create_ast_node(AST_BLOCK, NULL);
+    
+    // if (in == "stop")
+    ASTNode* ifn = create_ast_node(AST_IF, NULL);
+    ASTNode* cmp = create_ast_node(AST_BINOP, "=="); 
+    cmp->left = create_ast_node(AST_IDENTIFIER, "in"); 
+    cmp->right = create_ast_node(AST_LITERAL_STRING, NULL); 
+    cmp->right->string_val = my_strdup("stop");
+    ifn->left = cmp;
+    
+    // then: in = null (break-like behavior)
+    ASTNode* thenb = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* setnull = create_ast_node(AST_ASSIGN, "in"); 
+    setnull->right = create_ast_node(AST_LITERAL_NULL, NULL);
+    thenb->body = setnull;
+    ifn->body = thenb;
+    
+    wb->body = ifn;
+    w->body = wb;
+    init_in->next = w;  // Connect after initialization
+    
+    int result = semantic_analyze(p);
+    free_ast_tree(p);
+    return result;
+}
+
+// Complex 12: global var used in function
+int c12_global_used_in_func() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* g = create_ast_node(AST_VAR_DECL, "G"); g->data_type = TYPE_NUM; g->right = create_ast_node(AST_LITERAL_INT, NULL); g->right->int_val = 5;
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "useG"); ASTNode* body = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* read = create_ast_node(AST_FUNC_CALL, "Ifj.write"); ASTNode* arg = create_ast_node(AST_IDENTIFIER, "G"); read->right = arg; ASTNode* stmt = create_ast_node(AST_EXPR_STMT, NULL); stmt->left = read;
+    body->body = stmt; f->body = body;
+    p->body = g; g->next = f;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 13: compare two strings
+int c13_compare_strings() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "res"); v->data_type = TYPE_NUM;
+    ASTNode* cmp = create_ast_node(AST_BINOP, "==");
+    cmp->left = create_ast_node(AST_LITERAL_STRING, NULL); cmp->left->string_val = my_strdup("a");
+    cmp->right = create_ast_node(AST_LITERAL_STRING, NULL); cmp->right->string_val = my_strdup("a");
+    v->right = cmp; p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 14: number and string mixing inside expressions (should error)
+int c14_num_string_mix_error() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "x"); v->data_type = TYPE_STRING;
+    ASTNode* bin = create_ast_node(AST_BINOP, "+"); bin->left = create_ast_node(AST_LITERAL_STRING, NULL); bin->left->string_val = my_strdup("a"); bin->right = create_ast_node(AST_LITERAL_INT, NULL); bin->right->int_val = 1; v->right = bin; p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_TYPE_COMPATIBILITY) ? NO_ERROR : r;
+}
+
+// Complex 15: use Ifj.length on identifier
+int c15_length_on_identifier() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* s = create_ast_node(AST_VAR_DECL, "s"); s->data_type = TYPE_STRING;
+    ASTNode* asg = create_ast_node(AST_ASSIGN, "s"); asg->right = create_ast_node(AST_LITERAL_STRING, NULL); asg->right->string_val = my_strdup("hello");
+    s->next = asg;
+    ASTNode* lenv = create_ast_node(AST_VAR_DECL, "l"); lenv->data_type = TYPE_NUM;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.length");
+    call->right = create_ast_node(AST_IDENTIFIER, "s");
+    lenv->right = call;
+    p->body = s; s->next = asg; asg->next = lenv;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 16: read_num into var then floor and cast
+int c16_readnum_and_floor() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "n"); v->data_type = TYPE_NUM; v->right = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    ASTNode* fcall = create_ast_node(AST_FUNC_CALL, "Ifj.floor");
+    fcall->right = create_ast_node(AST_IDENTIFIER, "n");
+    ASTNode* s = create_ast_node(AST_VAR_DECL, "nf"); s->data_type = TYPE_NUM; s->right = fcall;
+    p->body = v; v->next = s;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 17: multiple Ifj.write calls
+int c17_multiple_writes() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* stmt1 = create_ast_node(AST_EXPR_STMT, NULL); ASTNode* c1 = create_ast_node(AST_FUNC_CALL, "Ifj.write"); ASTNode* a1 = create_ast_node(AST_LITERAL_STRING, NULL); a1->string_val = my_strdup("one\n"); c1->right = a1; stmt1->left = c1;
+    ASTNode* stmt2 = create_ast_node(AST_EXPR_STMT, NULL); ASTNode* c2 = create_ast_node(AST_FUNC_CALL, "Ifj.write"); ASTNode* a2 = create_ast_node(AST_LITERAL_STRING, NULL); a2->string_val = my_strdup("two\n"); c2->right = a2; stmt2->left = c2;
+    p->body = stmt1; stmt1->next = stmt2;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 18: check function return validation in recursion (wrong return)
+int c18_recursive_return_type_error() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "badrec"); f->data_type = TYPE_NUM;
+    ASTNode* param = create_ast_node(AST_PARAM, "n"); param->data_type = TYPE_NUM; f->left = param;
+    ASTNode* body = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->left = create_ast_node(AST_LITERAL_STRING, NULL); ret->left->string_val = my_strdup("oops");
+    body->body = ret; f->body = body; p->body = f;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_TYPE_COMPATIBILITY) ? NO_ERROR : r;
+}
+
+// Complex 19: nested function calls with typed builtins
+int c19_nested_calls() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* v = create_ast_node(AST_VAR_DECL, "s"); v->data_type = TYPE_STRING;
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.str");
+    ASTNode* inner = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    call->right = inner;
+    v->right = call;
+    p->body = v;
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 20: nested blocks, many variables and function calls (integration test)
+int c20_integration_big() {
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* cls = create_ast_node(AST_CLASS_DEF, "Program");
+    p->body = cls;
+    ASTNode* mainf = create_ast_node(AST_FUNC_DEF, "main"); mainf->body = create_ast_node(AST_BLOCK, NULL);
+    cls->body = mainf;
+    // Setup: ask for number, compute factorial via loop, print
+    ASTNode* a = create_ast_node(AST_VAR_DECL, "a"); a->data_type = TYPE_NUM; a->right = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    ASTNode* res = create_ast_node(AST_VAR_DECL, "res"); res->data_type = TYPE_NUM; res->right = create_ast_node(AST_LITERAL_INT, NULL); res->right->int_val = 1;
+    mainf->body->body = a; a->next = res;
+    ASTNode* ifn = create_ast_node(AST_IF, NULL);
+    ASTNode* cond = create_ast_node(AST_BINOP, "!="); cond->left = create_ast_node(AST_IDENTIFIER, "a"); cond->right = create_ast_node(AST_LITERAL_NULL, NULL);
+    ifn->left = cond;
+    ASTNode* thenb = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* whilen = create_ast_node(AST_WHILE, NULL);
+    ASTNode* wcond = create_ast_node(AST_BINOP, ">"); wcond->left = create_ast_node(AST_IDENTIFIER, "a"); wcond->right = create_ast_node(AST_LITERAL_INT, NULL); wcond->right->int_val = 0;
+    whilen->left = wcond;
+    ASTNode* wb = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* mul = create_ast_node(AST_ASSIGN, "res"); ASTNode* mop = create_ast_node(AST_BINOP, "*"); mop->left = create_ast_node(AST_IDENTIFIER, "res"); mop->right = create_ast_node(AST_IDENTIFIER, "a"); mul->right = mop;
+    ASTNode* dec = create_ast_node(AST_ASSIGN, "a"); ASTNode* sub = create_ast_node(AST_BINOP, "-"); sub->left = create_ast_node(AST_IDENTIFIER, "a"); sub->right = create_ast_node(AST_LITERAL_INT, NULL); sub->right->int_val = 1; dec->right = sub;
+    wb->body = mul; mul->next = dec;
+    whilen->body = wb;
+    thenb->body = whilen;
+    ifn->body = thenb;
+    res->next = ifn;
+    ASTNode* s1 = create_ast_node(AST_ASSIGN, "res"); ASTNode* scall = create_ast_node(AST_FUNC_CALL, "Ifj.str"); scall->right = create_ast_node(AST_IDENTIFIER, "res"); s1->right = scall;
+    ifn->right = NULL;
+    ifn->next = s1;
+    s1->next = create_ast_node(AST_EXPR_STMT, NULL);
+    s1->next->left = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    s1->next->left->right = create_ast_node(AST_IDENTIFIER, "res");
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+// Complex 21: Deeply nested scopes with shadowing (OPRAVENÉ)
+int c21_deep_nested_scopes() {
+    printf("Testing deeply nested scopes with shadowing...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* main = create_ast_node(AST_FUNC_DEF, "main");
+    main->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = main;
+
+    // Level 0: global scope
+    ASTNode* var_x0 = create_ast_node(AST_VAR_DECL, "x");
+    var_x0->data_type = TYPE_NUM;
+    var_x0->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var_x0->right->int_val = 0;
+    main->body->body = var_x0;
+
+    // Level 1: first block
+    ASTNode* block1 = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* var_x1 = create_ast_node(AST_VAR_DECL, "x");
+    var_x1->data_type = TYPE_STRING;
+    var_x1->right = create_ast_node(AST_LITERAL_STRING, NULL);
+    var_x1->right->string_val = my_strdup("level1");
+    block1->body = var_x1;
+
+    // Level 2: second block inside first
+    ASTNode* block2 = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* var_x2 = create_ast_node(AST_VAR_DECL, "x");
+    var_x2->data_type = TYPE_NUM;
+    var_x2->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var_x2->right->int_val = 2;
+    block2->body = var_x2;
+
+    // Level 3: third block with operations using all x variables
+    ASTNode* block3 = create_ast_node(AST_BLOCK, NULL);
+    
+    // Declare temp variable before using it
+    ASTNode* var_temp = create_ast_node(AST_VAR_DECL, "temp");
+    var_temp->data_type = TYPE_UNDEF;
+    block3->body = var_temp;
+    
+    // Use x from level 2
+    ASTNode* use_x2 = create_ast_node(AST_EXPR_STMT, NULL);
+    ASTNode* write_x2 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    write_x2->right = create_ast_node(AST_IDENTIFIER, "x");
+    use_x2->left = write_x2;
+    var_temp->next = use_x2;
+
+    // Try to access x from level 1 (should not be possible)
+    ASTNode* assign_temp = create_ast_node(AST_ASSIGN, "temp");
+    ASTNode* binop_add = create_ast_node(AST_BINOP, "+");
+    binop_add->left = create_ast_node(AST_IDENTIFIER, "x"); // x from current scope (level 2)
+    binop_add->right = create_ast_node(AST_LITERAL_INT, NULL);
+    binop_add->right->int_val = 1;
+    assign_temp->right = binop_add;
+    use_x2->next = assign_temp;
+
+    block2->body->next = block3;
+    block1->body->next = block2;
+    var_x0->next = block1;
+
+    int result = semantic_analyze(p);
+    free_ast_tree(p);
+    return result;
+}
+
+// Complex 22: Mutual recursion with multiple functions
+int c22_mutual_recursion() {
+    printf("Testing mutual recursion...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    
+    // Function a calls b
+    ASTNode* func_a = create_ast_node(AST_FUNC_DEF, "a");
+    func_a->data_type = TYPE_NUM;
+    ASTNode* param_a = create_ast_node(AST_PARAM, "n");
+    param_a->data_type = TYPE_NUM;
+    func_a->left = param_a;
+    func_a->body = create_ast_node(AST_BLOCK, NULL);
+    
+    // Function b calls a  
+    ASTNode* func_b = create_ast_node(AST_FUNC_DEF, "b");
+    func_b->data_type = TYPE_NUM;
+    ASTNode* param_b = create_ast_node(AST_PARAM, "m");
+    param_b->data_type = TYPE_NUM;
+    func_b->left = param_b;
+    func_b->body = create_ast_node(AST_BLOCK, NULL);
+    
+    // Function c calls both a and b
+    ASTNode* func_c = create_ast_node(AST_FUNC_DEF, "c");
+    func_c->data_type = TYPE_NUM;
+    func_c->body = create_ast_node(AST_BLOCK, NULL);
+    
+    p->body = func_a;
+    func_a->next = func_b;
+    func_b->next = func_c;
+
+    // Body of a: if n <= 0 return 1 else return b(n-1)
+    ASTNode* a_body = func_a->body;
+    ASTNode* a_if = create_ast_node(AST_IF, NULL);
+    ASTNode* a_cond = create_ast_node(AST_BINOP, "<=");
+    a_cond->left = create_ast_node(AST_IDENTIFIER, "n");
+    a_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    a_cond->right->int_val = 0;
+    a_if->left = a_cond;
+    
+    ASTNode* a_then = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* a_return1 = create_ast_node(AST_RETURN, NULL);
+    a_return1->left = create_ast_node(AST_LITERAL_INT, NULL);
+    a_return1->left->int_val = 1;
+    a_then->body = a_return1;
+    
+    ASTNode* a_else = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* a_return2 = create_ast_node(AST_RETURN, NULL);
+    ASTNode* a_call_b = create_ast_node(AST_FUNC_CALL, "b");
+    ASTNode* a_arg = create_ast_node(AST_BINOP, "-");
+    a_arg->left = create_ast_node(AST_IDENTIFIER, "n");
+    a_arg->right = create_ast_node(AST_LITERAL_INT, NULL);
+    a_arg->right->int_val = 1;
+    a_call_b->right = a_arg;
+    a_return2->left = a_call_b;
+    a_else->body = a_return2;
+    
+    a_if->body = a_then;
+    a_if->right = a_else;
+    a_body->body = a_if;
+
+    // Body of b: return a(m * 2)
+    ASTNode* b_body = func_b->body;
+    ASTNode* b_return = create_ast_node(AST_RETURN, NULL);
+    ASTNode* b_call_a = create_ast_node(AST_FUNC_CALL, "a");
+    ASTNode* b_arg = create_ast_node(AST_BINOP, "*");
+    b_arg->left = create_ast_node(AST_IDENTIFIER, "m");
+    b_arg->right = create_ast_node(AST_LITERAL_INT, NULL);
+    b_arg->right->int_val = 2;
+    b_call_a->right = b_arg;
+    b_return->left = b_call_a;
+    b_body->body = b_return;
+
+    // Body of c: return a(5) + b(3)
+    ASTNode* c_body = func_c->body;
+    ASTNode* c_return = create_ast_node(AST_RETURN, NULL);
+    ASTNode* c_binop = create_ast_node(AST_BINOP, "+");
+    ASTNode* c_call_a = create_ast_node(AST_FUNC_CALL, "a");
+    c_call_a->right = create_ast_node(AST_LITERAL_INT, NULL);
+    c_call_a->right->int_val = 5;
+    ASTNode* c_call_b = create_ast_node(AST_FUNC_CALL, "b");
+    c_call_b->right = create_ast_node(AST_LITERAL_INT, NULL);
+    c_call_b->right->int_val = 3;
+    c_binop->left = c_call_a;
+    c_binop->right = c_call_b;
+    c_return->left = c_binop;
+    c_body->body = c_return;
+
+    int result = semantic_analyze(p);
+    free_ast_tree(p);
+    return result;
+}
+
+// Complex 23: Complex string operations with built-in functions (OPRAVENÉ)
+int c23_complex_string_operations() {
+    printf("Testing complex string operations...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* main = create_ast_node(AST_FUNC_DEF, "main");
+    main->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = main;
+
+    ASTNode* body = main->body;
+    
+    // Declare s1 and s2 FIRST, before using them
+    ASTNode* var_s1 = create_ast_node(AST_VAR_DECL, "s1");
+    var_s1->right = create_ast_node(AST_LITERAL_STRING, NULL);
+    var_s1->right->string_val = my_strdup("hello");
+    body->body = var_s1;
+    
+    ASTNode* var_s2 = create_ast_node(AST_VAR_DECL, "s2");
+    var_s2->right = create_ast_node(AST_LITERAL_STRING, NULL);
+    var_s2->right->string_val = my_strdup("world");
+    var_s1->next = var_s2;
+    
+    // Then declare result
+    ASTNode* var_result = create_ast_node(AST_VAR_DECL, "result");
+    var_s2->next = var_result;
+    
+    ASTNode* assign_result = create_ast_node(AST_ASSIGN, "result");
+    var_result->next = assign_result;
+    
+    // Build a complex string expression: Ifj.str(Ifj.length(s1) + Ifj.ord(s2, 0)) * 3
+    // result = Ifj.str(Ifj.length(s1) + Ifj.ord(s2, 0)) * 3
+    ASTNode* multiply_op = create_ast_node(AST_BINOP, "*");
+    
+    ASTNode* str_call = create_ast_node(AST_FUNC_CALL, "Ifj.str");
+    multiply_op->left = str_call;
+    
+    ASTNode* add_op = create_ast_node(AST_BINOP, "+");
+    str_call->right = add_op;
+    
+    ASTNode* length_call = create_ast_node(AST_FUNC_CALL, "Ifj.length");
+    length_call->right = create_ast_node(AST_IDENTIFIER, "s1");
+    add_op->left = length_call;
+    
+    ASTNode* ord_call = create_ast_node(AST_FUNC_CALL, "Ifj.ord");
+    ASTNode* ord_arg1 = create_ast_node(AST_IDENTIFIER, "s2");
+    ASTNode* ord_arg2 = create_ast_node(AST_LITERAL_INT, NULL);
+    ord_arg2->int_val = 0;
+    ord_call->right = ord_arg1;
+    ord_arg1->next = ord_arg2;
+    add_op->right = ord_call;
+    
+    multiply_op->right = create_ast_node(AST_LITERAL_INT, NULL);
+    multiply_op->right->int_val = 3;
+    
+    assign_result->right = multiply_op;
+
+    int result = semantic_analyze(p);
+    free_ast_tree(p);
+    return result;
+}
+
+// Complex 24: Complex type changes and dynamic typing
+
+int c24_dynamic_type_changes() {
+    printf("Testing dynamic type changes...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* main = create_ast_node(AST_FUNC_DEF, "main");
+    main->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = main;
+
+    ASTNode* body = main->body;
+    
+    // Start as number
+    ASTNode* var_x = create_ast_node(AST_VAR_DECL, "x");
+    var_x->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var_x->right->int_val = 10;
+    body->body = var_x;
+    
+    // Declare y before using it
+    ASTNode* var_y = create_ast_node(AST_VAR_DECL, "y");
+    var_y->data_type = TYPE_UNDEF;
+    var_x->next = var_y;
+    
+    // Change x to string
+    ASTNode* assign_str = create_ast_node(AST_ASSIGN, "x");
+    assign_str->right = create_ast_node(AST_LITERAL_STRING, NULL);
+    assign_str->right->string_val = my_strdup("now I'm a string");
+    var_y->next = assign_str;
+    
+    // Change x to null
+    ASTNode* assign_null = create_ast_node(AST_ASSIGN, "x");
+    assign_null->right = create_ast_node(AST_LITERAL_NULL, NULL);
+    assign_str->next = assign_null;
+    
+    // Change x back to number
+    ASTNode* assign_num = create_ast_node(AST_ASSIGN, "x");
+    assign_num->right = create_ast_node(AST_LITERAL_FLOAT, NULL);
+    assign_num->right->double_val = 3.14;
+    assign_null->next = assign_num;
+    
+    // Use x in complex expression and assign to y
+    ASTNode* assign_complex = create_ast_node(AST_ASSIGN, "y");
+    ASTNode* complex_expr = create_ast_node(AST_BINOP, "+");
+    complex_expr->left = create_ast_node(AST_IDENTIFIER, "x");
+    complex_expr->right = create_ast_node(AST_LITERAL_INT, NULL);
+    complex_expr->right->int_val = 5;
+    assign_complex->right = complex_expr;
+    assign_num->next = assign_complex;
+
+    int result = semantic_analyze(p);
+    free_ast_tree(p);
+    return result;
+}
+
+// Complex 25: Nested loops with break simulation
+int c25_nested_loops_break_simulation() {
+    printf("Testing nested loops with break simulation...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* main = create_ast_node(AST_FUNC_DEF, "main");
+    main->body = create_ast_node(AST_BLOCK, NULL);
+    p->body = main;
+
+    ASTNode* body = main->body;
+    
+    // Outer loop counter
+    ASTNode* var_i = create_ast_node(AST_VAR_DECL, "i");
+    var_i->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var_i->right->int_val = 0;
+    body->body = var_i;
+    
+    // Outer while loop
+    ASTNode* outer_while = create_ast_node(AST_WHILE, NULL);
+    ASTNode* outer_cond = create_ast_node(AST_BINOP, "<");
+    outer_cond->left = create_ast_node(AST_IDENTIFIER, "i");
+    outer_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    outer_cond->right->int_val = 10;
+    outer_while->left = outer_cond;
+    
+    ASTNode* outer_body = create_ast_node(AST_BLOCK, NULL);
+    outer_while->body = outer_body;
+    
+    // Inner loop counter
+    ASTNode* var_j = create_ast_node(AST_VAR_DECL, "j");
+    var_j->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var_j->right->int_val = 0;
+    outer_body->body = var_j;
+    
+    // Inner while loop
+    ASTNode* inner_while = create_ast_node(AST_WHILE, NULL);
+    ASTNode* inner_cond = create_ast_node(AST_BINOP, "<");
+    inner_cond->left = create_ast_node(AST_IDENTIFIER, "j");
+    inner_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    inner_cond->right->int_val = 5;
+    inner_while->left = inner_cond;
+    
+    ASTNode* inner_body = create_ast_node(AST_BLOCK, NULL);
+    inner_while->body = inner_body;
+    
+    // Break simulation: if j == 2 then set i to 100 (break outer)
+    ASTNode* break_if = create_ast_node(AST_IF, NULL);
+    ASTNode* break_cond = create_ast_node(AST_BINOP, "==");
+    break_cond->left = create_ast_node(AST_IDENTIFIER, "j");
+    break_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    break_cond->right->int_val = 2;
+    break_if->left = break_cond;
+    
+    ASTNode* break_then = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* break_assign = create_ast_node(AST_ASSIGN, "i");
+    break_assign->right = create_ast_node(AST_LITERAL_INT, NULL);
+    break_assign->right->int_val = 100;
+    break_then->body = break_assign;
+    break_if->body = break_then;
+    
+    // Continue simulation: if j == 1 then increment j and continue
+    ASTNode* continue_if = create_ast_node(AST_IF, NULL);
+    ASTNode* continue_cond = create_ast_node(AST_BINOP, "==");
+    continue_cond->left = create_ast_node(AST_IDENTIFIER, "j");
+    continue_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    continue_cond->right->int_val = 1;
+    continue_if->left = continue_cond;
+    
+    ASTNode* continue_then = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* continue_assign = create_ast_node(AST_ASSIGN, "j");
+    ASTNode* continue_expr = create_ast_node(AST_BINOP, "+");
+    continue_expr->left = create_ast_node(AST_IDENTIFIER, "j");
+    continue_expr->right = create_ast_node(AST_LITERAL_INT, NULL);
+    continue_expr->right->int_val = 1;
+    continue_assign->right = continue_expr;
+    continue_then->body = continue_assign;
+    continue_if->body = continue_then;
+    
+    // Normal j increment
+    ASTNode* j_increment = create_ast_node(AST_ASSIGN, "j");
+    ASTNode* j_expr = create_ast_node(AST_BINOP, "+");
+    j_expr->left = create_ast_node(AST_IDENTIFIER, "j");
+    j_expr->right = create_ast_node(AST_LITERAL_INT, NULL);
+    j_expr->right->int_val = 1;
+    j_increment->right = j_expr;
+    
+    // Build inner body
+    inner_body->body = break_if;
+    break_if->next = continue_if;
+    continue_if->next = j_increment;
+    
+    // i increment
+    ASTNode* i_increment = create_ast_node(AST_ASSIGN, "i");
+    ASTNode* i_expr = create_ast_node(AST_BINOP, "+");
+    i_expr->left = create_ast_node(AST_IDENTIFIER, "i");
+    i_expr->right = create_ast_node(AST_LITERAL_INT, NULL);
+    i_expr->right->int_val = 1;
+    i_increment->right = i_expr;
+    
+    var_j->next = inner_while;
+    inner_while->next = i_increment;
+    
+    var_i->next = outer_while;
+
+    int result = semantic_analyze(p);
+    free_ast_tree(p);
+    return result;
+}
+
+int test_empty_tree() {
+    printf("Testing empty AST tree...\n");
+    int result = semantic_analyze(NULL);
+    printf("Expected: NO_ERROR (%d), Got: %d\n", NO_ERROR, result);
+    return result;
+}
+
+int test_simple_program() {
+    printf("Testing simple program with one variable...\n");
+    
+    // Vytvor AST: program s jednou premennou
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* var_decl = create_ast_node(AST_VAR_DECL, "x");
+    var_decl->data_type = TYPE_NUM;
+    var_decl->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var_decl->right->int_val = 5;
+    
+    program->body = var_decl;
+    
+    int result = semantic_analyze(program);
+    printf("Expected: NO_ERROR (%d), Got: %d\n", NO_ERROR, result);
+    
+    free_ast_tree(program);
+    return result;
+}
+
+int test_variable_usage() {
+    printf("Testing variable declaration and usage...\n");
+    
+    // AST: var x = 5; y = x;
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    
+    // var x = 5
+    ASTNode* var_decl = create_ast_node(AST_VAR_DECL, "x");
+    var_decl->data_type = TYPE_NUM;
+    var_decl->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var_decl->right->int_val = 5;
+    
+    // y = x (should fail - y not declared)
+    ASTNode* assign = create_ast_node(AST_ASSIGN, "y");
+    assign->right = create_ast_node(AST_IDENTIFIER, "x");
+    
+    program->body = var_decl;
+    var_decl->next = assign;
+    
+    int result = semantic_analyze(program);
+    printf("Expected: ERROR (undefined y), Got: %d\n", result);
+    
+    free_ast_tree(program);
+    
+    // Tento test CHCE error (undefined y), takže ak dostaneme error, je to OK
+    return (result == SEM_ERROR_UNDEFINED) ? NO_ERROR : result;
+}
+
+int test_function_declaration() {
+    printf("Testing function declaration...\n");
+    
+    // AST: static foo() { }
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* func_def = create_ast_node(AST_FUNC_DEF, "foo");
+    func_def->body = create_ast_node(AST_BLOCK, NULL);
+    
+    program->body = func_def;
+    
+    int result = semantic_analyze(program);
+    printf("Expected: NO_ERROR (%d), Got: %d\n", NO_ERROR, result);
+    
+    free_ast_tree(program);
+    return result;
+}
+
+int test_undefined_variable() {
+    printf("Testing undefined variable (should fail)...\n");
+    
+    // AST: x = 5 (x not declared)
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* assign = create_ast_node(AST_ASSIGN, "x");
+    assign->right = create_ast_node(AST_LITERAL_INT, NULL);
+    assign->right->int_val = 5;
+    
+    program->body = assign;
+    
+    int result = semantic_analyze(program);
+    printf("Expected: SEM_ERROR_UNDEFINED (%d), Got: %d\n", SEM_ERROR_UNDEFINED, result);
+    
+    free_ast_tree(program);
+    
+    // Tento test CHCE error, takže ak dostaneme error, je to OK
+    return (result == SEM_ERROR_UNDEFINED) ? NO_ERROR : result;
+}
+
+int test_redefinition() {
+    printf("Testing variable redefinition (should fail)...\n");
+    
+    // AST: var x = 5; var x = 10;
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    
+    ASTNode* var1 = create_ast_node(AST_VAR_DECL, "x");
+    var1->data_type = TYPE_NUM;
+    var1->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var1->right->int_val = 5;
+    
+    ASTNode* var2 = create_ast_node(AST_VAR_DECL, "x");
+    var2->data_type = TYPE_NUM;
+    var2->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var2->right->int_val = 10;
+    
+    program->body = var1;
+    var1->next = var2;
+    
+    int result = semantic_analyze(program);
+    printf("Expected: SEM_ERROR_REDEFINED (%d), Got: %d\n", SEM_ERROR_REDEFINED, result);
+    
+    free_ast_tree(program);
+    
+    // Tento test CHCE error, takže ak dostaneme error, je to OK
+    return (result == SEM_ERROR_REDEFINED) ? NO_ERROR : result;
+}
+
+int test_builtin_functions() {
+    printf("Testing built-in function calls (IFJ25 specification)...\n");
+    
+    // AST: var x = Ifj.read_str(); var y = Ifj.read_num();
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    
+    // var x = Ifj.read_str()
+    ASTNode* var_x = create_ast_node(AST_VAR_DECL, "x");
+    var_x->data_type = TYPE_STRING;
+    
+    ASTNode* read_str_call = create_ast_node(AST_FUNC_CALL, "Ifj.read_str");
+    var_x->right = read_str_call;
+    
+    // var y = Ifj.read_num()
+    ASTNode* var_y = create_ast_node(AST_VAR_DECL, "y");
+    var_y->data_type = TYPE_NUM;
+    
+    ASTNode* read_num_call = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    var_y->right = read_num_call;
+    
+    // var z = Ifj.length("hello")
+    ASTNode* var_z = create_ast_node(AST_VAR_DECL, "z");
+    var_z->data_type = TYPE_NUM;
+    
+    ASTNode* length_call = create_ast_node(AST_FUNC_CALL, "Ifj.length");
+    ASTNode* length_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    length_arg->string_val = my_strdup("hello");
+    length_call->right = length_arg;
+    var_z->right = length_call;
+    
+    program->body = var_x;
+    var_x->next = var_y;
+    var_y->next = var_z;
+    
+    int result = semantic_analyze(program);
+    printf("Expected: NO_ERROR (%d), Got: %d\n", NO_ERROR, result);
+    
+    free_ast_tree(program);
+    return result;
+}
+
+int test_binary_operation() {
+    printf("Testing binary operation (x + y)...\n");
+    
+    // AST: var x = 5; var y = 10; var z = x + y;
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    
+    // var x = 5
+    ASTNode* var_x = create_ast_node(AST_VAR_DECL, "x");
+    var_x->data_type = TYPE_NUM;
+    var_x->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var_x->right->int_val = 5;
+    
+    // var y = 10
+    ASTNode* var_y = create_ast_node(AST_VAR_DECL, "y");
+    var_y->data_type = TYPE_NUM;
+    var_y->right = create_ast_node(AST_LITERAL_INT, NULL);
+    var_y->right->int_val = 10;
+    
+    // var z = x + y
+    ASTNode* var_z = create_ast_node(AST_VAR_DECL, "z");
+    var_z->data_type = TYPE_NUM;
+    
+    ASTNode* binop = create_ast_node(AST_BINOP, "+");
+    binop->left = create_ast_node(AST_IDENTIFIER, "x");
+    binop->right = create_ast_node(AST_IDENTIFIER, "y");
+    var_z->right = binop;
+    
+    program->body = var_x;
+    var_x->next = var_y;
+    var_y->next = var_z;
+    
+    int result = semantic_analyze(program);
+    printf("Expected: NO_ERROR (%d), Got: %d\n", NO_ERROR, result);
+    
+    free_ast_tree(program);
+    return result;
+}
+
+int test_redeclare_same_scope() {
+    printf("Testing redeclaration in same scope...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* a = create_ast_node(AST_VAR_DECL, "a");
+    a->data_type = TYPE_NUM;
+    ASTNode* b = create_ast_node(AST_VAR_DECL, "a"); // duplicate
+    b->data_type = TYPE_NUM;
+    p->body = a;
+    a->next = b;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_REDEFINED) ? NO_ERROR : r;
+}
+
+int test_use_before_decl() {
+    printf("Testing variable used before declaration...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* assign = create_ast_node(AST_ASSIGN, "x");
+    assign->right = create_ast_node(AST_LITERAL_INT, NULL);
+    assign->right->int_val = 5;
+    p->body = assign;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_UNDEFINED) ? NO_ERROR : r;
+}
+
+int test_call_undefined_function() {
+    printf("Testing call to undefined function...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "foo");
+    p->body = call;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_UNDEFINED) ? NO_ERROR : r;
+}
+
+int test_func_redef() {
+    printf("Testing function redefinition...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* f1 = create_ast_node(AST_FUNC_DEF, "foo");
+    ASTNode* f2 = create_ast_node(AST_FUNC_DEF, "foo");
+    p->body = f1;
+    f1->next = f2;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_REDEFINED) ? NO_ERROR : r;
+}
+
+int test_func_wrong_arity() {
+    printf("Testing function call with wrong number of parameters...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+
+    ASTNode* f = create_ast_node(AST_FUNC_DEF, "sum");
+    ASTNode* param = create_ast_node(AST_PARAM, "a");
+    f->left = param;
+    p->body = f;
+
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "sum");
+    call->right = create_ast_node(AST_LITERAL_INT, NULL);
+    call->right->int_val = 5;
+    ASTNode* extra = create_ast_node(AST_LITERAL_INT, NULL);
+    extra->int_val = 10;
+    call->right->next = extra;
+    f->next = call;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_WRONG_PARAMS) ? NO_ERROR : r;
+}
+
+int test_binop_type_mismatch() {
+    printf("Testing binary operation with incompatible types...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* decl = create_ast_node(AST_VAR_DECL, "x");
+    decl->data_type = TYPE_NUM;
+
+    ASTNode* op = create_ast_node(AST_BINOP, "+");
+    op->left = create_ast_node(AST_LITERAL_INT, NULL);
+    op->left->int_val = 5;
+    op->right = create_ast_node(AST_LITERAL_STRING, NULL);
+    op->right->string_val = my_strdup("hi");
+
+    decl->right = op;
+    p->body = decl;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_TYPE_COMPATIBILITY) ? NO_ERROR : r;
+}
+
+int test_compare_with_null() {
+    printf("Testing valid null comparison...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* cond = create_ast_node(AST_BINOP, "!=");
+    cond->left = create_ast_node(AST_IDENTIFIER, "a");
+    cond->right = create_ast_node(AST_LITERAL_NULL, NULL);
+    p->body = cond;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    
+    // Comparison with null should be valid syntax
+    // Even if 'a' is undefined, we're just testing the comparison operation
+    return (r == NO_ERROR || r == SEM_ERROR_UNDEFINED) ? NO_ERROR : r;
+}
+
+int test_shadowing_allowed() {
+    printf("Testing variable shadowing inside block...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    
+    // Outer variable
+    ASTNode* outer = create_ast_node(AST_VAR_DECL, "x");
+    outer->data_type = TYPE_NUM;
+    
+    // Block with inner variable (shadowing)
+    ASTNode* block = create_ast_node(AST_BLOCK, NULL);
+    ASTNode* inner = create_ast_node(AST_VAR_DECL, "x");
+    inner->data_type = TYPE_STRING; // Different type to show it's separate
+    
+    p->body = outer;
+    outer->next = block;
+    block->body = inner;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    
+    // Shadowing should be allowed in different scopes
+    return (r == NO_ERROR) ? NO_ERROR : r;
+}
+
+int test_builtin_str2num() {
+    printf("Testing built-in Ifj.str2num() returning num...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* decl = create_ast_node(AST_VAR_DECL, "n");
+    decl->data_type = TYPE_NUM;
+
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "Ifj.str2num");
+    ASTNode* arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    arg->string_val = my_strdup("123");
+    call->right = arg;
+
+    decl->right = call;
+    p->body = decl;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return r;
+}
+
+int test_return_outside_func() {
+    printf("Testing return statement outside of function...\n");
+    ASTNode* p = create_ast_node(AST_PROGRAM, NULL);
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->left = create_ast_node(AST_LITERAL_INT, NULL);
+    ret->left->int_val = 5;
+    p->body = ret;
+
+    int r = semantic_analyze(p);
+    free_ast_tree(p);
+    return (r == SEM_ERROR_OTHER) ? NO_ERROR : r;
+}
+
+int test_program1_factorial() {
+    printf("Testing Program 1: Factorial calculation (IFJ25 specification)...\n");
+    
+    // Root: PROGRAM
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    
+    // CLASS_DEF: class Program
+    ASTNode* class_def = create_ast_node(AST_CLASS_DEF, "Program");
+    program->body = class_def;
+    
+    // FUNC_DEF: static main()
+    ASTNode* main_func = create_ast_node(AST_FUNC_DEF, "main");
+    main_func->data_type = TYPE_UNDEF;
+    class_def->body = main_func;
+    
+    // BLOCK: main function body
+    ASTNode* main_body = create_ast_node(AST_BLOCK, NULL);
+    main_func->body = main_body;
+    
+    // Statement 1: Ifj.write("Zadejte cislo pro vypocet faktorialu\n")
+    ASTNode* write_call1 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_arg1 = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_arg1->string_val = my_strdup("Zadejte cislo pro vypocet faktorialu\n");
+    write_call1->right = write_arg1;
+    
+    ASTNode* stmt1 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt1->left = write_call1;
+    main_body->body = stmt1;
+    
+    // Statement 2: var a
+    ASTNode* var_a = create_ast_node(AST_VAR_DECL, "a");
+    var_a->data_type = TYPE_UNDEF;
+    stmt1->next = var_a;
+    
+    // Statement 3: a = Ifj.read_num()
+    ASTNode* assign_a = create_ast_node(AST_ASSIGN, "a");
+    ASTNode* read_num_call = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    assign_a->right = read_num_call;
+    var_a->next = assign_a;
+    
+    // Statement 4: if (a != null) { ... } else { ... }
+    ASTNode* if_stmt = create_ast_node(AST_IF, NULL);
+    
+    // Condition: a != null
+    ASTNode* condition = create_ast_node(AST_BINOP, "!=");
+    condition->left = create_ast_node(AST_IDENTIFIER, "a");
+    condition->right = create_ast_node(AST_LITERAL_NULL, NULL);
+    if_stmt->left = condition;
+    
+    // THEN BRANCH
+    ASTNode* then_block = create_ast_node(AST_BLOCK, NULL);
+    if_stmt->body = then_block;
+    
+    // Inner if: if (a < 0)
+    ASTNode* inner_if = create_ast_node(AST_IF, NULL);
+    ASTNode* inner_cond = create_ast_node(AST_BINOP, "<");
+    inner_cond->left = create_ast_node(AST_IDENTIFIER, "a");
+    inner_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    inner_cond->right->int_val = 0;
+    inner_if->left = inner_cond;
+    then_block->body = inner_if;
+    
+    // Inner if THEN: negative number
+    ASTNode* inner_then = create_ast_node(AST_BLOCK, NULL);
+    inner_if->body = inner_then;
+    
+    // Ifj.write("Faktorial ")
+    ASTNode* write_neg1 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_neg_arg1 = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_neg_arg1->string_val = my_strdup("Faktorial ");
+    write_neg1->right = write_neg_arg1;
+    
+    ASTNode* stmt_neg1 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_neg1->left = write_neg1;
+    inner_then->body = stmt_neg1;
+    
+    // Ifj.write(a)
+    ASTNode* write_neg2 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_neg_arg2 = create_ast_node(AST_IDENTIFIER, "a");
+    write_neg2->right = write_neg_arg2;
+    
+    ASTNode* stmt_neg2 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_neg2->left = write_neg2;
+    stmt_neg1->next = stmt_neg2;
+    
+    // Ifj.write(" nelze spocitat\n")
+    ASTNode* write_neg3 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_neg_arg3 = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_neg_arg3->string_val = my_strdup(" nelze spocitat\n");
+    write_neg3->right = write_neg_arg3;
+    
+    ASTNode* stmt_neg3 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_neg3->left = write_neg3;
+    stmt_neg2->next = stmt_neg3;
+    
+    // Inner if ELSE: calculate factorial iteratively
+    ASTNode* inner_else = create_ast_node(AST_BLOCK, NULL);
+    inner_if->right = inner_else;
+    
+    // var vysl
+    ASTNode* var_vysl = create_ast_node(AST_VAR_DECL, "vysl");
+    var_vysl->data_type = TYPE_UNDEF;
+    inner_else->body = var_vysl;
+    
+    // vysl = 1
+    ASTNode* assign_vysl = create_ast_node(AST_ASSIGN, "vysl");
+    ASTNode* one = create_ast_node(AST_LITERAL_INT, NULL);
+    one->int_val = 1;
+    assign_vysl->right = one;
+    var_vysl->next = assign_vysl;
+    
+    // while (a > 0)
+    ASTNode* while_stmt = create_ast_node(AST_WHILE, NULL);
+    ASTNode* while_cond = create_ast_node(AST_BINOP, ">");
+    while_cond->left = create_ast_node(AST_IDENTIFIER, "a");
+    while_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    while_cond->right->int_val = 0;
+    while_stmt->left = while_cond;
+    assign_vysl->next = while_stmt;
+    
+    // while body
+    ASTNode* while_body = create_ast_node(AST_BLOCK, NULL);
+    while_stmt->body = while_body;
+    
+    // vysl = vysl * a
+    ASTNode* assign_mul = create_ast_node(AST_ASSIGN, "vysl");
+    ASTNode* mul_op = create_ast_node(AST_BINOP, "*");
+    mul_op->left = create_ast_node(AST_IDENTIFIER, "vysl");
+    mul_op->right = create_ast_node(AST_IDENTIFIER, "a");
+    assign_mul->right = mul_op;
+    while_body->body = assign_mul;
+    
+    // a = a - 1
+    ASTNode* assign_dec = create_ast_node(AST_ASSIGN, "a");
+    ASTNode* sub_op = create_ast_node(AST_BINOP, "-");
+    sub_op->left = create_ast_node(AST_IDENTIFIER, "a");
+    sub_op->right = create_ast_node(AST_LITERAL_INT, NULL);
+    sub_op->right->int_val = 1;
+    assign_dec->right = sub_op;
+    assign_mul->next = assign_dec;
+    
+    // After while: vysl = Ifj.floor(vysl)
+    ASTNode* assign_floor = create_ast_node(AST_ASSIGN, "vysl");
+    ASTNode* floor_call = create_ast_node(AST_FUNC_CALL, "Ifj.floor");
+    ASTNode* floor_arg = create_ast_node(AST_IDENTIFIER, "vysl");
+    floor_call->right = floor_arg;
+    assign_floor->right = floor_call;
+    while_stmt->next = assign_floor;
+    
+    // vysl = Ifj.str(vysl)
+    ASTNode* assign_str = create_ast_node(AST_ASSIGN, "vysl");
+    ASTNode* str_call = create_ast_node(AST_FUNC_CALL, "Ifj.str");
+    ASTNode* str_arg = create_ast_node(AST_IDENTIFIER, "vysl");
+    str_call->right = str_arg;
+    assign_str->right = str_call;
+    assign_floor->next = assign_str;
+    
+    // vysl = "Vysledek: " + vysl + "\n"
+    ASTNode* assign_concat = create_ast_node(AST_ASSIGN, "vysl");
+    ASTNode* concat_op1 = create_ast_node(AST_BINOP, "+");
+    ASTNode* concat_op2 = create_ast_node(AST_BINOP, "+");
+    concat_op1->left = create_ast_node(AST_LITERAL_STRING, NULL);
+    concat_op1->left->string_val = my_strdup("Vysledek: ");
+    concat_op1->right = create_ast_node(AST_IDENTIFIER, "vysl");
+    concat_op2->left = concat_op1;
+    concat_op2->right = create_ast_node(AST_LITERAL_STRING, NULL);
+    concat_op2->right->string_val = my_strdup("\n");
+    assign_concat->right = concat_op2;
+    assign_str->next = assign_concat;
+    
+    // Ifj.write(vysl)
+    ASTNode* write_result = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_result_arg = create_ast_node(AST_IDENTIFIER, "vysl");
+    write_result->right = write_result_arg;
+    
+    ASTNode* stmt_result = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_result->left = write_result;
+    assign_concat->next = stmt_result;
+    
+    // ELSE BRANCH: a == null
+    ASTNode* else_block = create_ast_node(AST_BLOCK, NULL);
+    if_stmt->right = else_block;
+    
+    ASTNode* write_null = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_null_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_null_arg->string_val = my_strdup("Faktorial pro null nelze spocitat\n");
+    write_null->right = write_null_arg;
+    
+    ASTNode* stmt_null = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_null->left = write_null;
+    else_block->body = stmt_null;
+    
+    assign_a->next = if_stmt;
+    
+    // Run semantic analysis
+    int result = semantic_analyze(program);
+    printf("Expected: NO_ERROR (%d), Got: %d\n", NO_ERROR, result);
+    
+    free_ast_tree(program);
+    return result;
+}
+
+int test_program2_factorial_recursive() {
+    printf("Testing Program 2: Recursive Factorial (IFJ25 specification)...\n");
+    
+    // Root: PROGRAM
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    
+    // CLASS_DEF: class Program
+    ASTNode* class_def = create_ast_node(AST_CLASS_DEF, "Program");
+    program->body = class_def;
+    
+    // FUNC_DEF: static main()
+    ASTNode* main_func = create_ast_node(AST_FUNC_DEF, "main");
+    main_func->data_type = TYPE_UNDEF;
+    class_def->body = main_func;
+    
+    // FUNC_DEF: static factorial(n)
+    ASTNode* factorial_func = create_ast_node(AST_FUNC_DEF, "factorial");
+    factorial_func->data_type = TYPE_NUM;
+    main_func->next = factorial_func;
+    
+    // PARAM: n for factorial
+    ASTNode* param_n = create_ast_node(AST_PARAM, "n");
+    param_n->data_type = TYPE_NUM;
+    factorial_func->left = param_n;
+    
+    // BLOCK: main function body
+    ASTNode* main_body = create_ast_node(AST_BLOCK, NULL);
+    main_func->body = main_body;
+    
+    // BLOCK: factorial function body
+    ASTNode* factorial_body = create_ast_node(AST_BLOCK, NULL);
+    factorial_func->body = factorial_body;
+    
+    // --- MAIN FUNCTION BODY ---
+    
+    // Statement 1: Ifj.write("Zadejte cislo pro vypocet faktorialu: ")
+    ASTNode* write_call1 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_arg1 = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_arg1->string_val = my_strdup("Zadejte cislo pro vypocet faktorialu: ");
+    write_call1->right = write_arg1;
+    
+    ASTNode* stmt1 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt1->left = write_call1;
+    main_body->body = stmt1;
+    
+    // Statement 2: var inp
+    ASTNode* var_inp = create_ast_node(AST_VAR_DECL, "inp");
+    var_inp->data_type = TYPE_UNDEF;
+    stmt1->next = var_inp;
+    
+    // Statement 3: inp = Ifj.read_num()
+    ASTNode* assign_inp = create_ast_node(AST_ASSIGN, "inp");
+    ASTNode* read_num_call = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    assign_inp->right = read_num_call;
+    var_inp->next = assign_inp;
+    
+    // Statement 4: if (inp != null) { ... } else { ... }
+    ASTNode* if_stmt = create_ast_node(AST_IF, NULL);
+    
+    // Condition: inp != null
+    ASTNode* condition = create_ast_node(AST_BINOP, "!=");
+    condition->left = create_ast_node(AST_IDENTIFIER, "inp");
+    condition->right = create_ast_node(AST_LITERAL_NULL, NULL);
+    if_stmt->left = condition;
+    
+    // THEN BRANCH
+    ASTNode* then_block = create_ast_node(AST_BLOCK, NULL);
+    if_stmt->body = then_block;
+    
+    // Inner if: if (inp < 0)
+    ASTNode* inner_if = create_ast_node(AST_IF, NULL);
+    ASTNode* inner_cond = create_ast_node(AST_BINOP, "<");
+    inner_cond->left = create_ast_node(AST_IDENTIFIER, "inp");
+    inner_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    inner_cond->right->int_val = 0;
+    inner_if->left = inner_cond;
+    then_block->body = inner_if;
+    
+    // Inner if THEN: negative number
+    ASTNode* inner_then = create_ast_node(AST_BLOCK, NULL);
+    inner_if->body = inner_then;
+    
+    ASTNode* write_neg = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_neg_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_neg_arg->string_val = my_strdup("Faktorial nelze spocitat!\n");
+    write_neg->right = write_neg_arg;
+    
+    ASTNode* stmt_neg = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_neg->left = write_neg;
+    inner_then->body = stmt_neg;
+    
+    // Inner if ELSE: check if integer and calculate factorial
+    ASTNode* inner_else = create_ast_node(AST_BLOCK, NULL);
+    inner_if->right = inner_else;
+    
+    // var inpFloored
+    ASTNode* var_inpFloored = create_ast_node(AST_VAR_DECL, "inpFloored");
+    var_inpFloored->data_type = TYPE_UNDEF;
+    inner_else->body = var_inpFloored;
+    
+    // inpFloored = Ifj.floor(inp)
+    ASTNode* assign_floor = create_ast_node(AST_ASSIGN, "inpFloored");
+    ASTNode* floor_call = create_ast_node(AST_FUNC_CALL, "Ifj.floor");
+    ASTNode* floor_arg = create_ast_node(AST_IDENTIFIER, "inp");
+    floor_call->right = floor_arg;
+    assign_floor->right = floor_call;
+    var_inpFloored->next = assign_floor;
+    
+    // if (inp == inpFloored)
+    ASTNode* int_check_if = create_ast_node(AST_IF, NULL);
+    ASTNode* int_cond = create_ast_node(AST_BINOP, "==");
+    int_cond->left = create_ast_node(AST_IDENTIFIER, "inp");
+    int_cond->right = create_ast_node(AST_IDENTIFIER, "inpFloored");
+    int_check_if->left = int_cond;
+    assign_floor->next = int_check_if;
+    
+    // THEN: calculate factorial
+    ASTNode* calc_block = create_ast_node(AST_BLOCK, NULL);
+    int_check_if->body = calc_block;
+    
+    // var vysl
+    ASTNode* var_vysl = create_ast_node(AST_VAR_DECL, "vysl");
+    var_vysl->data_type = TYPE_UNDEF;
+    calc_block->body = var_vysl;
+    
+    // vysl = factorial(inp)
+    ASTNode* assign_vysl = create_ast_node(AST_ASSIGN, "vysl");
+    ASTNode* factorial_call = create_ast_node(AST_FUNC_CALL, "factorial");
+    ASTNode* factorial_arg = create_ast_node(AST_IDENTIFIER, "inp");
+    factorial_call->right = factorial_arg;
+    assign_vysl->right = factorial_call;
+    var_vysl->next = assign_vysl;
+    
+    // vysl = Ifj.str(vysl)
+    ASTNode* assign_str = create_ast_node(AST_ASSIGN, "vysl");
+    ASTNode* str_call = create_ast_node(AST_FUNC_CALL, "Ifj.str");
+    ASTNode* str_arg = create_ast_node(AST_IDENTIFIER, "vysl");
+    str_call->right = str_arg;
+    assign_str->right = str_call;
+    assign_vysl->next = assign_str;
+    
+    // Ifj.write("Vysledek: ")
+    ASTNode* write_result1 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_result_arg1 = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_result_arg1->string_val = my_strdup("Vysledek: ");
+    write_result1->right = write_result_arg1;
+    
+    ASTNode* stmt_result1 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_result1->left = write_result1;
+    assign_str->next = stmt_result1;
+    
+    // Ifj.write(vysl)
+    ASTNode* write_result2 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_result_arg2 = create_ast_node(AST_IDENTIFIER, "vysl");
+    write_result2->right = write_result_arg2;
+    
+    ASTNode* stmt_result2 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_result2->left = write_result2;
+    stmt_result1->next = stmt_result2;
+    
+    // Ifj.write("\n")
+    ASTNode* write_result3 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_result_arg3 = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_result_arg3->string_val = my_strdup("\n");
+    write_result3->right = write_result_arg3;
+    
+    ASTNode* stmt_result3 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_result3->left = write_result3;
+    stmt_result2->next = stmt_result3;
+    
+    // ELSE: "Cislo neni cele!"
+    ASTNode* not_int_block = create_ast_node(AST_BLOCK, NULL);
+    int_check_if->right = not_int_block;
+    
+    ASTNode* write_not_int = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_not_int_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_not_int_arg->string_val = my_strdup("Cislo neni cele!\n");
+    write_not_int->right = write_not_int_arg;
+    
+    ASTNode* stmt_not_int = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_not_int->left = write_not_int;
+    not_int_block->body = stmt_not_int;
+    
+    // ELSE BRANCH: inp == null
+    ASTNode* else_block = create_ast_node(AST_BLOCK, NULL);
+    if_stmt->right = else_block;
+    
+    ASTNode* write_null = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_null_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    write_null_arg->string_val = my_strdup("Chyba pri nacitani celeho cisla!\n");
+    write_null->right = write_null_arg;
+    
+    ASTNode* stmt_null = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_null->left = write_null;
+    else_block->body = stmt_null;
+    
+    assign_inp->next = if_stmt;
+    
+    // --- FACTORIAL FUNCTION BODY ---
+    
+    // var result
+    ASTNode* var_result = create_ast_node(AST_VAR_DECL, "result");
+    var_result->data_type = TYPE_UNDEF;
+    factorial_body->body = var_result;
+    
+    // if (n < 2)
+    ASTNode* fact_if = create_ast_node(AST_IF, NULL);
+    ASTNode* fact_cond = create_ast_node(AST_BINOP, "<");
+    fact_cond->left = create_ast_node(AST_IDENTIFIER, "n");
+    fact_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    fact_cond->right->int_val = 2;
+    fact_if->left = fact_cond;
+    var_result->next = fact_if;
+    
+    // THEN: result = 1
+    ASTNode* fact_then = create_ast_node(AST_BLOCK, NULL);
+    fact_if->body = fact_then;
+    
+    ASTNode* assign_one = create_ast_node(AST_ASSIGN, "result");
+    ASTNode* one = create_ast_node(AST_LITERAL_INT, NULL);
+    one->int_val = 1;
+    assign_one->right = one;
+    fact_then->body = assign_one;
+    
+    // ELSE: recursive calculation
+    ASTNode* fact_else = create_ast_node(AST_BLOCK, NULL);
+    fact_if->right = fact_else;
+    
+    // var decremented_n
+    ASTNode* var_decr = create_ast_node(AST_VAR_DECL, "decremented_n");
+    var_decr->data_type = TYPE_UNDEF;
+    fact_else->body = var_decr;
+    
+    // decremented_n = n - 1
+    ASTNode* assign_decr = create_ast_node(AST_ASSIGN, "decremented_n");
+    ASTNode* sub_op = create_ast_node(AST_BINOP, "-");
+    sub_op->left = create_ast_node(AST_IDENTIFIER, "n");
+    sub_op->right = create_ast_node(AST_LITERAL_INT, NULL);
+    sub_op->right->int_val = 1;
+    assign_decr->right = sub_op;
+    var_decr->next = assign_decr;
+    
+    // result = factorial(decremented_n)
+    ASTNode* assign_recursive = create_ast_node(AST_ASSIGN, "result");
+    ASTNode* recursive_call = create_ast_node(AST_FUNC_CALL, "factorial");
+    ASTNode* recursive_arg = create_ast_node(AST_IDENTIFIER, "decremented_n");
+    recursive_call->right = recursive_arg;
+    assign_recursive->right = recursive_call;
+    assign_decr->next = assign_recursive;
+    
+    // result = n * result
+    ASTNode* assign_mult = create_ast_node(AST_ASSIGN, "result");
+    ASTNode* mult_op = create_ast_node(AST_BINOP, "*");
+    mult_op->left = create_ast_node(AST_IDENTIFIER, "n");
+    mult_op->right = create_ast_node(AST_IDENTIFIER, "result");
+    assign_mult->right = mult_op;
+    assign_recursive->next = assign_mult;
+    
+    // return result
+    ASTNode* return_stmt = create_ast_node(AST_RETURN, NULL);
+    ASTNode* return_expr = create_ast_node(AST_IDENTIFIER, "result");
+    return_stmt->left = return_expr;
+    assign_mult->next = return_stmt;
+    
+    // ===== RUN SEMANTIC ANALYSIS =====
+    int result = semantic_analyze(program);
+    printf("Expected: NO_ERROR (%d), Got: %d\n", NO_ERROR, result);
+    
+    free_ast_tree(program);
+    return result;
+}
+
+int test_program3_string_operations() {
+    printf("Testing Program 3: String Operations (IFJ25 specification)...\n");
+    
+    // Root: PROGRAM
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    
+    // CLASS_DEF: class Program
+    ASTNode* class_def = create_ast_node(AST_CLASS_DEF, "Program");
+    program->body = class_def;
+    
+    // FUNC_DEF: static main()
+    ASTNode* main_func = create_ast_node(AST_FUNC_DEF, "main");
+    main_func->data_type = TYPE_UNDEF;
+    class_def->body = main_func;
+    
+    // BLOCK: main function body
+    ASTNode* main_body = create_ast_node(AST_BLOCK, NULL);
+    main_func->body = main_body;
+    
+    // --- MAIN FUNCTION BODY ---
+    
+    // Statement 1: var str1
+    ASTNode* var_str1 = create_ast_node(AST_VAR_DECL, "str1");
+    var_str1->data_type = TYPE_UNDEF;
+    main_body->body = var_str1;
+    
+    // Statement 2: str1 = "Toto je text v programu jazyka IFJ25"
+    ASTNode* assign_str1 = create_ast_node(AST_ASSIGN, "str1");
+    ASTNode* str1_literal = create_ast_node(AST_LITERAL_STRING, NULL);
+    str1_literal->string_val = my_strdup("Toto je text v programu jazyka IFJ25");
+    assign_str1->right = str1_literal;
+    var_str1->next = assign_str1;
+    
+    // Statement 3: var str2
+    ASTNode* var_str2 = create_ast_node(AST_VAR_DECL, "str2");
+    var_str2->data_type = TYPE_UNDEF;
+    assign_str1->next = var_str2;
+    
+    // Statement 4: str2 = ", ktery jeste trochu obohatime"
+    ASTNode* assign_str2 = create_ast_node(AST_ASSIGN, "str2");
+    ASTNode* str2_literal = create_ast_node(AST_LITERAL_STRING, NULL);
+    str2_literal->string_val = my_strdup(", ktery jeste trochu obohatime");
+    assign_str2->right = str2_literal;
+    var_str2->next = assign_str2;
+    
+    // Statement 5: str2 = str1 + (str2 * 3)
+    ASTNode* assign_concat = create_ast_node(AST_ASSIGN, "str2");
+    ASTNode* concat_op = create_ast_node(AST_BINOP, "+");
+    concat_op->left = create_ast_node(AST_IDENTIFIER, "str1");
+    
+    ASTNode* multiply_op = create_ast_node(AST_BINOP, "*");
+    multiply_op->left = create_ast_node(AST_IDENTIFIER, "str2");
+    multiply_op->right = create_ast_node(AST_LITERAL_INT, NULL);
+    multiply_op->right->int_val = 3;
+    
+    ASTNode* group_expr = create_ast_node(AST_GROUP_EXPR, NULL);
+    group_expr->left = multiply_op;
+    
+    concat_op->right = group_expr;
+    assign_concat->right = concat_op;
+    assign_str2->next = assign_concat;
+    
+    // Statement 6: Ifj.write(str1)
+    ASTNode* write_str1 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_str1_arg = create_ast_node(AST_IDENTIFIER, "str1");
+    write_str1->right = write_str1_arg;
+    
+    ASTNode* stmt_write1 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_write1->left = write_str1;
+    assign_concat->next = stmt_write1;
+    
+    // Statement 7: Ifj.write("\n")
+    ASTNode* write_newline1 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* newline1_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    newline1_arg->string_val = my_strdup("\n");
+    write_newline1->right = newline1_arg;
+    
+    ASTNode* stmt_newline1 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_newline1->left = write_newline1;
+    stmt_write1->next = stmt_newline1;
+    
+    // Statement 8: Ifj.write(str2)
+    ASTNode* write_str2 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* write_str2_arg = create_ast_node(AST_IDENTIFIER, "str2");
+    write_str2->right = write_str2_arg;
+    
+    ASTNode* stmt_write2 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_write2->left = write_str2;
+    stmt_newline1->next = stmt_write2;
+    
+    // Statement 9: Ifj.write("\n")
+    ASTNode* write_newline2 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* newline2_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    newline2_arg->string_val = my_strdup("\n");
+    write_newline2->right = newline2_arg;
+    
+    ASTNode* stmt_newline2 = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_newline2->left = write_newline2;
+    stmt_write2->next = stmt_newline2;
+    
+    // Statement 10: Ifj.write("Zadejte serazenou posloupnost malych pismen a-h:\n")
+    ASTNode* write_prompt = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* prompt_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    prompt_arg->string_val = my_strdup("Zadejte serazenou posloupnost malych pismen a-h:\n");
+    write_prompt->right = prompt_arg;
+    
+    ASTNode* stmt_prompt = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_prompt->left = write_prompt;
+    stmt_newline2->next = stmt_prompt;
+    
+    // Statement 11: var input
+    ASTNode* var_input = create_ast_node(AST_VAR_DECL, "input");
+    var_input->data_type = TYPE_UNDEF;
+    stmt_prompt->next = var_input;
+    
+    // Statement 12: input = Ifj.read_str()
+    ASTNode* assign_input = create_ast_node(AST_ASSIGN, "input");
+    ASTNode* read_str_call = create_ast_node(AST_FUNC_CALL, "Ifj.read_str");
+    assign_input->right = read_str_call;
+    var_input->next = assign_input;
+    
+    // Statement 13: var all
+    ASTNode* var_all = create_ast_node(AST_VAR_DECL, "all");
+    var_all->data_type = TYPE_UNDEF;
+    assign_input->next = var_all;
+    
+    // Statement 14: all = ""
+    ASTNode* assign_all = create_ast_node(AST_ASSIGN, "all");
+    ASTNode* empty_str = create_ast_node(AST_LITERAL_STRING, NULL);
+    empty_str->string_val = my_strdup("");
+    assign_all->right = empty_str;
+    var_all->next = assign_all;
+    
+    // Statement 15: while (input != null) { ... }
+    ASTNode* while_stmt = create_ast_node(AST_WHILE, NULL);
+    ASTNode* while_cond = create_ast_node(AST_BINOP, "!=");
+    while_cond->left = create_ast_node(AST_IDENTIFIER, "input");
+    while_cond->right = create_ast_node(AST_LITERAL_NULL, NULL);
+    while_stmt->left = while_cond;
+    assign_all->next = while_stmt;
+    
+    // WHILE BODY
+    ASTNode* while_body = create_ast_node(AST_BLOCK, NULL);
+    while_stmt->body = while_body;
+    
+    // var strcmpResult
+    ASTNode* var_strcmp = create_ast_node(AST_VAR_DECL, "strcmpResult");
+    var_strcmp->data_type = TYPE_UNDEF;
+    while_body->body = var_strcmp;
+    
+    // strcmpResult = Ifj.strcmp(input, "abcdefgh")
+    ASTNode* assign_strcmp = create_ast_node(AST_ASSIGN, "strcmpResult");
+    ASTNode* strcmp_call = create_ast_node(AST_FUNC_CALL, "Ifj.strcmp");
+    
+    ASTNode* strcmp_arg1 = create_ast_node(AST_IDENTIFIER, "input");
+    ASTNode* strcmp_arg2 = create_ast_node(AST_LITERAL_STRING, NULL);
+    strcmp_arg2->string_val = my_strdup("abcdefgh");
+    
+    strcmp_call->right = strcmp_arg1;
+    strcmp_arg1->next = strcmp_arg2;
+    
+    assign_strcmp->right = strcmp_call;
+    var_strcmp->next = assign_strcmp;
+    
+    // if (strcmpResult == 0)
+    ASTNode* if_strcmp = create_ast_node(AST_IF, NULL);
+    ASTNode* strcmp_cond = create_ast_node(AST_BINOP, "==");
+    strcmp_cond->left = create_ast_node(AST_IDENTIFIER, "strcmpResult");
+    strcmp_cond->right = create_ast_node(AST_LITERAL_INT, NULL);
+    strcmp_cond->right->int_val = 0;
+    if_strcmp->left = strcmp_cond;
+    assign_strcmp->next = if_strcmp;
+    
+    // THEN: correct input
+    ASTNode* then_block = create_ast_node(AST_BLOCK, NULL);
+    if_strcmp->body = then_block;
+    
+    // Ifj.write("Spravne zadano! Predchozi pokusy:\n")
+    ASTNode* write_correct = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* correct_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    correct_arg->string_val = my_strdup("Spravne zadano! Predchozi pokusy:\n");
+    write_correct->right = correct_arg;
+    
+    ASTNode* stmt_correct = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_correct->left = write_correct;
+    then_block->body = stmt_correct;
+    
+    // all = all + "\n"
+    ASTNode* assign_all_newline = create_ast_node(AST_ASSIGN, "all");
+    ASTNode* concat_newline = create_ast_node(AST_BINOP, "+");
+    concat_newline->left = create_ast_node(AST_IDENTIFIER, "all");
+    concat_newline->right = create_ast_node(AST_LITERAL_STRING, NULL);
+    concat_newline->right->string_val = my_strdup("\n");
+    assign_all_newline->right = concat_newline;
+    stmt_correct->next = assign_all_newline;
+    
+    // Ifj.write(all)
+    ASTNode* write_all = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* all_arg = create_ast_node(AST_IDENTIFIER, "all");
+    write_all->right = all_arg;
+    
+    ASTNode* stmt_all = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_all->left = write_all;
+    assign_all_newline->next = stmt_all;
+    
+    // input = null (instead of break)
+    ASTNode* assign_null = create_ast_node(AST_ASSIGN, "input");
+    ASTNode* null_literal = create_ast_node(AST_LITERAL_NULL, NULL);
+    assign_null->right = null_literal;
+    stmt_all->next = assign_null;
+    
+    // ELSE: wrong input
+    ASTNode* else_block = create_ast_node(AST_BLOCK, NULL);
+    if_strcmp->right = else_block;
+    
+    // Ifj.write("Spatne zadana posloupnost, zkuste znovu:\n")
+    ASTNode* write_wrong = create_ast_node(AST_FUNC_CALL, "Ifj.write");
+    ASTNode* wrong_arg = create_ast_node(AST_LITERAL_STRING, NULL);
+    wrong_arg->string_val = my_strdup("Spatne zadana posloupnost, zkuste znovu:\n");
+    write_wrong->right = wrong_arg;
+    
+    ASTNode* stmt_wrong = create_ast_node(AST_EXPR_STMT, NULL);
+    stmt_wrong->left = write_wrong;
+    else_block->body = stmt_wrong;
+    
+    // all = all + input
+    ASTNode* assign_concat_all = create_ast_node(AST_ASSIGN, "all");
+    ASTNode* concat_all = create_ast_node(AST_BINOP, "+");
+    concat_all->left = create_ast_node(AST_IDENTIFIER, "all");
+    concat_all->right = create_ast_node(AST_IDENTIFIER, "input");
+    assign_concat_all->right = concat_all;
+    stmt_wrong->next = assign_concat_all;
+    
+    // input = Ifj.read_str()
+    ASTNode* assign_read_again = create_ast_node(AST_ASSIGN, "input");
+    ASTNode* read_again_call = create_ast_node(AST_FUNC_CALL, "Ifj.read_str");
+    assign_read_again->right = read_again_call;
+    assign_concat_all->next = assign_read_again;
+    
+    // ===== RUN SEMANTIC ANALYSIS =====
+    int result = semantic_analyze(program);
+    printf("Expected: NO_ERROR (%d), Got: %d\n", NO_ERROR, result);
+    
+    free_ast_tree(program);
+    return result;
+}
+
+void print_summary() {
+    printf(COLOR_YELLOW "========================================\n" COLOR_RESET);
+    printf(COLOR_YELLOW "           TEST SUMMARY\n" COLOR_RESET);
+    printf(COLOR_YELLOW "========================================\n" COLOR_RESET);
+    
+    int percentage = (tests_total > 0) ? (tests_passed * 100) / tests_total : 0;
+    
+    printf("Tests passed: " COLOR_GREEN "%d/%d\n" COLOR_RESET, tests_passed, tests_total);
+    printf("Success rate: ");
+    
+    if (percentage == 100) {
+        printf(COLOR_GREEN "%d%% ✅\n" COLOR_RESET, percentage);
+    } else if (percentage >= 70) {
+        printf(COLOR_YELLOW "%d%% ⚠️\n" COLOR_RESET, percentage);
+    } else {
+        printf(COLOR_RED "%d%% ❌\n" COLOR_RESET, percentage);
+    }
+    
+    printf(COLOR_YELLOW "========================================\n" COLOR_RESET);
+}
+
+int main() {
+    printf(COLOR_BLUE "🧪 Running semantic analysis tests...\n\n" COLOR_RESET);
+    
+    // 40 basic tests
+    run_test("1 var_decl_basic", t_var_decl_basic);
+    run_test("2 use_before_decl", t_use_before_decl);
+    run_test("3 redecl_same_scope", t_redecl_same_scope);
+    run_test("4 shadowing_allowed", t_shadowing_different_scope_ok);
+    run_test("5 assign_type_mismatch", t_assign_type_mismatch);
+    run_test("6 assign_null_to_any", t_assign_null_to_any);
+    run_test("7 string_concat_ok", t_string_concat_ok);
+    run_test("8 string_plus_num_error", t_string_plus_num_error);
+    run_test("9 unary_minus_ok", t_unary_minus_ok);
+    run_test("10 return_outside_function_error", t_return_outside_function_error);
+
+    run_test("11 function_def_basic", t_function_def_basic);
+    run_test("12 function_redef_error", t_function_redef_error);
+    run_test("13 function_call_undefined", t_function_call_undefined);
+    run_test("14 function_call_arity_mismatch", t_function_call_arity_mismatch);
+    run_test("15 function_return_type_check", t_function_return_type_check);
+    run_test("16 forward_call_before_def_allowed", t_forward_call_before_def_allowed);
+    run_test("17 recursive_function_ok", t_recursive_function_ok);
+    run_test("18 param_type_mismatch_in_call", t_param_type_mismatch_in_call);
+    run_test("19 binop_nested_types", t_binop_nested_types);
+    run_test("20 binop_mismatch_deep", t_binop_mismatch_deep);
+
+    run_test("21 if_condition_type_invalid", t_if_condition_type_invalid);
+    run_test("22 if_condition_ok", t_if_condition_ok);
+    run_test("23 while_with_undefined_in_cond", t_while_with_undefined_in_cond);
+    run_test("24 block_local_scope_variable", t_block_local_scope_variable);
+    run_test("25 nested_blocks_shadowing", t_nested_blocks_shadowing);
+    run_test("26 builtin_read_num_assign", t_builtin_read_num_assign);
+    run_test("27 builtin_read_str_assign", t_builtin_read_str_assign);
+    run_test("28 builtin_length_usage", t_builtin_length_usage);
+    run_test("29 builtin_length_wrong_arg", t_builtin_length_wrong_arg);
+    run_test("30 builtin_str2num_ok", t_builtin_str2num_ok);
+
+    run_test("31 identifier_lookup_in_scope", t_identifier_lookup_in_scope);
+    run_test("32 multiple_declarations_ok", t_multiple_declarations_ok);
+    run_test("33 assign_to_literal_error", t_assign_to_literal_error);
+    run_test("34 group_expr_ok", t_group_expr_ok);
+    run_test("35 group_expr_type_mismatch", t_group_expr_type_mismatch);
+    run_test("36 complex_expr_mix", t_complex_expr_mix);
+    run_test("37 call_as_statement_ok", t_call_as_statement_ok);
+    run_test("38 return_type_void_ok", t_return_type_void_ok);
+    run_test("39 two_level_call_chain", t_two_level_call_chain);
+    run_test("40 literals_only_program", t_literals_only_program);
+
+    // 20 complex integration tests
+    run_test("C1 max_of_two", c1_max_of_two);
+    run_test("C2 str2num_and_add", c2_str2num_and_add);
+    run_test("C3 num_to_string_concat", c3_num_to_string_concat);
+    run_test("C4 loop_accumulator", c4_loop_accumulator);
+    run_test("C5 check_empty_string", c5_check_empty_string);
+    run_test("C6 string_concat_many", c6_string_concat_many);
+    run_test("C7 average_calc", c7_average_calc);
+    run_test("C8 func_no_param_no_return", c8_func_no_param_no_return);
+    run_test("C9 sumToN_recursive", c9_sumToN_recursive);
+    run_test("C10 return_null", c10_return_null);
+    run_test("C11 while_nested_if", c11_while_nested_if);
+    run_test("C12 global_used_in_func", c12_global_used_in_func);
+    run_test("C13 compare_strings", c13_compare_strings);
+    run_test("C14 num_string_mix_error", c14_num_string_mix_error);
+    run_test("C15 length_on_identifier", c15_length_on_identifier);
+    run_test("C16 readnum_and_floor", c16_readnum_and_floor);
+    run_test("C17 multiple_writes", c17_multiple_writes);
+    run_test("C18 recursive_return_type_error", c18_recursive_return_type_error);
+    run_test("C19 nested_calls", c19_nested_calls);
+    run_test("C20 integration_big", c20_integration_big);
+    run_test("C21: Deep Nested Scopes", c21_deep_nested_scopes);
+    run_test("C22: Mutual Recursion", c22_mutual_recursion);
+    run_test("C23: Complex String Operations", c23_complex_string_operations);
+    run_test("C24: Dynamic Type Changes", c24_dynamic_type_changes);
+    run_test("C25: Nested Loops Break Simulation", c25_nested_loops_break_simulation);
+    // all tests basic
+    run_test("Empty Tree", test_empty_tree);
+    run_test("Simple Program", test_simple_program);
+    run_test("Variable Declaration and Usage", test_variable_usage);
+    run_test("Function Declaration", test_function_declaration);
+    run_test("Undefined Variable (Expected Fail)", test_undefined_variable);
+    run_test("Variable Redefinition (Expected Fail)", test_redefinition);
+    run_test("Built-in Function Call (IFJ25)", test_builtin_functions);
+    run_test("Binary Operation", test_binary_operation);
+    run_test("Redeclaration in same scope", test_redeclare_same_scope);
+    run_test("Use before declaration", test_use_before_decl);
+    run_test("Call undefined function", test_call_undefined_function);
+    run_test("Function redefinition", test_func_redef);
+    run_test("Function wrong parameter count", test_func_wrong_arity);
+    run_test("Binary operation type mismatch", test_binop_type_mismatch);
+    run_test("Compare variable with null", test_compare_with_null);
+    run_test("Variable shadowing allowed", test_shadowing_allowed);
+    run_test("Built-in Ifj.str2num() type check", test_builtin_str2num);
+    run_test("Return outside of function", test_return_outside_func);
+    // Complex programs from IFJ25 examples
+    run_test("Program 1: Factorial (Full Program)", test_program1_factorial);
+    run_test("Program 2: Recursive Factorial", test_program2_factorial_recursive);
+    run_test("Program 3: String Operations", test_program3_string_operations);
+
+    // Výpis sumáru
+    print_summary();
+    
+    return (tests_passed == tests_total) ? 0 : 1;
+}

@@ -46,6 +46,7 @@ typedef struct FunctionData {
     int param_count;
     Param *parameters;
     bool defined; // function has been defined
+    DataType return_type; // function return type
 } FunctionData;
 
 // Getter data
@@ -100,12 +101,15 @@ bool symtable_delete(SymTable *table, const char *key); // optional
 
 // Symbol creators
 SymTableData *make_variable(DataType type, bool defined, bool initialized);
-SymTableData *make_function(int param_count, Param *params, bool defined);
+SymTableData *make_function(int param_count, Param *params, bool defined, DataType return_type);
 SymTableData *make_getter(DataType return_type, bool defined);
 SymTableData *make_setter(DataType param_type, bool defined);
 
 // Parameter creators
 Param *make_param(const char *name, DataType type);
 Param *append_param(Param *head, Param *new_param);
+
+// strdup replacement (not in C standard)
+char *my_strdup(const char *s);
 
 #endif // SYMTABLE_H

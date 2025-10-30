@@ -7,7 +7,6 @@
 #ifndef SEMANTIC_H
 #define SEMANTIC_H
 
-
 #include "symtable.h"
 #include "ast.h"
 #include "error.h"
@@ -19,8 +18,11 @@ typedef struct Scope {
     struct Scope *parent;    // nadradený scope
 } Scope;
 
+//---------- Function declarations ----------
+
 // Function to initialize a new scope
 Scope* init_scope();
+
 // Function to free a scope and its symbol table
 void free_scope(Scope* scope);
 
@@ -28,12 +30,20 @@ void free_scope(Scope* scope);
 
 // strdup replacement (not in C standard)
 char* my_strdup(const char* s);
-//print all symbols in the symbol table (for debugging)
+
+// print all symbols in the symbol table (for debugging)
 void print_all_symbols(ASTNode *node);
 
+// Look up symbol in current and parent scopes
+SymTableData* lookup_symbol(Scope *scope, const char *name);
+
+// Preload built-in functions into global scope
+void preload_builtins(Scope *global_scope);
+
+// Infer data type of an expression
+DataType infer_expression_type(ASTNode *expr, Scope *scope);
+
 //---------- Semantic analysis functions ----------
-
-
 
 /**
  * @brief Performs semantic analysis on the given symbol tree.
@@ -43,7 +53,7 @@ void print_all_symbols(ASTNode *node);
  */
 int semantic_analyze(ASTNode *root);
 
-/*
+/**
  * @brief Visits a node in the symbol tree for semantic analysis.
  *
  * @param node The current node to visit.
@@ -51,4 +61,5 @@ int semantic_analyze(ASTNode *root);
  * @return SemanticResult error code or NO_ERROR if everything is valid.
  */
 int semantic_visit(ASTNode *node, Scope *current_scope);
+
 #endif // SEMANTIC_H

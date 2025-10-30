@@ -17,6 +17,7 @@ TEST_SYMTABLE_SRCS = test/test_symtable.c \
 			src/symtable.c \
 
 TEST_SEMANTIC_SRCS = test/test_semantic.c \
+			src/ast.c \
 			src/symtable.c \
 			src/semantic.c
 all: $(TARGET)

@@ -254,7 +254,7 @@ Param *append_param(Param *head, Param *new_param) {
     return head;
 }
 
-SymTableData *make_function(int param_count, Param *params, bool defined) {
+SymTableData *make_function(int param_count, Param *params, bool defined, DataType return_type) {
     SymTableData *d = malloc(sizeof(SymTableData));
     if (!d)
         return NULL;
@@ -267,6 +267,7 @@ SymTableData *make_function(int param_count, Param *params, bool defined) {
     d->data.func_data->param_count = param_count;
     d->data.func_data->parameters = params;
     d->data.func_data->defined = defined;
+    d->data.func_data->return_type = return_type;
     return d;
 }
 
