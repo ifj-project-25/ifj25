@@ -1,7 +1,7 @@
 /**
  * @file ast.h
  * @brief Abstract Syntax Tree node types for IFJ25 language
- * @author xmalikm00
+ * @author xmalikm00 xklusaa00
  */
 
 #ifndef AST_H
@@ -17,7 +17,7 @@
  * and keywords recognized by the scanner.
  */
 typedef enum {
-    AST_PROGRAM,         // Root node   -> left - main, right - other functions/classes???????
+    AST_PROGRAM,         // Root node   -> left - global variables, right - main function/ other functions
 
 // functions
 
@@ -54,8 +54,11 @@ typedef enum {
 // assignments
     AST_ASSIGN,          // assignment  ->  left - AST_EQUALS, right - next program
 
-    AST_EQUALS,          // equality check???? THIS IS "=" CHARACTER    ->  left - AST_IDENTIFIER, right - AST_EXPRESSION
+    AST_EQUALS,          // this should be an assigment THIS IS "=" CHARACTER    ->  left - AST_IDENTIFIER, right - AST_EXPRESSION
+                         //actual equals should be handled in expression node
+                         //for exammple var a = 15;
 
+                         
 // Expressions -TODO Matej had to check and fix/add/remove that
     AST_EXPRESSION,      // expression node
     AST_OP,             // operator
