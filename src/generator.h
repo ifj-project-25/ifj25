@@ -22,6 +22,65 @@
  */
 void convert_string(const char* input);
 
+//---------- Built-in functions ----------
+
+/**
+ * @brief Generates code for the Ifj.read_str() built-in function.
+ * @param node AST node representing the function call.
+ */
+int read_str_func(ASTNode *node, FILE *output);
+
+/**
+ * @brief Generates code for the Ifj.read_num() built-in function.
+ * @param node AST node representing the function call.
+ */
+int read_num_func(ASTNode *node, FILE *output);
+
+/**
+ * @brief Generates code for the Ifj.print() built-in function.
+ * @param node AST node representing the function call.
+ */
+int write_func(ASTNode *node, FILE *output);
+
+/**
+ * @brief Generates code for the Ifj.floor() built-in function.
+ * @param node AST node representing the function call.
+ */
+int floor_func(ASTNode *node, FILE *output);
+
+/**
+ * @brief Generates code for the Ifj.str() built-in function.
+ * @param node AST node representing the function call.
+ */
+int length_func(ASTNode *node, FILE *output);
+
+/**
+ * @brief Generates code for the Ifj.substring() built-in function.
+ * @param node AST node representing the function call.
+ */
+int substring_func(ASTNode *node, FILE *output);
+
+/**
+ * @brief Generates code for the Ifj.strcmp() built-in function.
+ * @param node AST node representing the function call.
+ */
+int strcmp_func(ASTNode *node, FILE *output);
+
+/**
+ * @brief Generates code for the Ifj.ord() built-in function.
+ * @param node AST node representing the function call.
+ */
+int ord_func(ASTNode *node, FILE *output);
+
+/**
+ * @brief Generates code for the Ifj.chr() built-in function.
+ * @param node AST node representing the function call.
+ */
+int chr_func(ASTNode *node, FILE *output);
+
+
+
+
 
 //---------- AST Types ----------
 

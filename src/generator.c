@@ -9,6 +9,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+void convert_string(const char* input) {
+    // Implementation of string conversion to IFJcode25 format
+    // This is a placeholder function
+    //!!!!!!!!!!!!!!!!!!!! TODO !!!!!!!!!!!!!!!!!
+}
+
+
+
+int read_str_func(ASTNode *node, FILE *output) {
+    fprintf(output, "\n");
+    return 0;
+}
+
+
 // Code generation helper functions
 int identifier (ASTNode *node, FILE *output) {
     if(node->type != AST_IDENTIFIER)
