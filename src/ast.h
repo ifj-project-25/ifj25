@@ -81,7 +81,7 @@ typedef struct ASTNode {
     double float_val;
     char *string_val;
 
-    struct Symtable* current_table; // current symbol table for the block
+    SymTable *current_table; // current symbol table for the block
 
     // Type of the variable / expression (e.g., TYPE_NUM, TYPE_STRING, ...) - used from symtable.h
     DataType data_type;

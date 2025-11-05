@@ -20,6 +20,10 @@ TEST_SEMANTIC_SRCS = test/test_semantic.c \
 			src/ast.c \
 			src/symtable.c \
 			src/semantic.c
+TEST_SEMANTIC_BASIC_SRCS = test/test_semantic_basic.c \
+			src/ast.c \
+			src/symtable.c \
+			src/semantic.c
 all: $(TARGET)
 
 $(TARGET): $(SRCS)
@@ -33,8 +37,12 @@ test_semantic: $(TEST_SEMANTIC_SRCS)
 	$(CC) $(CFLAGS) -Isrc -o $@ $^
 	@echo "Running semantic tests..."
 	./test_semantic
-
+test_semantic_basic: $(TEST_SEMANTIC_BASIC_SRCS)
+	@echo "Building basic semantic tests..."
+	$(CC) $(CFLAGS) -Isrc -o $@ $^
+	@echo "Running basic semantic tests..."
+	./test_semantic_basic
 clean:
-	rm -f $(TARGET) test_symtable test_semantic
+	rm -f $(TARGET) test_symtable test_semantic test_semantic_basic
 
 .PHONY: all clean 

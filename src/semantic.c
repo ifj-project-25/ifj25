@@ -170,305 +170,328 @@ DataType infer_expression_type(ASTNode *expr, Scope *scope) {
 //---------- MAIN VISIT: Traverse AST tree ----------
 int semantic_visit(ASTNode *node, Scope *current_scope) {
     if (!node) return NO_ERROR;
-    
+
     switch (node->type) {
-        case AST_PROGRAM: {
-            // program->left = main function
-            return semantic_visit(node->left, current_scope);
-        }
-        
-        case AST_MAIN_DEF:
-        case AST_FUNC_DEF: {
-            // func->left = arguments, func->right = body (AST_BLOCK)
-            const char *func_name = node->name ? node->name : "main";
-            
-            // Check redefinition
-            SymTableData *existing = symtable_search(&current_scope->symbols, func_name);
-            if (existing) {
-                fprintf(stderr, "[SEMANTIC] Redefinition of function '%s'\n", func_name);
-                return SEM_ERROR_REDEFINED;
-            }
-            
-            // Count parameters (linked list in node->left via AST_FUNC_ARG->left)
-            int param_count = 0;
-            Param *params = NULL;
-            Param *last_param = NULL;
-            
-            ASTNode *arg_node = node->left; // AST_FUNC_ARG chain
-            while (arg_node && arg_node->type == AST_FUNC_ARG) {
-                // arg_node->right = parameter value/identifier
-                if (arg_node->right && arg_node->right->type == AST_IDENTIFIER) {
-                    Param *new_param = make_param(arg_node->right->name, 
-                                                   arg_node->right->data_type);
+        case AST_PROGRAM:   {
+                int err = semantic_visit(node->left, current_scope);
+                if (err != NO_ERROR) return err;
+                
+                return semantic_visit(node->right, current_scope);
+            } break;
+        case AST_MAIN_DEF: {
+                const char *func_name = "main";
+
+                // Count parameters
+                int param_count = 0;
+                Param *params = NULL;
+                Param *last_param = NULL;
+
+                ASTNode *arg_node = node->left;
+                while (arg_node && arg_node->type == AST_FUNC_ARG) {
+                    if (!arg_node->right || arg_node->right->type != AST_IDENTIFIER) {
+                        fprintf(stderr, "[SEMANTIC] Invalid argument node in main().\n");
+                        return ERROR_INTERNAL;
+                    }
+
+                    const char *param_name = arg_node->right->name;
+                    DataType param_type = arg_node->right->data_type;
+
+                    Param *new_param = make_param(param_name, param_type);
                     if (!new_param) return ERROR_INTERNAL;
-                    
-                    // Check duplicate parameter names
+
+                    // Check for duplicates
                     for (Param *p = params; p; p = p->next) {
-                        if (strcmp(p->name, new_param->name) == 0) {
-                            fprintf(stderr, "[SEMANTIC] Duplicate parameter '%s'\n", new_param->name);
+                        if (strcmp(p->name, param_name) == 0) {
+                            fprintf(stderr, "[SEMANTIC] Duplicate parameter '%s' in main().\n", param_name);
                             return SEM_ERROR_REDEFINED;
                         }
                     }
-                    
-                    if (!params) {
+
+                    if (!params)
                         params = new_param;
-                    } else {
+                    else
                         last_param->next = new_param;
-                    }
                     last_param = new_param;
                     param_count++;
+
+                    arg_node = arg_node->left;
                 }
-                
-                arg_node = arg_node->left; // next argument
-            }
-            
-            // Insert function into symbol table
-            SymTableData *func_data = make_function(param_count, params, true, TYPE_UNDEF);
-            if (!func_data || !symtable_insert(&current_scope->symbols, func_name, func_data)) {
-                return ERROR_INTERNAL;
-            }
-            
-            // Create local scope for function body
-            Scope *func_scope = init_scope();
-            if (!func_scope) return ERROR_INTERNAL;
-            func_scope->parent = current_scope;
-            
-            // Insert parameters into local scope as initialized variables
-            for (Param *p = params; p; p = p->next) {
-                SymTableData *param_var = make_variable(p->data_type, true, true);
-                if (!param_var || !symtable_insert(&func_scope->symbols, p->name, param_var)) {
-                    free_scope(func_scope);
+
+                // Check for redefinition of main - use lookup_symbol to check all parent scopes
+                SymTableData *existing = lookup_symbol(current_scope, func_name);
+                if (existing && existing->type == NODE_FUNC) {
+                    // For main, we don't allow overloading - any main function is error
+                    fprintf(stderr, "[SEMANTIC] Redefinition of 'main' function.\n");
+                    return SEM_ERROR_REDEFINED;
+                }
+
+                // Create and insert main symbol 
+                SymTableData *main_symbol = make_function(param_count, params, true, TYPE_UNDEF);
+                if (!main_symbol) {
+                    fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for 'main'.\n");
                     return ERROR_INTERNAL;
                 }
-            }
-            
-            // Analyze function body
-            int err = semantic_visit(node->right, func_scope);
-            free_scope(func_scope);
-            return err;
-        }
-        
-        case AST_GETTER_DEF:
-        case AST_SETTER_DEF: {
-            // getter/setter->right = body
-            // TODO: Implement getter/setter logic
-            return semantic_visit(node->right, current_scope);
-        }
-        
+
+                if (!symtable_insert(&current_scope->symbols, func_name, main_symbol)) {
+                    fprintf(stderr, "[SEMANTIC] Failed to insert 'main' into global symbol table.\n");
+                    return ERROR_INTERNAL;
+                }
+
+                // Create new scope for main function body
+                Scope *main_scope = init_scope();
+                if (!main_scope) {
+                    fprintf(stderr, "[SEMANTIC] Failed to create scope for 'main'.\n");
+                    return ERROR_INTERNAL;
+                }
+                main_scope->parent = current_scope;
+
+                // Insert parameters into main scope
+                for (Param *p = params; p; p = p->next) {
+                    SymTableData *param_var = make_variable(p->data_type, true, true);
+                    if (!param_var || !symtable_insert(&main_scope->symbols, p->name, param_var)) {
+                        fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into main scope.\n", p->name);
+                        return ERROR_INTERNAL;
+                    }
+                }
+
+                // Analyze main function body with main scope
+                return semantic_visit(node->right, main_scope);
+            } break;
+
+        case AST_FUNC_DEF: {
+                if (!node->right) return ERROR_INTERNAL;
+
+                // Get function name
+                const char *func_name = node->name;
+                if (!func_name) return ERROR_INTERNAL;
+
+                // Count parameters
+                int param_count = 0;
+                Param *params = NULL;
+                Param *last_param = NULL;
+
+                ASTNode *arg_node = node->left;
+                while (arg_node && arg_node->type == AST_FUNC_ARG) {
+                    if (!arg_node->right || arg_node->right->type != AST_IDENTIFIER) {
+                        fprintf(stderr, "[SEMANTIC] Invalid argument node in function '%s'.\n", func_name);
+                        return ERROR_INTERNAL;
+                    }
+
+                    const char *param_name = arg_node->right->name;
+                    DataType param_type = arg_node->right->data_type;
+
+                    // Create parameter structure
+                    Param *new_param = make_param(param_name, param_type);
+                    if (!new_param) return ERROR_INTERNAL;
+
+                    // Check for duplicate parameter names
+                    for (Param *p = params; p; p = p->next) {
+                        if (strcmp(p->name, param_name) == 0) {
+                            fprintf(stderr, "[SEMANTIC] Duplicate parameter '%s' in function '%s'.\n",
+                                    param_name, func_name);
+                            return SEM_ERROR_REDEFINED;
+                        }
+                    }
+
+                    if (!params)
+                        params = new_param;
+                    else
+                        last_param->next = new_param;
+                    last_param = new_param;
+
+                    param_count++;
+                    arg_node = arg_node->left;
+                }
+
+                // Check for redefinition 
+                SymTableData *existing = lookup_symbol(current_scope, func_name);
+                if (existing && existing->type == NODE_FUNC) {
+                    FunctionData *fdata = existing->data.func_data;
+                    if (fdata->param_count == param_count) {
+                        fprintf(stderr, "[SEMANTIC] Redefinition of function '%s' with %d parameters.\n",
+                                func_name, param_count);
+                        return SEM_ERROR_REDEFINED;
+                    }
+                }
+                // Create symbol for the function
+                SymTableData *func_symbol = make_function(param_count, params, true, TYPE_UNDEF);
+                if (!func_symbol) {
+                    fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for function '%s'.\n", func_name);
+                    return ERROR_INTERNAL;
+                }
+
+                // Insert into the current (global) scope
+                if (!symtable_insert(&current_scope->symbols, func_name, func_symbol)) {
+                    fprintf(stderr, "[SEMANTIC] Failed to insert function '%s' into symbol table.\n", func_name);
+                    return ERROR_INTERNAL;
+                }
+
+                // Create new scope for function body
+                Scope *func_scope = init_scope();
+                if (!func_scope) {
+                    fprintf(stderr, "[SEMANTIC] Failed to create scope for function '%s'.\n", func_name);
+                    return ERROR_INTERNAL;
+                }
+                func_scope->parent = current_scope;
+
+                // Insert parameters into function scope
+                for (Param *p = params; p; p = p->next) {
+                    SymTableData *param_var = make_variable(p->data_type, true, true);
+                    if (!param_var || !symtable_insert(&func_scope->symbols, p->name, param_var)) {
+                        fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into function scope.\n", p->name);
+                        return ERROR_INTERNAL;
+                    }
+                }
+
+                // Analyze function body with function scope
+                // The AST_BLOCK will handle its own scope creation and cleanup
+                return semantic_visit(node->right, func_scope);
+            } break;
+
+
+        case AST_GETTER_DEF:   {
+
+            } break;
+        case AST_SETTER_DEF:   {
+
+            } break;
         case AST_VAR_DECL: {
-            // var_decl->left = AST_IDENTIFIER, var_decl->right = next statement
-            if (!node->left || node->left->type != AST_IDENTIFIER) {
+                if (!node->left || node->left->type != AST_IDENTIFIER ) return ERROR_INTERNAL;
+
+                const char *name = node->left->name;
+                SymTableData *existing = symtable_search(&current_scope->symbols, name);
+
+                // Check for redefinition
+                if (existing) {
+                    fprintf(stderr, "[SEMANTIC] Redefinition of symbol: %s\n", name);
+                    return SEM_ERROR_REDEFINED;
+                }
+                DataType var_type = node->left->data_type;
+
+                // Create variable symbol
+                SymTableData *var_data = make_variable(var_type, true, false);
+                if (!var_data) {
+                    fprintf(stderr, "[SEMANTIC] Memory allocation failed for variable: %s\n", name);
+                    return ERROR_INTERNAL;
+                }
+
+                // Insert into current scope's symbol table
+                if(!symtable_insert(&current_scope->symbols, name, var_data)){
+                    fprintf(stderr, "[SEMANTIC] Failed to insert variable into symbol table: %s\n", name);
+                    free(var_data);
+                    return ERROR_INTERNAL;
+                }
+                return semantic_visit(node->right, current_scope);
+            } break;
+
+        case AST_ASSIGN:   {
+
+            } break;
+        case AST_EQUALS:   {
+
+            } break;
+        case AST_IDENTIFIER:   {
+                
+            } break;
+        case AST_FUNC_CALL:{
+
+            } break;
+        case AST_FUNC_ARG: {
+            // Checks argument structure
+            if (!node->right || node->right->type != AST_IDENTIFIER) {
+                fprintf(stderr, "[SEMANTIC] Invalid argument structure.\n");
                 return ERROR_INTERNAL;
             }
-            
-            const char *var_name = node->left->name;
-            
-            // Check redefinition
-            SymTableData *existing = symtable_search(&current_scope->symbols, var_name);
+
+            // Argument name check
+            const char *param_name = node->right->name;
+            SymTableData *existing = symtable_search(&current_scope->symbols, param_name);
             if (existing) {
-                fprintf(stderr, "[SEMANTIC] Redefinition of variable '%s'\n", var_name);
+                fprintf(stderr, "[SEMANTIC] Parameter '%s' already declared in this scope.\n", param_name);
                 return SEM_ERROR_REDEFINED;
             }
-            
-            // Insert variable (not initialized yet)
-            DataType var_type = node->left->data_type;
-            SymTableData *var_data = make_variable(var_type, true, false);
-            if (!var_data || !symtable_insert(&current_scope->symbols, var_name, var_data)) {
+
+            // Pridaj parameter do aktuálneho scope
+            SymTableData *param_data = make_variable(node->right->data_type, true, true);
+            if (!param_data) return ERROR_INTERNAL;
+
+            if (!symtable_insert(&current_scope->symbols, param_name, param_data)) {
+                fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into symbol table.\n", param_name);
                 return ERROR_INTERNAL;
             }
-            
-            // Continue to next statement
-            return semantic_visit(node->right, current_scope);
-        }
-        
-        case AST_ASSIGN: {
-            // assign->left = AST_EQUALS, assign->right = next statement
-            int err = semantic_visit(node->left, current_scope);
-            if (err != NO_ERROR) return err;
-            
-            // Continue to next statement
-            return semantic_visit(node->right, current_scope);
-        }
-        
-        case AST_EQUALS: {
-            // equals->left = AST_IDENTIFIER, equals->right = expression
-            if (!node->left || node->left->type != AST_IDENTIFIER) {
-                return ERROR_INTERNAL;
-            }
-            
-            const char *var_name = node->left->name;
-            
-            // Check if variable exists
-            SymTableData *var = lookup_symbol(current_scope, var_name);
-            if (!var) {
-                fprintf(stderr, "[SEMANTIC] Undefined variable '%s'\n", var_name);
-                return SEM_ERROR_UNDEFINED;
-            }
-            
-            if (var->type != NODE_VAR) {
-                fprintf(stderr, "[SEMANTIC] '%s' is not a variable\n", var_name);
-                return SEM_ERROR_TYPE_COMPATIBILITY;
-            }
-            
-            // Analyze right-hand side expression
-            int err = semantic_visit(node->right, current_scope);
-            if (err != NO_ERROR) return err;
-            
-            // Infer type of expression
-            DataType expr_type = infer_expression_type(node->right, current_scope);
-            if (expr_type == TYPE_UNDEF) {
-                return SEM_ERROR_TYPE_COMPATIBILITY;
-            }
-            
-            // Check type compatibility
-            VariableData *var_data = var->data.var_data;
-            if (var_data->data_type != TYPE_UNDEF && expr_type != TYPE_UNDEF &&
-                var_data->data_type != expr_type) {
-                fprintf(stderr, "[SEMANTIC] Type mismatch in assignment to '%s'\n", var_name);
-                return SEM_ERROR_TYPE_COMPATIBILITY;
-            }
-            
-            // Mark variable as initialized
-            var_data->initialized = true;
-            if (var_data->data_type == TYPE_UNDEF) {
-                var_data->data_type = expr_type;
-            }
-            
-            return NO_ERROR;
-        }
-        
-        case AST_IDENTIFIER: {
-            // Check if variable exists and is initialized
-            SymTableData *var = lookup_symbol(current_scope, node->name);
-            if (!var) {
-                fprintf(stderr, "[SEMANTIC] Undefined identifier '%s'\n", node->name);
-                return SEM_ERROR_UNDEFINED;
-            }
-            
-            if (var->type == NODE_VAR && !var->data.var_data->initialized) {
-                fprintf(stderr, "[SEMANTIC] Variable '%s' used before initialization\n", node->name);
-                return SEM_ERROR_TYPE_COMPATIBILITY;
-            }
-            
-            return NO_ERROR;
-        }
-        
-        case AST_FUNC_CALL: {
-            // func_call->left = AST_FUNC_ARG (arguments), func_call->right = next statement
-            
-            // Lookup function
-            SymTableData *func = lookup_symbol(current_scope, node->name);
-            if (!func || func->type != NODE_FUNC) {
-                fprintf(stderr, "[SEMANTIC] Undefined function '%s'\n", node->name);
-                return SEM_ERROR_UNDEFINED;
-            }
-            
-            FunctionData *fn = func->data.func_data;
-            
-            // Count arguments (linked list via arg->left)
-            int arg_count = 0;
-            ASTNode *arg = node->left;
-            while (arg && arg->type == AST_FUNC_ARG) {
-                // Analyze argument value (arg->right)
-                int err = semantic_visit(arg->right, current_scope);
-                if (err != NO_ERROR) return err;
-                
-                arg_count++;
-                arg = arg->left; // next argument
-            }
-            
-            // Check argument count
-            if (fn->param_count >= 0 && arg_count != fn->param_count) {
-                fprintf(stderr, "[SEMANTIC] Function '%s' expects %d args, got %d\n",
-                        node->name, fn->param_count, arg_count);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-            
-            // TODO: Check argument types
-            
-            // Continue to next statement
-            return semantic_visit(node->right, current_scope);
-        }
-        
-        case AST_FUNC_ARG: {
-            // arg->left = next argument, arg->right = value
-            // Analyze the value
-            int err = semantic_visit(node->right, current_scope);
-            if (err != NO_ERROR) return err;
-            
-            // Continue to next argument
+
+            // Prejdi reťaz ďalších argumentov
             return semantic_visit(node->left, current_scope);
-        }
-        
-        case AST_IF: {
-            // if->left = condition (AST_EXPRESSION), if->right = AST_BLOCK (then)
-            
-            // Analyze condition
-            int err = semantic_visit(node->left, current_scope);
-            if (err != NO_ERROR) return err;
-            
-            // Analyze then branch
-            return semantic_visit(node->right, current_scope);
-        }
-        
+            } break;
+        case AST_IF:   {
+
+            } break;
         case AST_ELSE: {
-            // else->right = AST_BLOCK
-            return semantic_visit(node->right, current_scope);
-        }
-        
-        case AST_WHILE: {
-            // while->left = condition, while->right = AST_BLOCK
-            
-            // Analyze condition
-            int err = semantic_visit(node->left, current_scope);
-            if (err != NO_ERROR) return err;
-            
-            // Analyze body
-            return semantic_visit(node->right, current_scope);
-        }
-        
-        case AST_RETURN: {
-            // return->left = expression
-            // TODO: Check if inside function
-            return semantic_visit(node->left, current_scope);
-        }
-        
-        case AST_BLOCK: {
-            // block->left = statements (chain via ->right), block->right = next (AST_ELSE or NULL)
-            
-            // Analyze statements inside block
-            int err = semantic_visit(node->left, current_scope);
-            if (err != NO_ERROR) return err;
-            
-            // Continue to next (e.g., else branch)
-            return semantic_visit(node->right, current_scope);
-        }
-        
-        case AST_EXPRESSION: {
-            // expression->left = AST_OP or value
-            return semantic_visit(node->left, current_scope);
-        }
-        
-        case AST_OP: {
-            // op->left = left operand, op->right = right operand
-            int err = semantic_visit(node->left, current_scope);
+
+            } break;
+        case AST_WHILE:{
+
+            } break;
+        case AST_RETURN:   {
+
+            } break;
+        case AST_BLOCK:{
+            // New scope init 
+            Scope* block_scope = current_scope;
+
+            //bool created_new_scope = false;
+
+            if (!node->current_table) {
+                block_scope = init_scope();
+                if (!block_scope) {
+                    fprintf(stderr, "[SEMANTIC] Failed to initialize block scope.\n");
+                    return ERROR_INTERNAL;
+                }
+                block_scope->parent = current_scope;
+                node->current_table = &block_scope->symbols;
+                //created_new_scope = true;
+            }
+
+            // Search inside of scope
+            int err = semantic_visit(node->left, block_scope);
+            // Error handle
             if (err != NO_ERROR) return err;
             
             return semantic_visit(node->right, current_scope);
-        }
         
-        // Literals don't need checking
-        case AST_LITERAL_INT:
-        case AST_LITERAL_FLOAT:
-        case AST_LITERAL_STRING:
-        case AST_LITERAL_NULL:
-            return NO_ERROR;
-        
+            } break;
+
+            // TODO: implement expressions later
+        case AST_EXPRESSION:   {
+
+            } break;
+        case AST_OP:   {
+
+            } break;
+        case AST_LITERAL_INT:  {
+
+            } break;
+        case AST_LITERAL_FLOAT:{
+
+            } break;
+        case AST_LITERAL_STRING:   {
+
+            } break;
+        case AST_LITERAL_NULL: {
+
+            } break;
+            // TODO: implement handling for each case
+            break;
+
         default:
             fprintf(stderr, "[SEMANTIC] Unhandled AST node type: %d\n", node->type);
-            return NO_ERROR;
+            return ERROR_INTERNAL;
+            break;
     }
+
+    return NO_ERROR;
 }
+
 
 
 /**
@@ -479,7 +502,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 int semantic_analyze(ASTNode *root) {
     if (!root) {
         fprintf(stderr, "[SEMANTIC] Empty AST tree.\n");
-        return SEM_ERROR_OTHER;
+        return ERROR_INTERNAL;
     }
     
     // Debug: print all nodes

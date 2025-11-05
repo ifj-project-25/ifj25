@@ -5,6 +5,7 @@
  */
 
 #include "ast.h"
+#include "symtable.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -22,7 +23,7 @@ ASTNode* create_ast_node(ASTNodeType type, const char* name) {
     node->float_val = 0.0;
     node->string_val = NULL;
     node->data_type = TYPE_UNDEF;
-    
+    node->current_table = NULL;
     return node;
 }
 
@@ -34,5 +35,6 @@ void free_ast_tree(ASTNode* node) {
     free_ast_tree(node->right);
     if (node->name) free(node->name);
     if (node->string_val) free(node->string_val);
+    if (node->current_table) symtable_free(node->current_table);
     free(node);
 }
