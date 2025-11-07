@@ -8,7 +8,8 @@
 #include "scanner.h"
 #include "symtable.h"
 
-
 int parser(SymTable *AVL);
+void parser_next_token(void);
+const Token *parser_current_token(void);
 
 #endif
