@@ -3,7 +3,6 @@
  * @author xmikusm00
  * @brief expression parser implementation
  */
-#include "expr_parser.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include "scanner.h"
@@ -12,9 +11,9 @@
 #include "parser.h"
 #include "symtable.h"
 #include "expr_ast.h"
+#include "expr_parser.h"
 
-//TODO:: add string literal support
-
+Token previous_token;
 void create_operator_node_with_operands(ExprTstack *number_stack, TokenStack *operator_stack, ExprNode **expressionTree,int *rc);
 
 void untilLeftPar(ExprTstack *number_stack, TokenStack *operator_stack, ExprNode *expressionTree,int *rc) {
@@ -66,7 +65,7 @@ int operator_priority(Token *op) {
 void expression_parser( Token *token, ExprTstack *number_stack, TokenStack *operator_stack, int *rc) {
     int number_of_lparen = 0;
     int number_of_rparen = 0;
-    while (token->type != TOKEN_EOF && token->type != TOKEN_RCURLY) {
+    while (token->type != TOKEN_EOF && token->type != TOKEN_RCURLY && token->type != TOKEN_EOL) {
         if (token->type == TOKEN_RPAREN) {
             if (number_of_rparen > number_of_lparen) printf("leftP %d rightP %d\n", number_of_lparen, number_of_rparen);
         }
@@ -148,20 +147,80 @@ void expression_parser( Token *token, ExprTstack *number_stack, TokenStack *oper
             return ; 
         }
         get_token(token);
+        if (*rc != NO_ERROR) {
+            return ;
+        }
     }
     return ;
 }
-
-ExprNode* expression_parser_main(int *rc) {
+        /* previous_token = *token;
+        get_token(token);
+        if (*rc != NO_ERROR) {
+            return ;
+        }
+        switch (previous_token.type)
+        {
+        case TOKEN_PLUS:
+        case TOKEN_MINUS:
+        case TOKEN_MULTIPLY:
+        case TOKEN_DIVIDE:
+        case TOKEN_LESSER:
+        case TOKEN_GREATER:
+        case TOKEN_LESSER_EQUAL:
+        case TOKEN_GREATER_EQUAL:
+        case TOKEN_LOGIC_EQUAL:
+        case TOKEN_NEQUAL:
+        case TOKEN_LPAREN:
+        
+            if (token->type == TOKEN_PLUS || token->type == TOKEN_MINUS ||
+                token->type == TOKEN_MULTIPLY || token->type == TOKEN_DIVIDE ||
+                token->type == TOKEN_LESSER || token->type == TOKEN_GREATER ||
+                token->type == TOKEN_LESSER_EQUAL || token->type == TOKEN_GREATER_EQUAL ||
+                token->type == TOKEN_LOGIC_EQUAL || token->type == TOKEN_NEQUAL || token->type == TOKEN_RPAREN) {
+                    printf("Two operators in a row: %d %d\n", previous_token.type, token->type);
+            }
+            *rc = SYNTAX_ERROR;
+            break;
+        case TOKEN_IDENTIFIER:
+            if(token->value.keyword == KEYWORD_NUM || token->value.keyword == KEYWORD_STRING || token->type == TOKEN_IDENTIFIER){
+                    printf("Two  keywords in a row\n");
+                    *rc = SYNTAX_ERROR;
+                }
+            break;
+        
+        default:
+            switch (previous_token.value.keyword)
+            {
+            case KEYWORD_NUM:
+            case KEYWORD_STRING:
+                if(token->value.keyword == KEYWORD_NUM || token->value.keyword == KEYWORD_STRING || token->type == TOKEN_IDENTIFIER){
+                    printf("Two  keywords in a row\n");
+                    *rc = SYNTAX_ERROR;
+                }
+                
+                break;
+            
+            default:
+                break;
+            }
+        }
+    }
+    return ;
+}
+ */
+ExprNode* expression_parser_main(Token *token, int *rc) {
     ExprTstack number_stack;
     TokenStack operator_stack;
     expr_stack_init(&number_stack);
     token_stack_init(&operator_stack);
     ExprNode *expressionTree = NULL;
-    Token token;
-    get_token(&token);
-    
-    expression_parser(&token,&number_stack,&operator_stack,rc);
+
+    /* if (token->value.keyword != KEYWORD_NUM || token->type != TOKEN_LPAREN) {
+        printf("Expected 'Num' keyword at the start of expression\n");
+        *rc = SYNTAX_ERROR;
+        return NULL;
+    } */
+    expression_parser(token,&number_stack,&operator_stack,rc);
     // Final reduction: apply remaining operators
     while (!token_stack_is_empty(&operator_stack)) {
         create_operator_node_with_operands(&number_stack,&operator_stack,&expressionTree,rc);
