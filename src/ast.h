@@ -8,6 +8,7 @@
 #define AST_H
 
 #include "symtable.h"
+#include "expr_ast.h"
 
 
 /**  ===== All possible node types in the AST =====
@@ -58,15 +59,15 @@ typedef enum {
                          //actual equals should be handled in expression node
                          //for exammple var a = 15;
 
-                         
-// Expressions -TODO Matej had to check and fix/add/remove that
     AST_EXPRESSION,      // expression node
+// Expressions -TODO Matej had to check and fix/add/remove that
+   /*
     AST_OP,             // operator
     
     AST_LITERAL_INT,     // integer literal
     AST_LITERAL_FLOAT,   // float literal
     AST_LITERAL_STRING,  // string literal
-    AST_LITERAL_NULL,    // null literal
+    AST_LITERAL_NULL,    // null literal*/
 } ASTNodeType;
 
 typedef struct ASTNode {
@@ -75,11 +76,12 @@ typedef struct ASTNode {
 
     struct ASTNode *left;  // left / subnode
     struct ASTNode *right; // right / subnode
+    struct ExprNode *expr; // expression node (for expressions)
 
     // Literal values
-    int int_val;
+    /*int int_val;
     double float_val;
-    char *string_val;
+    char *string_val;*/
 
     SymTable *current_table; // current symbol table for the block
 

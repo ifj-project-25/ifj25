@@ -17,10 +17,12 @@ TEST_SYMTABLE_SRCS = test/test_symtable.c \
 			src/symtable.c \
 
 TEST_SEMANTIC_SRCS = test/test_semantic.c \
+			src/expr_ast.c \
 			src/ast.c \
 			src/symtable.c \
 			src/semantic.c
 TEST_SEMANTIC_BASIC_SRCS = test/test_semantic_basic.c \
+			src/expr_ast.c \
 			src/ast.c \
 			src/symtable.c \
 			src/semantic.c

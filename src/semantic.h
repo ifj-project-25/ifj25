@@ -11,6 +11,8 @@
 #include "ast.h"
 #include "error.h"
 
+extern int semantic_visit_count;
+
 //---------- Scope structure for symbol tables ----------
 // Scope structure for symbol tables
 typedef struct Scope {

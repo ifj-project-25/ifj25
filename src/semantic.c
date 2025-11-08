@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+int semantic_visit_count = 0;
+
 //Debug - print all AST nodes
 void print_all_symbols(ASTNode *node) {
     if (!node) {
@@ -22,6 +24,34 @@ void print_all_symbols(ASTNode *node) {
     print_all_symbols(node->left);
     print_all_symbols(node->right);
     
+}
+
+const char* ast_node_type_to_string(ASTNodeType type) {
+    switch (type) {
+        case AST_PROGRAM: return "PROGRAM";
+        case AST_MAIN_DEF: return "MAIN_DEF";
+        case AST_FUNC_DEF: return "FUNC_DEF";
+        case AST_GETTER_DEF: return "GETTER_DEF";
+        case AST_SETTER_DEF: return "SETTER_DEF";
+        case AST_VAR_DECL: return "VAR_DECL";
+        case AST_ASSIGN: return "ASSIGN";
+        case AST_EQUALS: return "EQUALS";
+        case AST_IDENTIFIER: return "IDENTIFIER";
+        case AST_FUNC_CALL: return "FUNC_CALL";
+        case AST_FUNC_ARG: return "FUNC_ARG";
+        case AST_IF: return "IF";
+        case AST_ELSE: return "ELSE";
+        case AST_WHILE: return "WHILE";
+        case AST_RETURN: return "RETURN";
+        case AST_BLOCK: return "BLOCK";
+        case AST_EXPRESSION: return "EXPRESSION";
+        /*case AST_OP: return "OP";
+        case AST_LITERAL_INT: return "LITERAL_INT";
+        case AST_LITERAL_FLOAT: return "LITERAL_FLOAT";
+        case AST_LITERAL_STRING: return "LITERAL_STRING";
+        case AST_LITERAL_NULL: return "LITERAL_NULL";*/
+        default: return "UNKNOWN";
+    }
 }
 
 // Function to initialize a new scope
@@ -112,21 +142,68 @@ void preload_builtins(Scope *global_scope) {
 
 
 
-// Helper: Infer type of an expression
-DataType infer_expression_type(ASTNode *expr, Scope *scope) {
+// Helper: Infer type of an expression from ExprNode
+DataType infer_expr_node_type(ExprNode *expr, Scope *scope) {
     if (!expr) return TYPE_UNDEF;
     
     switch (expr->type) {
-        case AST_LITERAL_INT:
-        case AST_LITERAL_FLOAT:
+        case EXPR_NUM_LITERAL:
             return TYPE_NUM;
         
-        case AST_LITERAL_STRING:
+        case EXPR_STRING_LITERAL:
             return TYPE_STRING;
         
-        case AST_LITERAL_NULL:
+        case EXPR_NULL_LITERAL:
             return TYPE_NULL;
         
+        case EXPR_IDENTIFIER: {
+            SymTableData *var = lookup_symbol(scope, expr->data.identifier_name);
+            if (!var || var->type != NODE_VAR) return TYPE_UNDEF;
+            return var->data.var_data->data_type;
+        }
+        
+        case EXPR_BINARY_OP: {
+            DataType left = infer_expr_node_type(expr->data.binary.left, scope);
+            DataType right = infer_expr_node_type(expr->data.binary.right, scope);
+            
+            // String concatenation: string + string = string
+            if (expr->data.binary.op == OP_ADD && 
+                left == TYPE_STRING && right == TYPE_STRING) {
+                return TYPE_STRING;
+            }
+            
+            // Arithmetic: num op num = num
+            if (left == TYPE_NUM && right == TYPE_NUM) {
+                return TYPE_NUM;
+            }
+            
+            // Comparison operators: any compatible types -> num (boolean)
+            if ((expr->data.binary.op == OP_EQ || expr->data.binary.op == OP_NEQ ||
+                 expr->data.binary.op == OP_LT || expr->data.binary.op == OP_GT ||
+                 expr->data.binary.op == OP_LTE || expr->data.binary.op == OP_GTE) &&
+                left != TYPE_UNDEF && right != TYPE_UNDEF) {
+                return TYPE_NUM; // Comparisons return numeric (0/1)
+            }
+            
+            return TYPE_UNDEF;
+        }
+        
+        default:
+            return TYPE_UNDEF;
+    }
+}
+
+// Helper: Infer type of an expression from ASTNode (new system only)
+DataType infer_expression_type(ASTNode *expr, Scope *scope) {
+    if (!expr) return TYPE_UNDEF;
+    
+    // Use only the new ExprNode system
+    if (expr->expr) {
+        return infer_expr_node_type(expr->expr, scope);
+    }
+    
+    // For AST nodes without expr, we can only handle basic cases
+    switch (expr->type) {
         case AST_IDENTIFIER: {
             SymTableData *var = lookup_symbol(scope, expr->name);
             if (!var || var->type != NODE_VAR) return TYPE_UNDEF;
@@ -139,38 +216,220 @@ DataType infer_expression_type(ASTNode *expr, Scope *scope) {
             return func->data.func_data->return_type;
         }
         
-        case AST_EXPRESSION:
-            // Recursively check the operator inside
-            return infer_expression_type(expr->left, scope);
-        
-        case AST_OP: {
-            DataType left = infer_expression_type(expr->left, scope);
-            DataType right = infer_expression_type(expr->right, scope);
-            
-            // String concatenation: string + string = string
-            if (strcmp(expr->name, "+") == 0 && 
-                left == TYPE_STRING && right == TYPE_STRING) {
-                return TYPE_STRING;
-            }
-            
-            // Arithmetic: num op num = num
-            if (left == TYPE_NUM && right == TYPE_NUM) {
-                return TYPE_NUM;
-            }
-            
-            return TYPE_UNDEF;
-        }
-        
         default:
             return TYPE_UNDEF;
     }
 }
 
+// Helper function to count arguments
+int count_arguments(ASTNode *arg_list) {
+    int count = 0;
+    ASTNode *current = arg_list;
+    while (current && current->type == AST_FUNC_ARG) {
+        count++;
+        current = current->left; // Next argument
+    }
+    return count;
+}
+
+// Check built-in function call
+int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_name) {
+    int arg_count = count_arguments(node->left);
+    
+    if (strcmp(func_name, "Ifj.read_str") == 0 || strcmp(func_name, "Ifj.read_num") == 0) {
+        if (arg_count != 0) {
+            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 0 arguments, got %d\n", 
+                    func_name, arg_count);
+            return SEM_ERROR_WRONG_PARAMS;
+        }
+    }
+    else if (strcmp(func_name, "Ifj.write") == 0 || strcmp(func_name, "Ifj.str") == 0) {
+        if (arg_count != 1) {
+            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 1 argument, got %d\n", 
+                    func_name, arg_count);
+            return SEM_ERROR_WRONG_PARAMS;
+        }
+        // For write and str, any type is acceptable - no type checking needed
+    }
+    else if (strcmp(func_name, "Ifj.floor") == 0 || strcmp(func_name, "Ifj.chr") == 0) {
+        if (arg_count != 1) {
+            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 1 argument, got %d\n", 
+                    func_name, arg_count);
+            return SEM_ERROR_WRONG_PARAMS;
+        }
+        // Check if argument is numeric type
+        ASTNode *first_arg = node->left;
+        if (first_arg && first_arg->right) {
+            DataType arg_type = infer_expression_type(first_arg->right, scope);
+            if (arg_type != TYPE_NUM) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires numeric argument\n", func_name);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+    }
+    else if (strcmp(func_name, "Ifj.length") == 0) {
+        if (arg_count != 1) {
+            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 1 argument, got %d\n", 
+                    func_name, arg_count);
+            return SEM_ERROR_WRONG_PARAMS;
+        }
+        // Check if argument is string type
+        ASTNode *first_arg = node->left;
+        if (first_arg && first_arg->right) {
+            DataType arg_type = infer_expression_type(first_arg->right, scope);
+            if (arg_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires string argument\n", func_name);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+    }
+    else if (strcmp(func_name, "Ifj.substring") == 0) {
+        if (arg_count != 3) {
+            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 3 arguments, got %d\n", 
+                    func_name, arg_count);
+            return SEM_ERROR_WRONG_PARAMS;
+        }
+        // Check argument types: string, num, num
+        ASTNode *arg = node->left;
+        if (arg && arg->right) {
+            DataType arg1_type = infer_expression_type(arg->right, scope);
+            if (arg1_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string\n", func_name);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+        // Check 2nd and 3rd arguments are numeric
+        if (arg && arg->left && arg->left->right) {
+            DataType arg2_type = infer_expression_type(arg->left->right, scope);
+            if (arg2_type != TYPE_NUM) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be numeric\n", func_name);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+        if (arg && arg->left && arg->left->left && arg->left->left->right) {
+            DataType arg3_type = infer_expression_type(arg->left->left->right, scope);
+            if (arg3_type != TYPE_NUM) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' third argument must be numeric\n", func_name);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+    }
+    else if (strcmp(func_name, "Ifj.strcmp") == 0) {
+        if (arg_count != 2) {
+            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 2 arguments, got %d\n", 
+                    func_name, arg_count);
+            return SEM_ERROR_WRONG_PARAMS;
+        }
+        // Check both arguments are strings
+        ASTNode *arg = node->left;
+        if (arg && arg->right) {
+            DataType arg1_type = infer_expression_type(arg->right, scope);
+            if (arg1_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string\n", func_name);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+        if (arg && arg->left && arg->left->right) {
+            DataType arg2_type = infer_expression_type(arg->left->right, scope);
+            if (arg2_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be string\n", func_name);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+    }
+    else if (strcmp(func_name, "Ifj.ord") == 0) {
+        if (arg_count != 2) {
+            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 2 arguments, got %d\n", 
+                    func_name, arg_count);
+            return SEM_ERROR_WRONG_PARAMS;
+        }
+        // Check first argument is string, second is numeric
+        ASTNode *arg = node->left;
+        if (arg && arg->right) {
+            DataType arg1_type = infer_expression_type(arg->right, scope);
+            if (arg1_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string\n", func_name);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+        if (arg && arg->left && arg->left->right) {
+            DataType arg2_type = infer_expression_type(arg->left->right, scope);
+            if (arg2_type != TYPE_NUM) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be numeric\n", func_name);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+    }
+    else {
+        fprintf(stderr, "[SEMANTIC] Unknown built-in function '%s'\n", func_name);
+        return SEM_ERROR_OTHER;
+    }
+    
+    // Set return type for the function call node
+    if (strcmp(func_name, "Ifj.read_str") == 0 || strcmp(func_name, "Ifj.str") == 0 || 
+        strcmp(func_name, "Ifj.substring") == 0 || strcmp(func_name, "Ifj.chr") == 0) {
+        node->data_type = TYPE_STRING;
+    }
+    else if (strcmp(func_name, "Ifj.read_num") == 0 || strcmp(func_name, "Ifj.floor") == 0 ||
+             strcmp(func_name, "Ifj.length") == 0 || strcmp(func_name, "Ifj.strcmp") == 0 ||
+             strcmp(func_name, "Ifj.ord") == 0) {
+        node->data_type = TYPE_NUM;
+    }
+    else if (strcmp(func_name, "Ifj.write") == 0) {
+        node->data_type = TYPE_NULL;
+    }
+    
+    return NO_ERROR;
+}
+
+// Check user function call
+int check_user_function_call(ASTNode *node, Scope *scope, SymTableData *func_symbol) {
+    if (func_symbol->type != NODE_FUNC) {
+        fprintf(stderr, "[SEMANTIC] '%s' is not a function\n", node->name);
+        return SEM_ERROR_OTHER;
+    }
+    
+    FunctionData *fdata = func_symbol->data.func_data;
+    int arg_count = count_arguments(node->left);
+    
+    if (fdata->param_count != arg_count) {
+        fprintf(stderr, "[SEMANTIC] Function '%s' expects %d arguments, got %d\n", 
+                node->name, fdata->param_count, arg_count);
+        return SEM_ERROR_WRONG_PARAMS;
+    }
+    
+    // Type checking for each parameter
+    ASTNode *arg_node = node->left;
+    Param *param = fdata->parameters;
+
+    while (arg_node && param) {
+        if (arg_node->right) {
+            DataType arg_type = infer_expression_type(arg_node->right, scope);
+            if (arg_type != param->data_type && param->data_type != TYPE_UNDEF) {
+                fprintf(stderr, "[SEMANTIC] Function '%s' parameter '%s' expects type %d, got %d\n", 
+                        node->name, param->name, param->data_type, arg_type);
+                return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+        }
+        arg_node = arg_node->left;
+        param = param->next;
+    }
+    
+    // Set return type for the function call node
+    node->data_type = fdata->return_type;
+    
+    return NO_ERROR;
+}
 
 //---------- MAIN VISIT: Traverse AST tree ----------
 int semantic_visit(ASTNode *node, Scope *current_scope) {
     if (!node) return NO_ERROR;
 
+     semantic_visit_count++;
+     
+     printf("[SEMANTIC] Visiting node: %s, name: %s\n", 
+           ast_node_type_to_string(node->type), 
+           node->name ? node->name : "(null)");
     switch (node->type) {
         case AST_PROGRAM:   {
                 int err = semantic_visit(node->left, current_scope);
@@ -217,12 +476,15 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     arg_node = arg_node->left;
                 }
 
-                // Check for redefinition of main - use lookup_symbol to check all parent scopes
+                // Check for redefinition of main - allow overloading (different parameter counts)
                 SymTableData *existing = lookup_symbol(current_scope, func_name);
                 if (existing && existing->type == NODE_FUNC) {
-                    // For main, we don't allow overloading - any main function is error
-                    fprintf(stderr, "[SEMANTIC] Redefinition of 'main' function.\n");
-                    return SEM_ERROR_REDEFINED;
+                    FunctionData *fdata = existing->data.func_data;
+                    if (fdata->param_count == param_count) {
+                        fprintf(stderr, "[SEMANTIC] Redefinition of 'main' function with %d parameters.\n", param_count);
+                        return SEM_ERROR_REDEFINED;
+                    }
+                    // Different parameter count - overloading allowed ✓
                 }
 
                 // Create and insert main symbol 
@@ -349,11 +611,98 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
             } break;
 
 
-        case AST_GETTER_DEF:   {
+        case AST_GETTER_DEF: {
+                if (!node->right) return ERROR_INTERNAL;
 
+                // Get getter name
+                const char *getter_name = node->name;
+                if (!getter_name) return ERROR_INTERNAL;
+
+                // Check for existing GETTER with same name (only getter conflicts)
+                SymTableData *existing = lookup_symbol(current_scope, getter_name);
+                if (existing && existing->type == NODE_GETTER) {
+                    fprintf(stderr, "[SEMANTIC] Redefinition of getter '%s'.\n", getter_name);
+                    return SEM_ERROR_REDEFINED;
+                }
+
+                // Create getter symbol - getters have 0 parameters
+                SymTableData *getter_symbol = make_getter(TYPE_UNDEF, true);
+                if (!getter_symbol) {
+                    fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for getter '%s'.\n", getter_name);
+                    return ERROR_INTERNAL;
+                }
+
+                // Insert into current scope
+                if (!symtable_insert(&current_scope->symbols, getter_name, getter_symbol)) {
+                    fprintf(stderr, "[SEMANTIC] Failed to insert getter '%s' into symbol table.\n", getter_name);
+                    return ERROR_INTERNAL;
+                }
+
+                // Create new scope for getter body
+                Scope *getter_scope = init_scope();
+                if (!getter_scope) {
+                    fprintf(stderr, "[SEMANTIC] Failed to create scope for getter '%s'.\n", getter_name);
+                    return ERROR_INTERNAL;
+                }
+                getter_scope->parent = current_scope;
+
+                // Analyze getter body with getter scope
+                return semantic_visit(node->right, getter_scope);
             } break;
-        case AST_SETTER_DEF:   {
 
+        case AST_SETTER_DEF: {
+                if (!node->right) return ERROR_INTERNAL;
+
+                // Get setter name
+                const char *setter_name = node->name;
+                if (!setter_name) return ERROR_INTERNAL;
+
+                // Check parameters - setters should have exactly 1 parameter
+                if (!node->left || node->left->type != AST_IDENTIFIER) {
+                    fprintf(stderr, "[SEMANTIC] Setter '%s' must have exactly one parameter.\n", setter_name);
+                    return SEM_ERROR_WRONG_PARAMS;
+                }
+
+                const char *param_name = node->left->name;
+                DataType param_type = node->left->data_type;
+
+                // Check for existing SETTER with same name (only setter conflicts)
+                SymTableData *existing = lookup_symbol(current_scope, setter_name);
+                if (existing && existing->type == NODE_SETTER) {
+                    fprintf(stderr, "[SEMANTIC] Redefinition of setter '%s'.\n", setter_name);
+                    return SEM_ERROR_REDEFINED;
+                }
+
+                // Create setter symbol - setters have 1 parameter
+                SymTableData *setter_symbol = make_setter(param_type, true);
+                if (!setter_symbol) {
+                    fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for setter '%s'.\n", setter_name);
+                    return ERROR_INTERNAL;
+                }
+
+                // Insert into current scope
+                if (!symtable_insert(&current_scope->symbols, setter_name, setter_symbol)) {
+                    fprintf(stderr, "[SEMANTIC] Failed to insert setter '%s' into symbol table.\n", setter_name);
+                    return ERROR_INTERNAL;
+                }
+
+                // Create new scope for setter body
+                Scope *setter_scope = init_scope();
+                if (!setter_scope) {
+                    fprintf(stderr, "[SEMANTIC] Failed to create scope for setter '%s'.\n", setter_name);
+                    return ERROR_INTERNAL;
+                }
+                setter_scope->parent = current_scope;
+
+                // Insert parameter into setter scope
+                SymTableData *param_var = make_variable(param_type, true, true);
+                if (!param_var || !symtable_insert(&setter_scope->symbols, param_name, param_var)) {
+                    fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into setter scope.\n", param_name);
+                    return ERROR_INTERNAL;
+                }
+
+                // Analyze setter body with setter scope
+                return semantic_visit(node->right, setter_scope);
             } break;
         case AST_VAR_DECL: {
                 if (!node->left || node->left->type != AST_IDENTIFIER ) return ERROR_INTERNAL;
@@ -384,88 +733,252 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 return semantic_visit(node->right, current_scope);
             } break;
 
-        case AST_ASSIGN:   {
-
-            } break;
-        case AST_EQUALS:   {
-
-            } break;
-        case AST_IDENTIFIER:   {
+        case AST_ASSIGN: {
+                // AST_ASSIGN -> left = AST_EQUALS, right = next statement
+                if (!node->left || node->left->type != AST_EQUALS) {
+                    fprintf(stderr, "[SEMANTIC] Invalid assignment structure\n");
+                    return ERROR_INTERNAL;
+                }
                 
+                // Process the assignment (AST_EQUALS)
+                int err = semantic_visit(node->left, current_scope);
+                if (err != NO_ERROR) return err;
+                
+                // Continue with next statement
+                return semantic_visit(node->right, current_scope);
             } break;
-        case AST_FUNC_CALL:{
 
+        case AST_EQUALS: {
+                // AST_EQUALS -> left = identifier, expr = expression
+                
+                if (!node->left || node->left->type != AST_IDENTIFIER) {
+                    fprintf(stderr, "[SEMANTIC] Left side of assignment must be identifier\n");
+                    return SEM_ERROR_OTHER;
+                }
+                
+                const char* var_name = node->left->name;
+                
+                // Check if variable exists
+                SymTableData* var_data = lookup_symbol(current_scope, var_name);
+                if (!var_data) {
+                    fprintf(stderr, "[SEMANTIC] Undefined variable '%s' in assignment\n", var_name);
+                    return SEM_ERROR_UNDEFINED;
+                }
+                
+                if (var_data->type != NODE_VAR) {
+                    fprintf(stderr, "[SEMANTIC] '%s' is not a variable\n", var_name);
+                    return SEM_ERROR_OTHER;
+                }
+                
+                if (!node->expr) {
+                    fprintf(stderr, "[SEMANTIC] Assignment to '%s' has no value\n", var_name);
+                    return SEM_ERROR_OTHER;
+                }
+                
+                DataType right_type = infer_expr_node_type(node->expr, current_scope);
+                DataType left_type = var_data->data.var_data->data_type;
+                
+                // Type compatibility check
+                if (right_type != TYPE_UNDEF && left_type != TYPE_UNDEF && 
+                    right_type != left_type) {
+                    fprintf(stderr, "[SEMANTIC] Type mismatch in assignment to '%s': expected %d, got %d\n",
+                            var_name, left_type, right_type);
+                    return SEM_ERROR_TYPE_COMPATIBILITY;
+                }
+                
+                // Mark variable as initialized
+                var_data->data.var_data->initialized = true;
+                
+                // If variable type is undefined, infer it from the assignment
+                if (left_type == TYPE_UNDEF && right_type != TYPE_UNDEF) {
+                    var_data->data.var_data->data_type = right_type;
+                }
+                
+                return NO_ERROR;
+            } break;
+        case AST_IDENTIFIER: {
+                // AST_IDENTIFIER - check if variable exists and is initialized
+                const char* var_name = node->name;
+                
+                if (!var_name) {
+                    fprintf(stderr, "[SEMANTIC] Identifier has no name\n");
+                    return ERROR_INTERNAL;
+                }
+                
+                SymTableData* var_data = lookup_symbol(current_scope, var_name);
+                
+                if (!var_data) {
+                    fprintf(stderr, "[SEMANTIC] Undefined variable '%s'\n", var_name);
+                    return SEM_ERROR_UNDEFINED;
+                }
+                
+                if (var_data->type != NODE_VAR) {
+                    fprintf(stderr, "[SEMANTIC] '%s' is not a variable\n", var_name);
+                    return SEM_ERROR_OTHER;
+                }
+                
+                // Check if variable is initialized (if it's not a function parameter)
+                if (!var_data->data.var_data->initialized /*&& !var_data->data.var_data->is_param*/) {
+                    fprintf(stderr, "[SEMANTIC] Variable '%s' used before initialization\n", var_name);
+                    return SEM_ERROR_OTHER;
+                }
+                
+                // Set the data type for this identifier node
+                node->data_type = var_data->data.var_data->data_type;
+                
+                // Continue with any child nodes (though identifiers shouldn't have any in normal use)
+                int err = semantic_visit(node->left, current_scope);
+                if (err != NO_ERROR) return err;
+                
+                return semantic_visit(node->right, current_scope);
+            } break;
+        case AST_FUNC_CALL: {
+                const char *func_name = node->name;
+                
+                // Check existenstion
+                SymTableData *func_symbol = lookup_symbol(current_scope, func_name);
+                
+                if (!func_symbol) {
+                    fprintf(stderr, "[SEMANTIC] Undefined function '%s'\n", func_name);
+                    return SEM_ERROR_UNDEFINED;
+                }
+                
+                int err;
+                if (strncmp(func_name, "Ifj.", 4) == 0) {
+                    err = check_builtin_function_call(node, current_scope, func_name);
+                } else {
+                    err = check_user_function_call(node, current_scope, func_symbol);
+                }
+                
+                if (err != NO_ERROR) return err;
+                
+                // Continue with next program
+                return semantic_visit(node->right, current_scope);
             } break;
         case AST_FUNC_ARG: {
-            // Checks argument structure
-            if (!node->right || node->right->type != AST_IDENTIFIER) {
-                fprintf(stderr, "[SEMANTIC] Invalid argument structure.\n");
-                return ERROR_INTERNAL;
-            }
+                // Checks argument structure
+                if (!node->right || node->right->type != AST_IDENTIFIER) {
+                    fprintf(stderr, "[SEMANTIC] Invalid argument structure.\n");
+                    return ERROR_INTERNAL;
+                }
 
-            // Argument name check
-            const char *param_name = node->right->name;
-            SymTableData *existing = symtable_search(&current_scope->symbols, param_name);
-            if (existing) {
-                fprintf(stderr, "[SEMANTIC] Parameter '%s' already declared in this scope.\n", param_name);
-                return SEM_ERROR_REDEFINED;
-            }
+                // Argument name check
+                const char *param_name = node->right->name;
+                SymTableData *existing = symtable_search(&current_scope->symbols, param_name);
+                if (existing) {
+                    fprintf(stderr, "[SEMANTIC] Parameter '%s' already declared in this scope.\n", param_name);
+                    return SEM_ERROR_REDEFINED;
+                }
 
-            // Pridaj parameter do aktuálneho scope
-            SymTableData *param_data = make_variable(node->right->data_type, true, true);
-            if (!param_data) return ERROR_INTERNAL;
+                // add to parameters
+                SymTableData *param_data = make_variable(node->right->data_type, true, true);
+                if (!param_data) return ERROR_INTERNAL;
 
-            if (!symtable_insert(&current_scope->symbols, param_name, param_data)) {
-                fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into symbol table.\n", param_name);
-                return ERROR_INTERNAL;
-            }
+                if (!symtable_insert(&current_scope->symbols, param_name, param_data)) {
+                    fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into symbol table.\n", param_name);
+                    return ERROR_INTERNAL;
+                }
 
-            // Prejdi reťaz ďalších argumentov
-            return semantic_visit(node->left, current_scope);
+                // go trough other arguments
+                return semantic_visit(node->left, current_scope);
             } break;
-        case AST_IF:   {
-
+        case AST_IF: {
+                // AST_IF -> expr = condition, right = then branch (AST_BLOCK)
+                
+                if (!node->expr) {
+                    fprintf(stderr, "[SEMANTIC] If statement missing condition\n");
+                    return SEM_ERROR_OTHER;
+                }
+                
+                DataType cond_type = infer_expr_node_type(node->expr, current_scope);
+                
+                // Condition should be numeric (truthy)
+                if (cond_type != TYPE_NUM && cond_type != TYPE_UNDEF) {
+                    fprintf(stderr, "[SEMANTIC] If condition must be numeric expression, got type %d\n", cond_type);
+                    return SEM_ERROR_TYPE_COMPATIBILITY;
+                }
+                
+                // Process then branch
+                if (!node->right || node->right->type != AST_BLOCK) {
+                    fprintf(stderr, "[SEMANTIC] If statement missing then block\n");
+                    return ERROR_INTERNAL;
+                }
+                
+                return semantic_visit(node->right, current_scope);
             } break;
+
         case AST_ELSE: {
+                // AST_ELSE -> left = NULL, right = else branch (AST_BLOCK)
+                
+                if (!node->right || node->right->type != AST_BLOCK) {
+                    fprintf(stderr, "[SEMANTIC] Else statement missing block\n");
+                    return ERROR_INTERNAL;
+                }
+                
+                // Process else branch
+                return semantic_visit(node->right, current_scope);
+            } break;
 
+        case AST_RETURN: {
+                // AST_RETURN -> expr = return expression, right = NULL
+                
+                DataType return_type = TYPE_NULL; // Default for void return
+                
+                if (node->expr) {
+                    return_type = infer_expr_node_type(node->expr, current_scope);
+                }
+                
+                // Store return type for function return type checking
+                node->data_type = return_type;
+                
+                return NO_ERROR;
             } break;
         case AST_WHILE:{
 
             } break;
-        case AST_RETURN:   {
-
-            } break;
         case AST_BLOCK:{
-            // New scope init 
-            Scope* block_scope = current_scope;
+                // New scope init 
+                Scope* block_scope = current_scope;
 
-            //bool created_new_scope = false;
+                //bool created_new_scope = false;
 
-            if (!node->current_table) {
-                block_scope = init_scope();
-                if (!block_scope) {
-                    fprintf(stderr, "[SEMANTIC] Failed to initialize block scope.\n");
-                    return ERROR_INTERNAL;
+                if (!node->current_table) {
+                    block_scope = init_scope();
+                    if (!block_scope) {
+                        fprintf(stderr, "[SEMANTIC] Failed to initialize block scope.\n");
+                        return ERROR_INTERNAL;
+                    }
+                    block_scope->parent = current_scope;
+                    node->current_table = &block_scope->symbols;
+                    //created_new_scope = true;
                 }
-                block_scope->parent = current_scope;
-                node->current_table = &block_scope->symbols;
-                //created_new_scope = true;
-            }
 
-            // Search inside of scope
-            int err = semantic_visit(node->left, block_scope);
-            // Error handle
-            if (err != NO_ERROR) return err;
+                // Search inside of scope
+                int err = semantic_visit(node->left, block_scope);
+                // Error handle
+                if (err != NO_ERROR) return err;
+                
+                return semantic_visit(node->right, current_scope);
+            
+            } break;
+
+        case AST_EXPRESSION: {
+            if (node->expr) {
+                
+                DataType expr_type = infer_expr_node_type(node->expr, current_scope);
+                node->data_type = expr_type;
+                
+                // TODO: Add type compatibility checks for binary operations
+            } else {
+                
+                // This handles the transition period
+                DataType expr_type = infer_expression_type(node->left, current_scope);
+                node->data_type = expr_type;
+            }
             
             return semantic_visit(node->right, current_scope);
-        
-            } break;
-
-            // TODO: implement expressions later
-        case AST_EXPRESSION:   {
-
-            } break;
-        case AST_OP:   {
+        } break;
+        /*case AST_OP:   {
 
             } break;
         case AST_LITERAL_INT:  {
@@ -479,7 +992,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
             } break;
         case AST_LITERAL_NULL: {
 
-            } break;
+            } break;*/
             // TODO: implement handling for each case
             break;
 

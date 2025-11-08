@@ -5,9 +5,11 @@
  */
 
 #include "ast.h"
+#include "expr_ast.h"
 #include "symtable.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 
 // helper function to create a new AST node
@@ -19,11 +21,12 @@ ASTNode* create_ast_node(ASTNodeType type, const char* name) {
     node->name = name ? my_strdup(name) : NULL;
     node->left = NULL;
     node->right = NULL;
-    node->int_val = 0;
+    node->expr = NULL;
+    /*node->int_val = 0;
     node->float_val = 0.0;
-    node->string_val = NULL;
-    node->data_type = TYPE_UNDEF;
+    node->string_val = NULL;*/
     node->current_table = NULL;
+    node->data_type = TYPE_UNDEF;
     return node;
 }
 
@@ -33,8 +36,14 @@ void free_ast_tree(ASTNode* node) {
     
     free_ast_tree(node->left);
     free_ast_tree(node->right);
+
+    if (node->expr){
+        free_expr_node(node->expr);
+    }
+    
+
     if (node->name) free(node->name);
-    if (node->string_val) free(node->string_val);
+    //if (node->string_val) free(node->string_val);
     if (node->current_table) symtable_free(node->current_table);
     free(node);
 }
