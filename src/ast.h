@@ -61,7 +61,7 @@ typedef enum {
                          //actual equals should be handled in expression node
                          //for exammple var a = 15;
 
-    AST_EXPRESSION,      // expression node
+    AST_EXPRESSION,      // expression node -> left - AST_FUNC_CALL, expr - ExprNode
 // Expressions -TODO Matej had to check and fix/add/remove that
    /*
     AST_OP,             // operator

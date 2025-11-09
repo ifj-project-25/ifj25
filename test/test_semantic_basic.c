@@ -19,7 +19,7 @@ int tests_passed = 0;
 int tests_total = 0;
 
 // Premenná pre výber konkrétneho testu (0 = všetky testy)
-    int specific_test = 11;  // Zmeň na číslo testu ktorý chceš spustiť, 0 - všetky
+    int specific_test = 0;  // Zmeň na číslo testu ktorý chceš spustiť, 0 - všetky
 
 // Funkcia pre spustenie jedného testu
 void run_test(const char* test_name, int expected_error, int (*test_func)(void)) {
@@ -1564,6 +1564,156 @@ int test_return_null() {
     return result;
 }
 
+// Test 50: Complex program with proper variable declarations (NO_ERROR)
+int test_complex_program_fixed() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // === Function Program.main ===
+    ASTNode* main_func = create_ast_node(AST_FUNC_DEF, "Program.main");
+    program->left = main_func;
+
+    ASTNode* main_block = create_ast_node(AST_BLOCK, NULL);
+    main_func->right = main_block;
+
+    // var x
+    ASTNode* decl_x = create_ast_node(AST_VAR_DECL, NULL);
+    main_block->left = decl_x;
+    decl_x->left = create_ast_node(AST_IDENTIFIER, "x");
+    decl_x->left->data_type = TYPE_UNDEF;
+
+    // x = 9 * 9 / (4 + 6)
+    ASTNode* assign_x = create_ast_node(AST_ASSIGN, NULL);
+    decl_x->right = assign_x;
+
+    ASTNode* equals_x = create_ast_node(AST_EQUALS, NULL);
+    assign_x->left = equals_x;
+    equals_x->left = create_ast_node(AST_IDENTIFIER, "x");
+
+    // Expression for RHS: (9 * 9) / (4 + 6)
+    ASTNode* expr_arith = create_ast_node(AST_EXPRESSION, NULL);
+    expr_arith->expr = create_binary_op_node(
+        OP_DIV,
+        create_binary_op_node(OP_MUL,
+            create_num_literal_node(9),
+            create_num_literal_node(9)),
+        create_binary_op_node(OP_ADD,
+            create_num_literal_node(4),
+            create_num_literal_node(6))
+    );
+    equals_x->right = expr_arith;
+
+    // === Function Program.second ===
+    ASTNode* second_func = create_ast_node(AST_FUNC_DEF, "Program.second");
+    assign_x->right = second_func; // chain functions
+
+    ASTNode* second_block = create_ast_node(AST_BLOCK, NULL);
+    second_func->right = second_block;
+
+    // var secondeX
+    ASTNode* decl_secondeX = create_ast_node(AST_VAR_DECL, NULL);
+    second_block->left = decl_secondeX;
+    decl_secondeX->left = create_ast_node(AST_IDENTIFIER, "secondeX");
+    decl_secondeX->left->data_type = TYPE_UNDEF;
+
+    // var d
+    ASTNode* decl_d = create_ast_node(AST_VAR_DECL, NULL);
+    decl_secondeX->right = decl_d;
+    decl_d->left = create_ast_node(AST_IDENTIFIER, "d");
+    decl_d->left->data_type = TYPE_UNDEF;
+
+    // d = 0
+    ASTNode* assign_d = create_ast_node(AST_ASSIGN, NULL);
+    decl_d->right = assign_d;
+
+    ASTNode* equals_d = create_ast_node(AST_EQUALS, NULL);
+    assign_d->left = equals_d;
+    equals_d->left = create_ast_node(AST_IDENTIFIER, "d");
+
+    ASTNode* expr_zero = create_ast_node(AST_EXPRESSION, NULL);
+    expr_zero->expr = create_num_literal_node(0);
+    equals_d->right = expr_zero;
+
+    // secondeX = d
+    ASTNode* assign_secondeX = create_ast_node(AST_ASSIGN, NULL);
+    assign_d->right = assign_secondeX;
+
+    ASTNode* equals_secondeX = create_ast_node(AST_EQUALS, NULL);
+    assign_secondeX->left = equals_secondeX;
+    equals_secondeX->left = create_ast_node(AST_IDENTIFIER, "secondeX");
+
+    ASTNode* expr_d = create_ast_node(AST_EXPRESSION, NULL);
+    expr_d->expr = create_identifier_node("d");
+    equals_secondeX->right = expr_d;
+
+    // === Function Program.thirt ===
+    ASTNode* thirt_func = create_ast_node(AST_FUNC_DEF, "Program.thirt");
+    assign_secondeX->right = thirt_func;
+
+    ASTNode* thirt_block = create_ast_node(AST_BLOCK, NULL);
+    thirt_func->right = thirt_block;
+
+    // var asd
+    ASTNode* decl_asd = create_ast_node(AST_VAR_DECL, NULL);
+    thirt_block->left = decl_asd;
+    decl_asd->left = create_ast_node(AST_IDENTIFIER, "asd");
+    decl_asd->left->data_type = TYPE_UNDEF;
+
+    // asd = 2.0
+    ASTNode* assign_asd1 = create_ast_node(AST_ASSIGN, NULL);
+    decl_asd->right = assign_asd1;
+
+    ASTNode* equals_asd1 = create_ast_node(AST_EQUALS, NULL);
+    assign_asd1->left = equals_asd1;
+    equals_asd1->left = create_ast_node(AST_IDENTIFIER, "asd");
+
+    ASTNode* expr_2 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_2->expr = create_num_literal_node(2.0);
+    equals_asd1->right = expr_2;
+
+    // var a
+    ASTNode* decl_a = create_ast_node(AST_VAR_DECL, NULL);
+    assign_asd1->right = decl_a;
+    decl_a->left = create_ast_node(AST_IDENTIFIER, "a");
+    decl_a->left->data_type = TYPE_UNDEF;
+
+    // a = 3
+    ASTNode* assign_a = create_ast_node(AST_ASSIGN, NULL);
+    decl_a->right = assign_a;
+
+    ASTNode* equals_a = create_ast_node(AST_EQUALS, NULL);
+    assign_a->left = equals_a;
+    equals_a->left = create_ast_node(AST_IDENTIFIER, "a");
+
+    ASTNode* expr_3 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_3->expr = create_num_literal_node(3);
+    equals_a->right = expr_3;
+
+    // asd = asd * a
+    ASTNode* assign_asd2 = create_ast_node(AST_ASSIGN, NULL);
+    assign_a->right = assign_asd2;
+
+    ASTNode* equals_asd2 = create_ast_node(AST_EQUALS, NULL);
+    assign_asd2->left = equals_asd2;
+    equals_asd2->left = create_ast_node(AST_IDENTIFIER, "asd");
+
+    ASTNode* expr_asd_a = create_ast_node(AST_EXPRESSION, NULL);
+    expr_asd_a->expr = create_binary_op_node(
+        OP_MUL,
+        create_identifier_node("asd"),
+        create_identifier_node("a")
+    );
+    equals_asd2->right = expr_asd_a;
+
+    // Run semantic analysis
+    int result = semantic_analyze(program);
+
+    printf("Expected: %d, got: %d\n", NO_ERROR, result);
+
+    free_ast_tree(program);
+    return result;
+}
+
+
 void print_summary() {
     printf(COLOR_YELLOW "========================================\n" COLOR_RESET);
     printf(COLOR_YELLOW "           TEST SUMMARY\n" COLOR_RESET);
@@ -1646,6 +1796,7 @@ int main() {
             {47, "If-else-if chain", "NO_ERROR", NO_ERROR, test_multiple_if_else},
             {48, "Return string", "NO_ERROR", NO_ERROR, test_return_string},
             {49, "Return null", "NO_ERROR", NO_ERROR, test_return_null},
+            {50, "MATKOV program","NO_ERROR",NO_ERROR,test_complex_program_fixed},
             {0, NULL, NULL, 0, NULL} // Ukončovací prvok
         };
 
