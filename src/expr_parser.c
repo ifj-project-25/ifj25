@@ -5,6 +5,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include "scanner.h"
 #include "expr_stack.h"
 #include "error.h"
@@ -14,6 +15,7 @@
 #include "expr_parser.h"
 
 Token previous_token;
+bool is_previous_token_operator = true;
 void create_operator_node_with_operands(ExprTstack *number_stack, TokenStack *operator_stack, ExprNode **expressionTree,int *rc);
 
 void untilLeftPar(ExprTstack *number_stack, TokenStack *operator_stack, ExprNode *expressionTree,int *rc) {
@@ -71,29 +73,52 @@ void expression_parser( Token *token, ExprTstack *number_stack, TokenStack *oper
         }
         switch (token->type)
         {
-        case TOKEN_DOUBLE:// added support for double literals
+        case TOKEN_DOUBLE:// added support for double literals // Do i need them ? 
         {
+            
             // push number as ExprNode (operand stack)
             ExprNode *num_node = create_num_literal_node(token->value.decimal);
             expr_stack_push(number_stack, num_node);
             break;
         }
-        case TOKEN_INTEGER: {
+        case TOKEN_INTEGER: 
+            if(is_previous_token_operator == false){
+                printf("Two operands in a row: %d %d\n", previous_token.type, token->type);
+                *rc = SYNTAX_ERROR;
+                return ;
+            }
+            is_previous_token_operator = false;
             // push number as ExprNode (operand stack)
             ExprNode *num_node = create_num_literal_node((double)token->value.integer);
             expr_stack_push(number_stack, num_node);
             break;
-        }
-        case TOKEN_IDENTIFIER:{
+        case TOKEN_IDENTIFIER:
+            if(is_previous_token_operator == false){
+                printf("Two operands in a row: %d %d\n", previous_token.type, token->type);
+                *rc = SYNTAX_ERROR;
+                return ;
+            }
+            is_previous_token_operator = false;
             // push identifier as ExprNode (operand stack)
             ExprNode *id_node = create_identifier_node(token->value.string->str);
             expr_stack_push(number_stack, id_node);
             break;
-        }
         case TOKEN_GLOBAL_VAR: //TODO: i dont know this one
+            if(is_previous_token_operator == false){
+                printf("Two operands in a row: %d %d\n", previous_token.type, token->type);
+                *rc = SYNTAX_ERROR;
+                return ;
+            }
+            is_previous_token_operator = false;
             printf("GLOBAL VAR in expr parser not implemented\n");
             break;
         case TOKEN_STRING:
+            if(is_previous_token_operator == false){
+                printf("Two operands in a row: %d %d\n", previous_token.type, token->type);
+                *rc = SYNTAX_ERROR;
+                return ;
+            }
+            is_previous_token_operator = false;
             // push string as ExprNode (operand stack)
             ExprNode *str_node = create_string_literal_node(token->value.string->str);
             expr_stack_push(number_stack, str_node);
@@ -108,6 +133,12 @@ void expression_parser( Token *token, ExprTstack *number_stack, TokenStack *oper
         case TOKEN_GREATER_EQUAL:
         case TOKEN_LOGIC_EQUAL:
         case TOKEN_NEQUAL:
+            if(is_previous_token_operator == true){
+                printf("Two operands in a row: %d %d\n", previous_token.type, token->type);
+                *rc = SYNTAX_ERROR;
+                return ;
+            }
+            is_previous_token_operator = true;
             if(!token_stack_is_empty(operator_stack)){
                 Token* top = token_stack_top(operator_stack);
                 if (operator_priority(top) >= operator_priority(token) ){
@@ -124,10 +155,22 @@ void expression_parser( Token *token, ExprTstack *number_stack, TokenStack *oper
             token_stack_push(operator_stack, *token);
             break;
         case TOKEN_LPAREN:
+            if(is_previous_token_operator == false){
+                printf("Two operands in a row: %d %d\n", previous_token.type, token->type);
+                *rc = SYNTAX_ERROR;
+                return ;
+            }
+            is_previous_token_operator = true;
             (number_of_lparen)++;
             token_stack_push(operator_stack, *token);
             break;
         case TOKEN_RPAREN:
+            if(is_previous_token_operator == true){
+                printf("Two operands in a row: %d %d\n", previous_token.type, token->type);
+                *rc = SYNTAX_ERROR;
+                return ;
+            }
+            is_previous_token_operator = false;
             (number_of_rparen)++;
             if (number_of_rparen > number_of_lparen) {
                 printf("leftP %d rightP %d\n", number_of_lparen, number_of_rparen);
@@ -153,61 +196,7 @@ void expression_parser( Token *token, ExprTstack *number_stack, TokenStack *oper
     }
     return ;
 }
-        /* previous_token = *token;
-        get_token(token);
-        if (*rc != NO_ERROR) {
-            return ;
-        }
-        switch (previous_token.type)
-        {
-        case TOKEN_PLUS:
-        case TOKEN_MINUS:
-        case TOKEN_MULTIPLY:
-        case TOKEN_DIVIDE:
-        case TOKEN_LESSER:
-        case TOKEN_GREATER:
-        case TOKEN_LESSER_EQUAL:
-        case TOKEN_GREATER_EQUAL:
-        case TOKEN_LOGIC_EQUAL:
-        case TOKEN_NEQUAL:
-        case TOKEN_LPAREN:
-        
-            if (token->type == TOKEN_PLUS || token->type == TOKEN_MINUS ||
-                token->type == TOKEN_MULTIPLY || token->type == TOKEN_DIVIDE ||
-                token->type == TOKEN_LESSER || token->type == TOKEN_GREATER ||
-                token->type == TOKEN_LESSER_EQUAL || token->type == TOKEN_GREATER_EQUAL ||
-                token->type == TOKEN_LOGIC_EQUAL || token->type == TOKEN_NEQUAL || token->type == TOKEN_RPAREN) {
-                    printf("Two operators in a row: %d %d\n", previous_token.type, token->type);
-            }
-            *rc = SYNTAX_ERROR;
-            break;
-        case TOKEN_IDENTIFIER:
-            if(token->value.keyword == KEYWORD_NUM || token->value.keyword == KEYWORD_STRING || token->type == TOKEN_IDENTIFIER){
-                    printf("Two  keywords in a row\n");
-                    *rc = SYNTAX_ERROR;
-                }
-            break;
-        
-        default:
-            switch (previous_token.value.keyword)
-            {
-            case KEYWORD_NUM:
-            case KEYWORD_STRING:
-                if(token->value.keyword == KEYWORD_NUM || token->value.keyword == KEYWORD_STRING || token->type == TOKEN_IDENTIFIER){
-                    printf("Two  keywords in a row\n");
-                    *rc = SYNTAX_ERROR;
-                }
-                
-                break;
-            
-            default:
-                break;
-            }
-        }
-    }
-    return ;
-}
- */
+ 
 ExprNode* expression_parser_main(Token *token, int *rc) {
     ExprTstack number_stack;
     TokenStack operator_stack;
@@ -215,11 +204,6 @@ ExprNode* expression_parser_main(Token *token, int *rc) {
     token_stack_init(&operator_stack);
     ExprNode *expressionTree = NULL;
 
-    /* if (token->value.keyword != KEYWORD_NUM || token->type != TOKEN_LPAREN) {
-        printf("Expected 'Num' keyword at the start of expression\n");
-        *rc = SYNTAX_ERROR;
-        return NULL;
-    } */
     expression_parser(token,&number_stack,&operator_stack,rc);
     // Final reduction: apply remaining operators
     while (!token_stack_is_empty(&operator_stack)) {
@@ -228,6 +212,7 @@ ExprNode* expression_parser_main(Token *token, int *rc) {
     // If no operators (single operand), use it as the tree
     if (!expr_stack_is_empty(&number_stack) && expressionTree == NULL) {
         expressionTree = expr_stack_top(&number_stack);
+        expr_stack_pop(&number_stack);
     }
     if (*rc != NO_ERROR) {
         expr_stack_free(&number_stack);
