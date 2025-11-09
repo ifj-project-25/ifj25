@@ -3,9 +3,9 @@
 #include <string.h>
 #include "semantic.h"
 #include "ast.h"
-#include "expr_ast.h"   // <-- needed for ExprNode helpers
+#include "expr_ast.h"   // For ExprNode creation helpers
 
-// Farby pre terminal
+// Terminal colors
 #define COLOR_RED     "\x1b[31m"
 #define COLOR_GREEN   "\x1b[32m"
 #define COLOR_YELLOW  "\x1b[33m"
@@ -43,7 +43,6 @@ int test_program1_factorial_full() {
     ASTNode* write_call1 = create_ast_node(AST_FUNC_CALL, "Ifj.write");
     main_body->left = write_call1;
     ASTNode* arg1 = create_ast_node(AST_FUNC_ARG, NULL);
-    // use expression wrapper with expr = string literal
     ASTNode* arg1_val = create_ast_node(AST_EXPRESSION, NULL);
     arg1_val->expr = create_string_literal_node("Zadejte cislo pro vypocet faktorialu\n");
     arg1->right = arg1_val;
@@ -58,18 +57,23 @@ int test_program1_factorial_full() {
     // a = Ifj.read_num()
     ASTNode* assign_a = create_ast_node(AST_ASSIGN, NULL);
     var_a_decl->right = assign_a;
+
     ASTNode* equals1 = create_ast_node(AST_EQUALS, NULL);
     assign_a->left = equals1;
     equals1->left = create_ast_node(AST_IDENTIFIER, "a");
-    //equals1->right = create_ast_node(AST_FUNC_CALL, "Ifj.read_num"); 
-    //docasny fix
-    
+
+    // Expression node with function call on left
+    ASTNode* expr_read_num = create_ast_node(AST_EXPRESSION, NULL);
+    ASTNode* func_call = create_ast_node(AST_FUNC_CALL, "Ifj.read_num");
+    expr_read_num->left = func_call;
+    equals1->right = expr_read_num;
 
     // if (a != null)
     ASTNode* if_stmt = create_ast_node(AST_IF, NULL);
     assign_a->right = if_stmt;
-    // use node->expr (ExprNode) for condition
-    if_stmt->expr = create_binary_op_node(OP_NEQ,
+    ASTNode* if_expr = create_ast_node(AST_EXPRESSION, NULL);
+    if_stmt->left = if_expr;
+    if_expr->expr = create_binary_op_node(OP_NEQ,
         create_identifier_node("a"),
         create_null_literal_node()
     );
@@ -80,7 +84,9 @@ int test_program1_factorial_full() {
     // inner if (a < 0)
     ASTNode* inner_if = create_ast_node(AST_IF, NULL);
     then_block->left = inner_if;
-    inner_if->expr = create_binary_op_node(OP_LT,
+    ASTNode* inner_if_expr = create_ast_node(AST_EXPRESSION, NULL);
+    inner_if->left = inner_if_expr;
+    inner_if_expr->expr = create_binary_op_node(OP_LT,
         create_identifier_node("a"),
         create_num_literal_node(0)
     );
@@ -95,7 +101,6 @@ int test_program1_factorial_full() {
     ASTNode* arg_neg1_val = create_ast_node(AST_EXPRESSION, NULL);
     arg_neg1_val->expr = create_string_literal_node("Faktorial ");
     arg_neg1->right = arg_neg1_val;
-    arg_neg1->left = NULL;
     write_neg1->left = arg_neg1;
 
     // Ifj.write(a)
@@ -105,7 +110,6 @@ int test_program1_factorial_full() {
     ASTNode* arg_neg2_val = create_ast_node(AST_EXPRESSION, NULL);
     arg_neg2_val->expr = create_identifier_node("a");
     arg_neg2->right = arg_neg2_val;
-    arg_neg2->left = NULL;
     write_neg2->left = arg_neg2;
 
     // Ifj.write(" nelze spocitat\n")
@@ -115,9 +119,7 @@ int test_program1_factorial_full() {
     ASTNode* arg_neg3_val = create_ast_node(AST_EXPRESSION, NULL);
     arg_neg3_val->expr = create_string_literal_node(" nelze spocitat\n");
     arg_neg3->right = arg_neg3_val;
-    arg_neg3->left = NULL;
     write_neg3->left = arg_neg3;
-    write_neg3->right = NULL; // end of then block
 
     // else branch (calculate factorial)
     ASTNode* inner_else = create_ast_node(AST_ELSE, NULL);
@@ -130,25 +132,29 @@ int test_program1_factorial_full() {
     inner_else_block->left = var_vysl;
     var_vysl->left = create_ast_node(AST_IDENTIFIER, "vysl");
 
-    // vysl = 1   (equals_vysl->expr = num literal)
+    // vysl = 1
     ASTNode* assign_vysl = create_ast_node(AST_ASSIGN, NULL);
     var_vysl->right = assign_vysl;
     ASTNode* equals_vysl = create_ast_node(AST_EQUALS, NULL);
     assign_vysl->left = equals_vysl;
     equals_vysl->left = create_ast_node(AST_IDENTIFIER, "vysl");
-    // use expr field for RHS literal
-    equals_vysl->expr = create_num_literal_node(1);
+
+    ASTNode* expr_vysl = create_ast_node(AST_EXPRESSION, NULL);
+    expr_vysl->expr = create_num_literal_node(1);
+    equals_vysl->right = expr_vysl;
 
     // while (a > 0)
     ASTNode* while_stmt = create_ast_node(AST_WHILE, NULL);
     assign_vysl->right = while_stmt;
-    while_stmt->expr = create_binary_op_node(OP_GT,
+    ASTNode* while_expr = create_ast_node(AST_EXPRESSION, NULL);
+    while_stmt->left = while_expr;
+    while_expr->expr = create_binary_op_node(OP_GT,
         create_identifier_node("a"),
         create_num_literal_node(0)
     );
 
-    ASTNode* while_body = create_ast_node(AST_BLOCK, NULL);
-    while_stmt->right = while_body;
+ASTNode* while_body = create_ast_node(AST_BLOCK, NULL);
+while_stmt->right = while_body;
 
     // vysl = vysl * a
     ASTNode* assign_mul = create_ast_node(AST_ASSIGN, NULL);
@@ -156,10 +162,13 @@ int test_program1_factorial_full() {
     ASTNode* equals_mul = create_ast_node(AST_EQUALS, NULL);
     assign_mul->left = equals_mul;
     equals_mul->left = create_ast_node(AST_IDENTIFIER, "vysl");
-    equals_mul->expr = create_binary_op_node(OP_MUL,
+
+    ASTNode* expr_mul = create_ast_node(AST_EXPRESSION, NULL);
+    expr_mul->expr = create_binary_op_node(OP_MUL,
         create_identifier_node("vysl"),
         create_identifier_node("a")
     );
+    equals_mul->right = expr_mul;
 
     // a = a - 1
     ASTNode* assign_dec = create_ast_node(AST_ASSIGN, NULL);
@@ -167,10 +176,13 @@ int test_program1_factorial_full() {
     ASTNode* equals_dec = create_ast_node(AST_EQUALS, NULL);
     assign_dec->left = equals_dec;
     equals_dec->left = create_ast_node(AST_IDENTIFIER, "a");
-    equals_dec->expr = create_binary_op_node(OP_SUB,
+
+    ASTNode* expr_dec = create_ast_node(AST_EXPRESSION, NULL);
+    expr_dec->expr = create_binary_op_node(OP_SUB,
         create_identifier_node("a"),
         create_num_literal_node(1)
     );
+    equals_dec->right = expr_dec;
 
     // vysl = "Vysledek: " + vysl + "\n"
     ASTNode* assign_concat = create_ast_node(AST_ASSIGN, NULL);
@@ -178,14 +190,16 @@ int test_program1_factorial_full() {
     ASTNode* equals_concat = create_ast_node(AST_EQUALS, NULL);
     assign_concat->left = equals_concat;
     equals_concat->left = create_ast_node(AST_IDENTIFIER, "vysl");
-    // nested expr (string + id) + string
-    equals_concat->expr =
+
+    ASTNode* expr_concat = create_ast_node(AST_EXPRESSION, NULL);
+    expr_concat->expr =
         create_binary_op_node(OP_ADD,
             create_binary_op_node(OP_ADD,
                 create_string_literal_node("Vysledek: "),
                 create_identifier_node("vysl")),
             create_string_literal_node("\n")
         );
+    equals_concat->right = expr_concat;
 
     // Ifj.write(vysl)
     ASTNode* write_result = create_ast_node(AST_FUNC_CALL, "Ifj.write");
@@ -194,12 +208,9 @@ int test_program1_factorial_full() {
     ASTNode* write_result_val = create_ast_node(AST_EXPRESSION, NULL);
     write_result_val->expr = create_identifier_node("vysl");
     write_result_arg->right = write_result_val;
-    write_result_arg->left = NULL;
     write_result->left = write_result_arg;
 
-    inner_else_block->right = NULL;
-
-    // OUTER ELSE: a == null
+    // Outer else (a == null)
     ASTNode* outer_else = create_ast_node(AST_ELSE, NULL);
     then_block->right = outer_else;
     ASTNode* outer_else_block = create_ast_node(AST_BLOCK, NULL);
@@ -211,14 +222,10 @@ int test_program1_factorial_full() {
     ASTNode* arg_null_val = create_ast_node(AST_EXPRESSION, NULL);
     arg_null_val->expr = create_string_literal_node("Faktorial pro null nelze spocitat\n");
     arg_null->right = arg_null_val;
-    arg_null->left = NULL;
     write_null->left = arg_null;
-    write_null->right = NULL;
 
-    outer_else_block->right = NULL;
-    main_body->right = NULL; // end of main body
+    main_body->right = NULL;
 
-    // Run semantic analysis
     int result = semantic_analyze(program);
     printf("Expected: %d, got: %d\n", NO_ERROR, result);
 
