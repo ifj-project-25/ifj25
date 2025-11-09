@@ -589,10 +589,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
            node->name ? node->name : "(null)");
     switch (node->type) {
         case AST_PROGRAM:   {
-                int err = semantic_visit(node->left, current_scope);
-                if (err != NO_ERROR) return err;
-                
-                return semantic_visit(node->right, current_scope);
+                return semantic_visit(node->left, current_scope);
             } break;
         case AST_MAIN_DEF: {
                 if (!node->right) return ERROR_INTERNAL;
@@ -919,7 +916,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 if (!equals || equals->type != AST_EQUALS) return ERROR_INTERNAL;
                 
                 // must exists
-                if (!equals->left || equals->left->type != AST_IDENTIFIER) return ERROR_INTERNAL;
+                /*if (!equals->left || equals->left->type != AST_IDENTIFIER) return ERROR_INTERNAL;
                 const char* left_var = equals->left->name;
                 SymTableData* left_data = lookup_symbol(current_scope, left_var);
                 if (!left_data) {
@@ -931,7 +928,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 if (equals->right && equals->right->type == AST_EXPRESSION) {
                     int err = check_uninitialized_usage(equals->right->expr, current_scope);
                     if (err != NO_ERROR) return err;
-                }
+                }*/
                 
                 // Process the assignment (AST_EQUALS)
                 int err = semantic_visit(node->left, current_scope);
@@ -953,6 +950,33 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 // Check if variable exists
                 SymTableData* var_data = lookup_symbol(current_scope, var_name);
+
+                // If not found and starts with "__", create global variable
+                if (!var_data && var_name[0] == '_' && var_name[1] == '_') {
+                    // search to program root
+                    Scope* global_scope = current_scope;
+                    while (global_scope && global_scope->parent) {
+                        global_scope = global_scope->parent;
+                    }
+                    
+                    // make global variable
+                    SymTableData* global_var = make_variable(TYPE_UNDEF, true, false); // defined=true, initialized=false
+                    if (!global_var) {
+                        fprintf(stderr, "[SEMANTIC] Failed to allocate global variable '%s'\n", var_name);
+                        return ERROR_INTERNAL;
+                    }
+                    
+                    // insert into global scope
+                    if (!symtable_insert(&global_scope->symbols, var_name, global_var)) {
+                        fprintf(stderr, "[SEMANTIC] Failed to insert global variable '%s'\n", var_name);
+                        free(global_var);
+                        return ERROR_INTERNAL;
+                    }
+                    
+                    printf("[SEMANTIC] Automatically created global variable '%s'\n", var_name);
+                    var_data = global_var;
+                }
+
                 if (!var_data) {
                     fprintf(stderr, "[SEMANTIC] Undefined variable '%s' in assignment\n", var_name);
                     return SEM_ERROR_UNDEFINED;
@@ -1021,6 +1045,33 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 
                 SymTableData* var_data = lookup_symbol(current_scope, var_name);
                 
+                if (!var_data && var_name[0] == '_' && var_name[1] == '_') {
+                    // search to program root
+                    Scope* global_scope = current_scope;
+                    while (global_scope && global_scope->parent) {
+                        global_scope = global_scope->parent;
+                    }
+                    
+                    
+                    // make global variable
+                    SymTableData* global_var = make_variable(TYPE_UNDEF, true, false); // defined=true, initialized=false
+                    if (!global_var) {
+                        fprintf(stderr, "[SEMANTIC] Failed to allocate global variable '%s'\n", var_name);
+                        return ERROR_INTERNAL;
+                    }
+                    
+                    // insert into global scope
+                    if (!symtable_insert(&global_scope->symbols, var_name, global_var)) {
+                        fprintf(stderr, "[SEMANTIC] Failed to insert global variable '%s'\n", var_name);
+                        free(global_var);
+                        return ERROR_INTERNAL;
+                    }
+                    
+                    printf("[SEMANTIC] Automatically created global variable '%s'\n", var_name);
+                    var_data = global_var;
+                }
+    
+
                 if (!var_data) {
                     fprintf(stderr, "[SEMANTIC] Undefined variable '%s'\n", var_name);
                     return SEM_ERROR_UNDEFINED;

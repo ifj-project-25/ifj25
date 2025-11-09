@@ -1713,6 +1713,346 @@ int test_complex_program_fixed() {
     return result;
 }
 
+// Test 51: Simple global variable usage (NO_ERROR)
+int test_global_var_simple() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Function Program.main
+    ASTNode* main_func = create_ast_node(AST_FUNC_DEF, "Program.main");
+    program->left = main_func;
+
+    ASTNode* main_block = create_ast_node(AST_BLOCK, NULL);
+    main_func->right = main_block;
+
+    // __counter = 1
+    ASTNode* assign_counter = create_ast_node(AST_ASSIGN, NULL);
+    main_block->left = assign_counter;
+
+    ASTNode* equals_counter = create_ast_node(AST_EQUALS, NULL);
+    assign_counter->left = equals_counter;
+    equals_counter->left = create_ast_node(AST_IDENTIFIER, "__counter");
+
+    ASTNode* expr_1 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_1->expr = create_num_literal_node(1);
+    equals_counter->right = expr_1;
+
+    // var result = __counter + 5
+    ASTNode* decl_result = create_ast_node(AST_VAR_DECL, NULL);
+    assign_counter->right = decl_result;
+    decl_result->left = create_ast_node(AST_IDENTIFIER, "result");
+    decl_result->left->data_type = TYPE_UNDEF;
+
+    ASTNode* assign_result = create_ast_node(AST_ASSIGN, NULL);
+    decl_result->right = assign_result;
+
+    ASTNode* equals_result = create_ast_node(AST_EQUALS, NULL);
+    assign_result->left = equals_result;
+    equals_result->left = create_ast_node(AST_IDENTIFIER, "result");
+
+    ASTNode* expr_counter_plus_5 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_counter_plus_5->expr = create_binary_op_node(
+        OP_ADD,
+        create_identifier_node("__counter"),
+        create_num_literal_node(5)
+    );
+    equals_result->right = expr_counter_plus_5;
+
+    int result = semantic_analyze(program);
+    printf("Test 51 - Expected: %d, got: %d\n", NO_ERROR, result);
+    free_ast_tree(program);
+    return result;
+}
+
+// Test 52: Global variable across multiple functions (NO_ERROR)
+int test_global_var_multiple_funcs() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Function Program.init
+    ASTNode* init_func = create_ast_node(AST_FUNC_DEF, "Program.init");
+    program->left = init_func;
+
+    ASTNode* init_block = create_ast_node(AST_BLOCK, NULL);
+    init_func->right = init_block;
+
+    // __value = 100
+    ASTNode* assign_value = create_ast_node(AST_ASSIGN, NULL);
+    init_block->left = assign_value;
+
+    ASTNode* equals_value = create_ast_node(AST_EQUALS, NULL);
+    assign_value->left = equals_value;
+    equals_value->left = create_ast_node(AST_IDENTIFIER, "__value");
+
+    ASTNode* expr_100 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_100->expr = create_num_literal_node(100);
+    equals_value->right = expr_100;
+
+    // Function Program.compute
+    ASTNode* compute_func = create_ast_node(AST_FUNC_DEF, "Program.compute");
+    assign_value->right = compute_func;
+
+    ASTNode* compute_block = create_ast_node(AST_BLOCK, NULL);
+    compute_func->right = compute_block;
+
+    // var x = __value * 2
+    ASTNode* decl_x = create_ast_node(AST_VAR_DECL, NULL);
+    compute_block->left = decl_x;
+    decl_x->left = create_ast_node(AST_IDENTIFIER, "x");
+    decl_x->left->data_type = TYPE_UNDEF;
+
+    ASTNode* assign_x = create_ast_node(AST_ASSIGN, NULL);
+    decl_x->right = assign_x;
+
+    ASTNode* equals_x = create_ast_node(AST_EQUALS, NULL);
+    assign_x->left = equals_x;
+    equals_x->left = create_ast_node(AST_IDENTIFIER, "x");
+
+    ASTNode* expr_value_times_2 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_value_times_2->expr = create_binary_op_node(
+        OP_MUL,
+        create_identifier_node("__value"),
+        create_num_literal_node(2)
+    );
+    equals_x->right = expr_value_times_2;
+
+    // __value = x
+    ASTNode* assign_value2 = create_ast_node(AST_ASSIGN, NULL);
+    assign_x->right = assign_value2;
+
+    ASTNode* equals_value2 = create_ast_node(AST_EQUALS, NULL);
+    assign_value2->left = equals_value2;
+    equals_value2->left = create_ast_node(AST_IDENTIFIER, "__value");
+
+    ASTNode* expr_x = create_ast_node(AST_EXPRESSION, NULL);
+    expr_x->expr = create_identifier_node("x");
+    equals_value2->right = expr_x;
+
+    // Function Program.printResult
+    ASTNode* print_func = create_ast_node(AST_FUNC_DEF, "Program.printResult");
+    assign_value2->right = print_func;
+
+    ASTNode* print_block = create_ast_node(AST_BLOCK, NULL);
+    print_func->right = print_block;
+
+    // var output = __value
+    ASTNode* decl_output = create_ast_node(AST_VAR_DECL, NULL);
+    print_block->left = decl_output;
+    decl_output->left = create_ast_node(AST_IDENTIFIER, "output");
+    decl_output->left->data_type = TYPE_UNDEF;
+
+    ASTNode* assign_output = create_ast_node(AST_ASSIGN, NULL);
+    decl_output->right = assign_output;
+
+    ASTNode* equals_output = create_ast_node(AST_EQUALS, NULL);
+    assign_output->left = equals_output;
+    equals_output->left = create_ast_node(AST_IDENTIFIER, "output");
+
+    ASTNode* expr_value = create_ast_node(AST_EXPRESSION, NULL);
+    expr_value->expr = create_identifier_node("__value");
+    equals_output->right = expr_value;
+
+    int result = semantic_analyze(program);
+    printf("Test 52 - Expected: %d, got: %d\n", NO_ERROR, result);
+    free_ast_tree(program);
+    return result;
+}
+
+// Test 53: Multiple global variables with different types (NO_ERROR)
+int test_global_var_multiple_types() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Function Program.main
+    ASTNode* main_func = create_ast_node(AST_FUNC_DEF, "Program.main");
+    program->left = main_func;
+
+    ASTNode* main_block = create_ast_node(AST_BLOCK, NULL);
+    main_func->right = main_block;
+
+    // __number = 42
+    ASTNode* assign_number = create_ast_node(AST_ASSIGN, NULL);
+    main_block->left = assign_number;
+
+    ASTNode* equals_number = create_ast_node(AST_EQUALS, NULL);
+    assign_number->left = equals_number;
+    equals_number->left = create_ast_node(AST_IDENTIFIER, "__number");
+
+    ASTNode* expr_42 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_42->expr = create_num_literal_node(42);
+    equals_number->right = expr_42;
+
+    // __text = "hello"
+    ASTNode* assign_text = create_ast_node(AST_ASSIGN, NULL);
+    assign_number->right = assign_text;
+
+    ASTNode* equals_text = create_ast_node(AST_EQUALS, NULL);
+    assign_text->left = equals_text;
+    equals_text->left = create_ast_node(AST_IDENTIFIER, "__text");
+
+    ASTNode* expr_hello = create_ast_node(AST_EXPRESSION, NULL);
+    expr_hello->expr = create_string_literal_node("hello");
+    equals_text->right = expr_hello;
+
+    // __flag = 1
+    ASTNode* assign_flag = create_ast_node(AST_ASSIGN, NULL);
+    assign_text->right = assign_flag;
+
+    ASTNode* equals_flag = create_ast_node(AST_EQUALS, NULL);
+    assign_flag->left = equals_flag;
+    equals_flag->left = create_ast_node(AST_IDENTIFIER, "__flag");
+
+    ASTNode* expr_1 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_1->expr = create_num_literal_node(1);
+    equals_flag->right = expr_1;
+
+    // var num = __number
+    ASTNode* decl_num = create_ast_node(AST_VAR_DECL, NULL);
+    assign_flag->right = decl_num;
+    decl_num->left = create_ast_node(AST_IDENTIFIER, "num");
+    decl_num->left->data_type = TYPE_UNDEF;
+
+    ASTNode* assign_num = create_ast_node(AST_ASSIGN, NULL);
+    decl_num->right = assign_num;
+
+    ASTNode* equals_num = create_ast_node(AST_EQUALS, NULL);
+    assign_num->left = equals_num;
+    equals_num->left = create_ast_node(AST_IDENTIFIER, "num");
+
+    ASTNode* expr_number = create_ast_node(AST_EXPRESSION, NULL);
+    expr_number->expr = create_identifier_node("__number");
+    equals_num->right = expr_number;
+
+    // var str = __text
+    ASTNode* decl_str = create_ast_node(AST_VAR_DECL, NULL);
+    assign_num->right = decl_str;
+    decl_str->left = create_ast_node(AST_IDENTIFIER, "str");
+    decl_str->left->data_type = TYPE_UNDEF;
+
+    ASTNode* assign_str = create_ast_node(AST_ASSIGN, NULL);
+    decl_str->right = assign_str;
+
+    ASTNode* equals_str = create_ast_node(AST_EQUALS, NULL);
+    assign_str->left = equals_str;
+    equals_str->left = create_ast_node(AST_IDENTIFIER, "str");
+
+    ASTNode* expr_text = create_ast_node(AST_EXPRESSION, NULL);
+    expr_text->expr = create_identifier_node("__text");
+    equals_str->right = expr_text;
+
+    // var bool = __flag
+    ASTNode* decl_bool = create_ast_node(AST_VAR_DECL, NULL);
+    assign_str->right = decl_bool;
+    decl_bool->left = create_ast_node(AST_IDENTIFIER, "bool");
+    decl_bool->left->data_type = TYPE_UNDEF;
+
+    ASTNode* assign_bool = create_ast_node(AST_ASSIGN, NULL);
+    decl_bool->right = assign_bool;
+
+    ASTNode* equals_bool = create_ast_node(AST_EQUALS, NULL);
+    assign_bool->left = equals_bool;
+    equals_bool->left = create_ast_node(AST_IDENTIFIER, "bool");
+
+    ASTNode* expr_flag = create_ast_node(AST_EXPRESSION, NULL);
+    expr_flag->expr = create_identifier_node("__flag");
+    equals_bool->right = expr_flag;
+
+    int result = semantic_analyze(program);
+    printf("Test 53 - Expected: %d, got: %d\n", NO_ERROR, result);
+    free_ast_tree(program);
+    return result;
+}
+// Test 54: Global variable in blocks and conditions (NO_ERROR)
+int test_global_var_blocks_conditions() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Function Program.main
+    ASTNode* main_func = create_ast_node(AST_FUNC_DEF, "Program.main");
+    program->left = main_func;
+
+    ASTNode* main_block = create_ast_node(AST_BLOCK, NULL);
+    main_func->right = main_block;
+
+    // __total = 0
+    ASTNode* assign_total = create_ast_node(AST_ASSIGN, NULL);
+    main_block->left = assign_total;
+
+    ASTNode* equals_total = create_ast_node(AST_EQUALS, NULL);
+    assign_total->left = equals_total;
+    equals_total->left = create_ast_node(AST_IDENTIFIER, "__total");
+
+    ASTNode* expr_0 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_0->expr = create_num_literal_node(0);
+    equals_total->right = expr_0;
+
+    // if (1) { __total = __total + 10 }
+    ASTNode* if_stmt = create_ast_node(AST_IF, NULL);
+    assign_total->right = if_stmt;
+
+    // Condition: 1
+    ASTNode* cond_expr = create_ast_node(AST_EXPRESSION, NULL);
+    cond_expr->expr = create_num_literal_node(1);
+    if_stmt->left = cond_expr;
+
+    // Then block
+    ASTNode* then_block = create_ast_node(AST_BLOCK, NULL);
+    if_stmt->right = then_block;
+
+    // __total = __total + 10
+    ASTNode* assign_total2 = create_ast_node(AST_ASSIGN, NULL);
+    then_block->left = assign_total2;
+
+    ASTNode* equals_total2 = create_ast_node(AST_EQUALS, NULL);
+    assign_total2->left = equals_total2;
+    equals_total2->left = create_ast_node(AST_IDENTIFIER, "__total");
+
+    ASTNode* expr_total_plus_10 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_total_plus_10->expr = create_binary_op_node(
+        OP_ADD,
+        create_identifier_node("__total"),
+        create_num_literal_node(10)
+    );
+    equals_total2->right = expr_total_plus_10;
+
+    // Block { __total = __total * 2 }
+    ASTNode* inner_block = create_ast_node(AST_BLOCK, NULL);
+    then_block->right = inner_block;
+
+    // __total = __total * 2
+    ASTNode* assign_total3 = create_ast_node(AST_ASSIGN, NULL);
+    inner_block->left = assign_total3;
+
+    ASTNode* equals_total3 = create_ast_node(AST_EQUALS, NULL);
+    assign_total3->left = equals_total3;
+    equals_total3->left = create_ast_node(AST_IDENTIFIER, "__total");
+
+    ASTNode* expr_total_times_2 = create_ast_node(AST_EXPRESSION, NULL);
+    expr_total_times_2->expr = create_binary_op_node(
+        OP_MUL,
+        create_identifier_node("__total"),
+        create_num_literal_node(2)
+    );
+    equals_total3->right = expr_total_times_2;
+
+    // var final = __total
+    ASTNode* decl_final = create_ast_node(AST_VAR_DECL, NULL);
+    inner_block->right = decl_final;
+    decl_final->left = create_ast_node(AST_IDENTIFIER, "final");
+    decl_final->left->data_type = TYPE_UNDEF;
+
+    ASTNode* assign_final = create_ast_node(AST_ASSIGN, NULL);
+    decl_final->right = assign_final;
+
+    ASTNode* equals_final = create_ast_node(AST_EQUALS, NULL);
+    assign_final->left = equals_final;
+    equals_final->left = create_ast_node(AST_IDENTIFIER, "final");
+
+    ASTNode* expr_total_final = create_ast_node(AST_EXPRESSION, NULL);
+    expr_total_final->expr = create_identifier_node("__total");
+    equals_final->right = expr_total_final;
+
+    int result = semantic_analyze(program);
+    printf("Test 54 - Expected: %d, got: %d\n", NO_ERROR, result);
+    free_ast_tree(program);
+    return result;
+}
 
 void print_summary() {
     printf(COLOR_YELLOW "========================================\n" COLOR_RESET);
@@ -1797,6 +2137,10 @@ int main() {
             {48, "Return string", "NO_ERROR", NO_ERROR, test_return_string},
             {49, "Return null", "NO_ERROR", NO_ERROR, test_return_null},
             {50, "MATKOV program","NO_ERROR",NO_ERROR,test_complex_program_fixed},
+            {51, "Simple global variable", "NO_ERROR", NO_ERROR, test_global_var_simple},
+            {52, "Global variable across functions", "NO_ERROR", NO_ERROR, test_global_var_multiple_funcs},
+            {53, "Multiple global variables", "NO_ERROR", NO_ERROR, test_global_var_multiple_types},
+            {54, "Global variable in blocks", "NO_ERROR", NO_ERROR, test_global_var_blocks_conditions},
             {0, NULL, NULL, 0, NULL} // Ukončovací prvok
         };
 
