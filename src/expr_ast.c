@@ -11,8 +11,7 @@
 #include "error.h"
 #include "symtable.h"
 
-// Local strdup replacement (C11 portable)
-static char *my_strdup(const char *s) {
+static char *my_strdup(const char *s) {//ASK TEAM 
     if (!s) return NULL;
     size_t len = strlen(s) + 1;
     char *copy = (char *)malloc(len);
