@@ -41,7 +41,7 @@ void expr_stack_pop(ExprTstack* stack) {
         free(temp);
     }
 }
-
+//You must ensure the stack is not empty before calling this function
 ExprNode* expr_stack_top(ExprTstack* stack) {
     return (stack->top->node);
 }

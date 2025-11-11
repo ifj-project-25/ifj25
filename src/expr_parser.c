@@ -161,42 +161,10 @@ void expression_parser( Token *token, ExprTstack *number_stack, TokenStack *oper
             token_stack_push(operator_stack, *token);
             break;
         case TOKEN_LPAREN:
-            if(is_previous_token_operator == false && is_previous_token_identifier == false){
+            if(is_previous_token_operator == false ){
                 printf("Two operands in a row: %d %d\n", previous_token.type, token->type);
                 *rc = SYNTAX_ERROR;
                 return ;
-            }
-            else if (is_previous_token_identifier == true){
-                int error_code = NO_ERROR;
-                get_token(token);
-                if (*rc != NO_ERROR) {
-                    return ;
-                }
-                ExprNode* expressionTree2 = expression_parser_main(token, &error_code);
-                if (expressionTree2 == NULL || error_code == NO_ERROR){
-                    printf("NO inside expression\n");
-                }
-                else if (error_code != NO_ERROR){
-                    printf("Error: Failed to parse expression inside parentheses\n");
-                    *rc = SYNTAX_ERROR;
-                    return;
-                    
-                }
-                else{
-                    printf("Expression AST:\n");
-                    print_expr_ast(expressionTree2, 0);
-                    free_expr_node(expressionTree2);
-                }
-                
-                get_token(token);
-                if (*rc != NO_ERROR) {
-                    return ;
-                }
-                if (token->type != TOKEN_RPAREN){
-                    printf("Expected closing parenthesis but found token type: %d\n", token->type);
-                    *rc = SYNTAX_ERROR;
-                    return ;
-                }
             }
             is_previous_token_operator = true;
             is_previous_token_identifier = false;
@@ -236,8 +204,8 @@ void expression_parser( Token *token, ExprTstack *number_stack, TokenStack *oper
     }
     return ;
 }
- 
-ExprNode* expression_parser_main(Token *token, int *rc) {
+
+ExprNode* expression_parser_main( char* first_expr_parser_token, Token *token, int *rc) {
     ExprTstack number_stack;
     TokenStack operator_stack;
     expr_stack_init(&number_stack);
@@ -247,6 +215,10 @@ ExprNode* expression_parser_main(Token *token, int *rc) {
     // Initialize flags at the start of expression parsing
     is_previous_token_operator = true;  // Allow first operand
     is_previous_token_identifier = false;
+    if (first_expr_parser_token != NULL) {
+        expr_stack_push(&number_stack, create_identifier_node(first_expr_parser_token));
+        is_previous_token_operator = false; // Next should be an operator
+    }
 
     expression_parser(token,&number_stack,&operator_stack,rc);
     // Final reduction: apply remaining operators

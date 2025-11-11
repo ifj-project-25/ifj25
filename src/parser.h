@@ -12,6 +12,5 @@
 int parser(ASTNode** PROGRAM);
 void parser_next_token(void);
 const Token *parser_current_token(void);
-int EXPRESSION();
 
 #endif

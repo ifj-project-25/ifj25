@@ -11,7 +11,7 @@
 #include "expr_ast.h"
 
 
-ExprNode*  expression_parser_main(Token *token, int *error_code);
+ExprNode*  expression_parser_main( char* first_expr_parser_token, Token *token, int *error_code);
 
 
 

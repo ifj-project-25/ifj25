@@ -83,8 +83,7 @@ static int CLASS( ASTNode* PROGRAM);
 static int PROLOG();
 static int ARGUMENT_TAIL();
 static int ARGUMENT_LIST();
-static ExprNode* parse_expr_node(void); // internal helper returning expression tree
-int EXPRESSION(void); // public parser expression (prints & frees)
+static ExprNode* EXPRESSION( char* first_expr_parser_token); 
 
 
 Keyword expected_keyword;
@@ -148,7 +147,7 @@ static int ARGUMENT_TAIL(){
         next_token(&token);
         if (rc != NO_ERROR)return rc;
         
-        EXPRESSION();
+        EXPRESSION(NULL);
         if (rc != NO_ERROR)return rc;
 
         ARGUMENT_TAIL();
@@ -159,31 +158,21 @@ static int ARGUMENT_TAIL(){
 }
 
 static int ARGUMENT_LIST(){
-    EXPRESSION();
+    EXPRESSION(NULL);
     if (rc != NO_ERROR)return rc;
 
     ARGUMENT_TAIL();
     return NO_ERROR;
 }
-static ExprNode* parse_expr_node(void){
+static ExprNode* EXPRESSION( char* first_expr_parser_token){
     int error_code = NO_ERROR;
-    ExprNode* expressionTree = expression_parser_main(&token, &error_code);
+    ExprNode* expressionTree = expression_parser_main(first_expr_parser_token, &token, &error_code);
     if (expressionTree == NULL || error_code != NO_ERROR){
         printf("Error: Failed to parse expression\n");
         rc = SYNTAX_ERROR;
         return NULL;
     }
     return expressionTree;
-}
-int EXPRESSION(void){
-    ExprNode* expressionTree = parse_expr_node();
-    if (expressionTree == NULL){
-        return SYNTAX_ERROR;
-    }
-    printf("Expression :\n");
-    print_expr_ast(expressionTree, 0);
-    free_expr_node(expressionTree); // we don't attach it in generic expressions
-    return NO_ERROR;
 }
 static ASTNode* IF(){
     ASTNode* node = create_ast_node(AST_IF, NULL);
@@ -209,7 +198,7 @@ static ASTNode* IF(){
         return NULL;
     }
 
-    ExprNode* expr = parse_expr_node();
+    ExprNode* expr = EXPRESSION(NULL);
     if (expr == NULL){
         free_ast_tree(node);
         rc = SYNTAX_ERROR;
@@ -287,7 +276,7 @@ static ASTNode* WHILE(){
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
-    ExprNode* expr = parse_expr_node();
+    ExprNode* expr = EXPRESSION(NULL);
     if (rc != NO_ERROR)return NULL;
     while_node -> left -> expr = expr; // attach expression tree to WHILE condition
 
@@ -376,7 +365,7 @@ static ASTNode* STML(ASTNode* function){
 
             statement = create_ast_node(AST_RETURN, NULL);
             statement->right = create_ast_node(AST_EXPRESSION, NULL);
-            statement->right->expr = parse_expr_node();
+            statement->right->expr = EXPRESSION(NULL);
             if (rc != NO_ERROR)return NULL;
             break;
         case KEYWORD_IFJ:
@@ -417,14 +406,44 @@ static ASTNode* STML(ASTNode* function){
         if (token.type == TOKEN_EQUAL){//ASSIGNMENT
             ASTNode* assign_node = create_ast_node(AST_ASSIGN, NULL);
             statement = assign_node;  // Fix: assign to statement, not statement->left
+            assign_node->left = create_ast_node(AST_EQUALS, NULL);
+            assign_node->left->left = id_node;
+
             next_token(&token);
             if (rc != NO_ERROR)return NULL;
-            assign_node -> left = id_node;
-            assign_node -> right = create_ast_node(AST_EXPRESSION, NULL);
+            assign_node ->left -> right = create_ast_node(AST_EXPRESSION, NULL); //TO_BE_ASKED(MICHAL): it isnt expression but ask Michal if he needs it like this 
+            if (token.type == TOKEN_IDENTIFIER){
+                ASTNode* first_expr_parser_token = create_ast_node(AST_IDENTIFIER, token.value.string->str);
+                next_token(&token);
+                if (rc != NO_ERROR)return NULL;
+                if (token.type == TOKEN_LPAREN) { // CALL
+                    next_token(&token);
+                    if (rc != NO_ERROR)return NULL;
+                    ASTNode* call_node = create_ast_node(AST_FUNC_CALL, first_expr_parser_token->name);
+                    //ARGUMENT_LIST();
+                    //if (rc != NO_ERROR)return NULL;
+
+                    rc = token_control(TOKEN_RPAREN,NULL);
+                    if (rc != NO_ERROR)return NULL;
+                    debug_print_token("After processing function call in assignment, next token is:", &token);
+                    next_token(&token);
+                    if (rc != NO_ERROR)return NULL;
+                    assign_node->left->right = call_node;
+                    break;
+                }
+                else {
+                    ExprNode* expr = EXPRESSION(first_expr_parser_token->name);
+                    if (rc != NO_ERROR)return NULL;
+                    assign_node->left->right->expr = expr; // attach expression tree to assignment
+
+                }}
+                else{
+                    ExprNode* expr = EXPRESSION(NULL);
+                    if (rc != NO_ERROR)return NULL;
+                    assign_node -> right -> expr = expr; // attach expression tree to assignment
+                    
+                }
             
-            ExprNode* expr = parse_expr_node();
-            if (rc != NO_ERROR)return NULL;
-            assign_node -> right -> expr = expr; // attach expression tree to assignment
             break;
         }
         else if (token.type == TOKEN_LPAREN){ // CALL
@@ -444,7 +463,7 @@ static ASTNode* STML(ASTNode* function){
         next_token(&token);
         if (rc != NO_ERROR)return NULL;
 
-        EXPRESSION();
+        EXPRESSION(NULL);
         if (rc != NO_ERROR)return NULL;
         break;
 

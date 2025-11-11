@@ -11,15 +11,6 @@
 #include "error.h"
 #include "symtable.h"
 
-static char *my_strdup(const char *s) {//ASK TEAM 
-    if (!s) return NULL;
-    size_t len = strlen(s) + 1;
-    char *copy = (char *)malloc(len);
-    if (!copy) return NULL; // have to be change to INTERNAL ERROR from error.h
-    memcpy(copy, s, len);
-    return copy;
-}
-
 ExprNode* create_num_literal_node(double value){
     ExprNode* node = (ExprNode*)malloc(sizeof(ExprNode));
     if (!node) {
