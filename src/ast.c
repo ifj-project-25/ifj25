@@ -104,7 +104,7 @@ static void print_ast_node(ASTNode* node, int depth, int is_last[], int is_right
             case TYPE_NULL: printf("NULL"); break;
             case TYPE_NUM: printf("NUM"); break;
             case TYPE_STRING: printf("STRING"); break;
-            case TYPE_BOOL: printf("BOOL"); break;
+            //case TYPE_BOOL: printf("BOOL"); break;
             default: printf("UNDEF"); break;
         }
         printf(")");
