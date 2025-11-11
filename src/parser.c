@@ -437,10 +437,10 @@ static ASTNode* STML(ASTNode* function){
                     assign_node->left->right->expr = expr; // attach expression tree to assignment
 
                 }}
-                else{
-                    ExprNode* expr = EXPRESSION(NULL);
-                    if (rc != NO_ERROR)return NULL;
-                    assign_node -> right -> expr = expr; // attach expression tree to assignment
+            else{
+                ExprNode* expr = EXPRESSION(NULL);
+                if (rc != NO_ERROR)return NULL;
+                assign_node -> left ->right -> expr = expr; // attach expression tree to assignment
                     
                 }
             
@@ -460,11 +460,8 @@ static ASTNode* STML(ASTNode* function){
             break;
         }
 
-        next_token(&token);
-        if (rc != NO_ERROR)return NULL;
-
-        EXPRESSION(NULL);
-        if (rc != NO_ERROR)return NULL;
+        rc = SYNTAX_ERROR;
+        return NULL;
         break;
 
     default:
@@ -698,7 +695,7 @@ static ASTNode* DEF_FUN_LIST(ASTNode* current_token){
         // For PROGRAM node, assign to right directly
         // For FUNC_DEF nodes, assign to right->right (BLOCK's right)
         if (current_token->type == AST_PROGRAM){
-            current_token->right = new_function;
+            current_token->left = new_function;
         } else if (current_token->right != NULL && current_token->right->right == NULL){
             current_token->right->right = new_function;
         }
@@ -776,18 +773,15 @@ static int PROLOG(){//CORRECT
 }
 
 
-int parser(ASTNode** PROGRAM){
+int parser(ASTNode* PROGRAM){
     next_token(&token);
     skip_eol();
     if (rc != NO_ERROR)return rc;
     //TODO:: add Global function support
     if(rc != NO_ERROR)return rc;
     rc = PROLOG();
-    // Create root node and return it to caller
-    if (rc == NO_ERROR) {
-        *PROGRAM = create_ast_node(AST_PROGRAM, NULL);
-    }
-    (*PROGRAM)->left = create_ast_node(AST_VAR_DECL, "To_Be_Created");
+    if(rc != NO_ERROR)return rc;
+    
     if(rc != NO_ERROR)return rc;
 
     next_token(&token);
@@ -795,7 +789,7 @@ int parser(ASTNode** PROGRAM){
     eol();
     if(rc != NO_ERROR)return rc;
     
-    rc = CLASS(*PROGRAM);
+    rc = CLASS(PROGRAM);
     if(rc != NO_ERROR)return rc;
     return rc;
     

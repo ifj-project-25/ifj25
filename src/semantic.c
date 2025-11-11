@@ -1347,7 +1347,7 @@ int semantic_analyze(ASTNode *root) {
     }
     
     // Debug: print all nodes
-    print_all_symbols(root);
+    //print_all_symbols(root);
     
     // Initialize global scope
     Scope* global_scope = init_scope();

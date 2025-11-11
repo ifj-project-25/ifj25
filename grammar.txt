@@ -19,8 +19,9 @@ PARAMETER_TAIL -> , id PARAMETER_TAIL | ε
 BLOCK -> { eol STML_LIST } 
 STML_LIST -> STML_LINE  STML_LIST | ε
 STML_LINE -> STML eol
-STML -> VAR | IF | WHILE | RETURN | id = STML_ID 
-STML_ID -> EXPRESSION | id ( ARGUMENT_LIST ) | getter_id #ASSIGN, CALL
+STML -> VAR | IF | WHILE | RETURN | id STML_ID 
+STML_ID -> EXPRESSION | id ( ARGUMENT_LIST ) | = ASSIGN |getter_id , CALL
+ASSIGN -> EXPRESSION | CALL
 VAR -> var id
 IF -> if ( EXPRESSION ) BLOCK else BLOCK
 WHILE -> while ( EXPRESSION ) BLOCK  
@@ -29,5 +30,3 @@ ARGUMENT_TAIL -> , TERM ARGUMENT_TAIL | ε
 TERM -> literal_num | literal_string | literal_null | id | global_id | getter_id
 RETURN -> return EXPRESSION
 EXPRESSION -> */Handeled by precedence parser/* Place Holder
-
-
