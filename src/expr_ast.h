@@ -34,7 +34,7 @@ typedef struct ExprNode {
     {
         double num_literal; // For EXPR_NUM_LITERAL
         char* string_literal; // For EXPR_STRING_LITERAL
-        char* identifier_name                                                                                                                                                                                                                                                                                                                                                                                      ; // For EXPR_IDENTIFIER
+        char* identifier_name; // For EXPR_IDENTIFIER
         struct 
         {
             BinaryOpType op;

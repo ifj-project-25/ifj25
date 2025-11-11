@@ -36,6 +36,7 @@ void free_ast_tree(ASTNode* node) {
     
     free_ast_tree(node->left);
     free_ast_tree(node->right);
+    if(node->expr) free_expr_node(node->expr);
     if (node->name) free(node->name);
     if (node->current_table) symtable_free(node->current_table);
     free(node);
