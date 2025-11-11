@@ -886,7 +886,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 if (!node->left || node->left->type != AST_IDENTIFIER ) return ERROR_INTERNAL;
 
                 const char *name = node->left->name;
-                SymTableData *existing = lookup_symbol(current_scope, name);
+                SymTableData *existing = symtable_search(&current_scope->symbols, name);
 
                 // Check for redefinition
                 if (existing) {
@@ -1129,7 +1129,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 // Optional: Check for duplicate parameters
                 const char* param_name = node->right->name;
-                SymTableData* existing = lookup_symbol(current_scope, param_name);
+                SymTableData* existing = symtable_search(&current_scope->symbols, param_name);
                 if (existing) {
                     fprintf(stderr, "[SEMANTIC] Parameter '%s' already declared\n", param_name);
                     return SEM_ERROR_REDEFINED;
@@ -1172,6 +1172,12 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 // Visit then branch
                 if (!node->right || node->right->type != AST_BLOCK) {
+                    fprintf(stderr, "[SEMANTIC] If statement missing then block\n");
+                    return ERROR_INTERNAL;
+                }
+
+                // Visit then branch
+                if (!node->right->right || node->right->right->type != AST_ELSE) {
                     fprintf(stderr, "[SEMANTIC] If statement missing then block\n");
                     return ERROR_INTERNAL;
                 }
