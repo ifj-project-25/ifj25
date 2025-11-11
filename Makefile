@@ -1,4 +1,4 @@
-# author: xcernoj00
+# author: xcernoj00,xmikusm00,xmalikm00
 
 CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -Werror 
@@ -6,10 +6,15 @@ CFLAGS = -std=c11 -Wall -Wextra -Werror
 TARGET = main
 
 SRCS =  src/main.c \
-		src/scanner.c \
-		src/dynamic_string.c \
-		src/symtable.c \
-		src/semantic.c \
+        src/scanner.c \
+        src/dynamic_string.c \
+        src/parser.c \
+        src/symtable.c \
+        src/expr_parser.c \
+        src/expr_stack.c \
+        src/expr_ast.c \
+        src/ast.c \
+		    src/semantic.c \
 		
 
 TEST_SYMTABLE_SRCS = test/test_symtable.c \

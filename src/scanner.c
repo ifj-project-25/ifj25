@@ -167,8 +167,17 @@ int get_token(Token *token) {
                 token->type = TOKEN_PLUS;
                 return NO_ERROR;
             } else if (c == '-') {
-                token->type = TOKEN_MINUS;
-                return NO_ERROR;
+                c = fgetc(source_file);
+                if (isdigit(c)) {
+                    // Negative number
+                    d_string_add_char(&d_string, '-');
+                    d_string_add_char(&d_string, c);
+                    state = STATE_NUMBER;
+                } else {
+                    ungetc(c, source_file);
+                    token->type = TOKEN_MINUS;
+                    return NO_ERROR;
+                }
             } else if (c == '*') {
                 token->type = TOKEN_MULTIPLY;
                 return NO_ERROR;
@@ -208,7 +217,17 @@ int get_token(Token *token) {
         case STATE_IDENTIFY_WORD:
             if (isalnum(c) || c == '_') {
                 d_string_add_char(&d_string, c);
-            } else {
+            } else { // check if word is 'ifj' and is followed by dot
+                if (d_string_cmp(&d_string, "ifj") == 0) {
+                    if (c == '.') {
+                        d_string_add_char(&d_string, c);
+                    } else {
+                        ungetc(c, source_file);
+                        return check_keyword(&d_string, token);
+                    }
+                    state = STATE_IDENTIFY_WORD;
+                    continue;
+                }
                 ungetc(c, source_file);
                 return check_keyword(&d_string, token);
             }
@@ -385,7 +404,8 @@ int get_token(Token *token) {
                         // End of multiline string
                         token->type = TOKEN_STRING;
 
-                        // Allocate and copy dynamic string for multiline string
+                        // Allocate and copy dynamic string for multiline
+                        // string
                         token->value.string = malloc(sizeof(DynamicString));
                         if (token->value.string == NULL) {
                             return ERROR_INTERNAL;
