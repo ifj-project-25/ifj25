@@ -681,7 +681,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 // Analyze main function body with main scope - ROVNAKO AKO V AST_FUNC_DEF
                 int result = semantic_visit(node->right, main_scope);
                 
-                // ✅ DÔLEŽITÉ: NEUVOĽŇUJ main_scope - rovnako ako v AST_FUNC_DEF
+                
                 // free_scope(main_scope);  // TOTO ODSTRÁŇTE!
                 
                 return result;
@@ -700,7 +700,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 Param *last_param = NULL;
 
                 ASTNode *param_node = node->left;
-                while (param_node && param_node->type == AST_FUNC_PARAM) {  // Zmenené na AST_FUNC_PARAM
+                while (param_node && param_node->type == AST_FUNC_PARAM) {  
                     if (!param_node->right || param_node->right->type != AST_IDENTIFIER) {
                         fprintf(stderr, "[SEMANTIC] Invalid parameter node in function '%s'.\n", func_name);
                         return ERROR_INTERNAL;
@@ -764,7 +764,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 }
                 func_scope->parent = current_scope;
 
-                // Insert parameters into function scope - TOTO JE KLÚČOVÉ!
+                // Insert parameters into function scope
                 for (Param *p = params; p; p = p->next) {
                     SymTableData *param_var = make_variable(p->data_type, true, true);  // defined=true, initialized=true
                     if (!param_var) {
@@ -778,6 +778,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     }
                 }
 
+                node->right->current_table = &func_scope->symbols;
                 // Analyze function body with function scope
                 // The AST_BLOCK will handle its own scope creation and cleanup
                 int result = semantic_visit(node->right, func_scope);
@@ -1177,10 +1178,10 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 }
 
                 // Visit then branch
-                if (!node->right->right || node->right->right->type != AST_ELSE) {
+                /*if (!node->right->right || node->right->right->type != AST_ELSE) {
                     fprintf(stderr, "[SEMANTIC] If statement missing then block\n");
                     return ERROR_INTERNAL;
-                }
+                }*/
 
                 return semantic_visit(node->right, current_scope);
             } break;
@@ -1254,7 +1255,6 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
         case AST_BLOCK: {
                 Scope* block_scope = current_scope;  
-                
 
                 if (!node->current_table) {
                     block_scope = init_scope();
