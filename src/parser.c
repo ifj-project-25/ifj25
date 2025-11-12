@@ -416,6 +416,15 @@ static ASTNode* STML(ASTNode* function){
         if (rc != NO_ERROR)return NULL;
 
         break;
+
+    case TOKEN_LCURLY:
+        statement = BLOCK();
+        if (rc != NO_ERROR)return NULL;
+
+        next_token(&token);
+        if (rc != NO_ERROR)return NULL;
+
+        break;
     case TOKEN_IDENTIFIER:
         ASTNode* id_node = create_ast_node(AST_IDENTIFIER, token.value.string->str);
         next_token(&token);
