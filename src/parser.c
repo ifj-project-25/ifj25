@@ -140,6 +140,24 @@ static int token_control(TokenType expected_type, const void *expected_value){
     }
 
 }
+static ASTNode* FUNC_CALL(ASTNode* id_node){
+    next_token(&token);
+    if (rc != NO_ERROR)return NULL;
+    ASTNode* call_node = create_ast_node(AST_FUNC_CALL, id_node->name);
+    if(call_node == NULL){
+        rc = ERROR_INTERNAL;
+        return NULL;
+    }
+
+    //ARGUMENT_LIST();
+    //if (rc != NO_ERROR)return NULL;
+
+    rc = token_control(TOKEN_RPAREN,NULL);
+    if (rc != NO_ERROR)return NULL;
+    next_token(&token);
+    if (rc != NO_ERROR)return NULL;
+    return call_node;
+}
 static int ARGUMENT_TAIL(){
     if (!((token.type == TOKEN_RPAREN))){
         rc = token_control(TOKEN_COMMA,NULL);
@@ -403,6 +421,13 @@ static ASTNode* STML(ASTNode* function){
         next_token(&token);
         if (rc != NO_ERROR)return NULL;
 
+        if (token.type == TOKEN_LPAREN) { // CALL
+            ASTNode* call_node = FUNC_CALL(id_node);
+            if (rc != NO_ERROR)return NULL;
+            statement = call_node;
+            break;
+        }
+
         if (token.type == TOKEN_EQUAL){//ASSIGNMENT
             ASTNode* assign_node = create_ast_node(AST_ASSIGN, NULL);
             statement = assign_node;  // Fix: assign to statement, not statement->left
@@ -417,18 +442,8 @@ static ASTNode* STML(ASTNode* function){
                 next_token(&token);
                 if (rc != NO_ERROR)return NULL;
                 if (token.type == TOKEN_LPAREN) { // CALL
-                    next_token(&token);
+                    assign_node->left->right = FUNC_CALL(first_expr_parser_token);
                     if (rc != NO_ERROR)return NULL;
-                    ASTNode* call_node = create_ast_node(AST_FUNC_CALL, first_expr_parser_token->name);
-                    //ARGUMENT_LIST();
-                    //if (rc != NO_ERROR)return NULL;
-
-                    rc = token_control(TOKEN_RPAREN,NULL);
-                    if (rc != NO_ERROR)return NULL;
-                    debug_print_token("After processing function call in assignment, next token is:", &token);
-                    next_token(&token);
-                    if (rc != NO_ERROR)return NULL;
-                    assign_node->left->right = call_node;
                     break;
                 }
                 else {
@@ -684,7 +699,7 @@ static ASTNode* DEF_FUN(){
 
     return new_function;
 }
-static ASTNode* DEF_FUN_LIST(ASTNode* current_token){
+static ASTNode* DEF_FUN_LIST(ASTNode* current_node){
     if (((token.type == TOKEN_KEYWORD) && (token.value.keyword == KEYWORD_STATIC))){
         ASTNode* new_function = DEF_FUN();
         if (new_function == NULL){
@@ -694,13 +709,24 @@ static ASTNode* DEF_FUN_LIST(ASTNode* current_token){
 
         // For PROGRAM node, assign to right directly
         // For FUNC_DEF nodes, assign to right->right (BLOCK's right)
-        if (current_token->type == AST_PROGRAM){
-            current_token->left = new_function;
-        } else if (current_token->right != NULL && current_token->right->right == NULL){
-            current_token->right->right = new_function;
-        }
 
-        ASTNode* tail = DEF_FUN_LIST(new_function->right->right);
+        /* if (current_node->right->right == NULL){
+            current_node->right->right = new_function;
+        } else {
+            current_node->left = new_function;
+        } */
+       if (current_node->right == NULL){
+        if (current_node->type == AST_PROGRAM){
+            current_node->left = new_function;
+       }
+       }
+       else if (current_node -> right ->right == NULL){
+        current_node->right->right = new_function;
+       }
+       
+       
+
+        ASTNode* tail = DEF_FUN_LIST(new_function);
         if (tail != NULL && rc != NO_ERROR){
             rc = SYNTAX_ERROR;
             return NULL;
