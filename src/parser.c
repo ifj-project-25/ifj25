@@ -10,6 +10,7 @@
 #include "error.h"
 #include "symtable.h"
 #include "expr_parser.h"
+#include "expr_precedence_parser.h"
 #include "ast.h"
 
 //TODO:: add global variable support
@@ -74,8 +75,8 @@ static ASTNode* STML_LINE(ASTNode* function);
 static int STML_LIST(ASTNode* function);
 static int eol(void);
 static ASTNode* BLOCK();
-static  ASTNode* PARAMETER_TAIL(ASTNode* node);
-static  ASTNode* PARAMETER_LIST();
+ASTNode* PARAMETER_TAIL(ASTNode* node);
+ASTNode* PARAMETER_LIST();
 static int DEF_FUN_TAIL(ASTNode* function);
 static ASTNode* DEF_FUN();
 static ASTNode* DEF_FUN_LIST(ASTNode* current_token);
@@ -83,7 +84,7 @@ static int CLASS( ASTNode* PROGRAM);
 static int PROLOG();
 //static int ARGUMENT_TAIL();
 //static int ARGUMENT_LIST();
-static ExprNode* EXPRESSION( char* first_expr_parser_token); 
+static ASTNode* EXPRESSION(); 
 
 
 Keyword expected_keyword;
@@ -182,14 +183,25 @@ static int ARGUMENT_LIST(){
     ARGUMENT_TAIL();
     return NO_ERROR;
 } */
-static ExprNode* EXPRESSION( char* first_expr_parser_token){
+static ASTNode* EXPRESSION( ){
     int error_code = NO_ERROR;
-    ExprNode* expressionTree = expression_parser_main(first_expr_parser_token, &token, &error_code);
+    ASTNode* expressionTree = expression_parser_main( &token, &error_code);
     if (expressionTree == NULL || error_code != NO_ERROR){
         printf("Error: Failed to parse expression\n");
         rc = SYNTAX_ERROR;
         return NULL;
     }
+    if (expressionTree->type == AST_FUNC_CALL){
+        next_token(&token);
+        if (rc != NO_ERROR)return NULL;
+        expressionTree->left = PARAMETER_LIST();
+        if (rc != NO_ERROR)return NULL;
+        rc = token_control(TOKEN_RPAREN,NULL);
+        if (rc != NO_ERROR)return NULL;
+        next_token(&token);
+        if (rc != NO_ERROR)return NULL;
+    }
+    
     return expressionTree;
 }
 static ASTNode* IF(){
@@ -216,14 +228,12 @@ static ASTNode* IF(){
         return NULL;
     }
 
-    ExprNode* expr = EXPRESSION(NULL);
-    if (expr == NULL){
+    node->left = EXPRESSION(NULL);
+    if (rc != NO_ERROR){
         free_ast_tree(node);
         rc = SYNTAX_ERROR;
         return NULL;
     }
-    node->left = create_ast_node(AST_EXPRESSION, NULL);
-    node->left->expr = expr; // attach expression tree to IF condition
 
     rc = token_control(TOKEN_RPAREN,NULL);
     if (rc != NO_ERROR){
@@ -294,9 +304,8 @@ static ASTNode* WHILE(){
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
-    ExprNode* expr = EXPRESSION(NULL);
+    while_node -> left = EXPRESSION(NULL); // attach expression tree to WHILE condition
     if (rc != NO_ERROR)return NULL;
-    while_node -> left -> expr = expr; // attach expression tree to WHILE condition
 
     rc = token_control(TOKEN_RPAREN,NULL);
     if (rc != NO_ERROR)return NULL;
@@ -382,8 +391,7 @@ static ASTNode* STML(ASTNode* function){
             if (rc != NO_ERROR)return NULL;
 
             statement = create_ast_node(AST_RETURN, NULL);
-            statement->right = create_ast_node(AST_EXPRESSION, NULL);
-            statement->right->expr = EXPRESSION(NULL);
+            statement->right = EXPRESSION(NULL);
             if (rc != NO_ERROR)return NULL;
             break;
         case KEYWORD_IFJ:
@@ -445,41 +453,7 @@ static ASTNode* STML(ASTNode* function){
 
             next_token(&token);
             if (rc != NO_ERROR)return NULL;
-            assign_node ->left -> right = create_ast_node(AST_EXPRESSION, NULL); //TO_BE_ASKED(MICHAL): it isnt expression but ask Michal if he needs it like this 
-            if (token.type == TOKEN_IDENTIFIER){
-                ASTNode* first_expr_parser_token = create_ast_node(AST_IDENTIFIER, token.value.string->str);
-                next_token(&token);
-                if (rc != NO_ERROR)return NULL;
-                if (token.type == TOKEN_LPAREN) { // CALL
-                    assign_node->left->right = FUNC_CALL(first_expr_parser_token);
-                    if (rc != NO_ERROR)return NULL;
-                    break;
-                }
-                else {
-                    ExprNode* expr = EXPRESSION(first_expr_parser_token->name);
-                    if (rc != NO_ERROR)return NULL;
-                    assign_node->left->right->expr = expr; // attach expression tree to assignment
-
-                }}
-            else{
-                ExprNode* expr = EXPRESSION(NULL);
-                if (rc != NO_ERROR)return NULL;
-                assign_node -> left ->right -> expr = expr; // attach expression tree to assignment
-                    
-                }
-            
-            break;
-        }
-        else if (token.type == TOKEN_LPAREN){ // CALL
-            next_token(&token);
-            if (rc != NO_ERROR)return NULL;
-            ASTNode* call_node = create_ast_node(AST_FUNC_CALL, id_node->name);
-            statement = call_node;
-            
-            PARAMETER_LIST();
-            if (rc != NO_ERROR)return NULL;
-
-            rc = token_control(TOKEN_RPAREN,NULL);
+            assign_node->left->right = EXPRESSION(NULL);
             if (rc != NO_ERROR)return NULL;
             break;
         }
@@ -581,7 +555,7 @@ static ASTNode* BLOCK(){
 
 }
 
-static  ASTNode* PARAMETER_TAIL(ASTNode* argument_node){
+ASTNode* PARAMETER_TAIL(ASTNode* argument_node){
     if(token.type != TOKEN_RPAREN){
         argument_node->left=create_ast_node(AST_FUNC_ARG,NULL);
         rc = token_control(TOKEN_COMMA,NULL);
@@ -590,9 +564,11 @@ static  ASTNode* PARAMETER_TAIL(ASTNode* argument_node){
         next_token(&token);
         if (rc != NO_ERROR)return NULL;
 
-        argument_node->left->right = create_ast_node(AST_EXPRESSION, NULL);
-        argument_node->left->right->expr = EXPRESSION(NULL);
-        if (rc != NO_ERROR)return NULL;
+        argument_node->left->right = EXPRESSION(NULL);
+        if (rc != NO_ERROR || argument_node->right == NULL || argument_node->right->type == AST_FUNC_CALL){
+            rc = SYNTAX_ERROR;
+            return NULL;
+        }
 
         PARAMETER_TAIL(argument_node->left);
         if (rc != NO_ERROR)return NULL;
@@ -601,11 +577,14 @@ static  ASTNode* PARAMETER_TAIL(ASTNode* argument_node){
     return NULL;
 }
 
-static  ASTNode* PARAMETER_LIST(){
+ASTNode* PARAMETER_LIST(){
     if(token.type != TOKEN_RPAREN){
         ASTNode* argument_node = create_ast_node(AST_FUNC_ARG,NULL); 
-        argument_node->right = create_ast_node(AST_EXPRESSION, NULL);
-        argument_node->right->expr = EXPRESSION(NULL);
+        argument_node->right = EXPRESSION(NULL);
+        if (rc != NO_ERROR || argument_node->right == NULL || argument_node->right->type == AST_FUNC_CALL){
+            rc = SYNTAX_ERROR;
+            return NULL;
+        }
         if (rc != NO_ERROR)return NULL;
         PARAMETER_TAIL(argument_node);
         return argument_node;
