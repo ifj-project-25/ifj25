@@ -74,15 +74,15 @@ static ASTNode* STML_LINE(ASTNode* function);
 static int STML_LIST(ASTNode* function);
 static int eol(void);
 static ASTNode* BLOCK();
-static int PARAMETER_TAIL();
-static int PARAMETER_LIST();
+static  ASTNode* PARAMETER_TAIL(ASTNode* node);
+static  ASTNode* PARAMETER_LIST();
 static int DEF_FUN_TAIL(ASTNode* function);
 static ASTNode* DEF_FUN();
 static ASTNode* DEF_FUN_LIST(ASTNode* current_token);
 static int CLASS( ASTNode* PROGRAM);
 static int PROLOG();
-static int ARGUMENT_TAIL();
-static int ARGUMENT_LIST();
+//static int ARGUMENT_TAIL();
+//static int ARGUMENT_LIST();
 static ExprNode* EXPRESSION( char* first_expr_parser_token); 
 
 
@@ -149,8 +149,8 @@ static ASTNode* FUNC_CALL(ASTNode* id_node){
         return NULL;
     }
 
-    //ARGUMENT_LIST();
-    //if (rc != NO_ERROR)return NULL;
+    call_node->left = PARAMETER_LIST();
+    if (rc != NO_ERROR)return NULL;
 
     rc = token_control(TOKEN_RPAREN,NULL);
     if (rc != NO_ERROR)return NULL;
@@ -158,7 +158,7 @@ static ASTNode* FUNC_CALL(ASTNode* id_node){
     if (rc != NO_ERROR)return NULL;
     return call_node;
 }
-static int ARGUMENT_TAIL(){
+/* static int ARGUMENT_TAIL(){
     if (!((token.type == TOKEN_RPAREN))){
         rc = token_control(TOKEN_COMMA,NULL);
         if (rc != NO_ERROR)return rc;
@@ -181,7 +181,7 @@ static int ARGUMENT_LIST(){
 
     ARGUMENT_TAIL();
     return NO_ERROR;
-}
+} */
 static ExprNode* EXPRESSION( char* first_expr_parser_token){
     int error_code = NO_ERROR;
     ExprNode* expressionTree = expression_parser_main(first_expr_parser_token, &token, &error_code);
@@ -333,7 +333,7 @@ static ASTNode* IFJ(){
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
-    rc = ARGUMENT_LIST();
+    PARAMETER_LIST();
     if (rc != NO_ERROR)return NULL;
 
     rc = token_control(TOKEN_RPAREN,NULL);
@@ -407,7 +407,7 @@ static ASTNode* STML(ASTNode* function){
         next_token(&token);
         if (rc != NO_ERROR)return NULL;
 
-        ARGUMENT_LIST();
+        PARAMETER_LIST();
         if (rc != NO_ERROR)return NULL;
 
         rc = token_control(TOKEN_RPAREN,NULL);
@@ -476,7 +476,7 @@ static ASTNode* STML(ASTNode* function){
             ASTNode* call_node = create_ast_node(AST_FUNC_CALL, id_node->name);
             statement = call_node;
             
-            ARGUMENT_LIST();
+            PARAMETER_LIST();
             if (rc != NO_ERROR)return NULL;
 
             rc = token_control(TOKEN_RPAREN,NULL);
@@ -580,43 +580,43 @@ static ASTNode* BLOCK(){
     return block;
 
 }
-static int PARAMETER_TAIL(){
-    if (!((token.type == TOKEN_RPAREN))){
+
+static  ASTNode* PARAMETER_TAIL(ASTNode* argument_node){
+    if(token.type != TOKEN_RPAREN){
+        argument_node->left=create_ast_node(AST_FUNC_ARG,NULL);
         rc = token_control(TOKEN_COMMA,NULL);
-        if (rc != NO_ERROR)return rc;
-        next_token(&token);
-        if (rc != NO_ERROR)return rc;
-        
-        rc = token_control(TOKEN_IDENTIFIER,NULL);
-        if (rc != NO_ERROR)return rc;
+        if (rc != NO_ERROR)return NULL;
 
         next_token(&token);
-        if (rc != NO_ERROR)return rc;
-        PARAMETER_TAIL();
-        if (rc != NO_ERROR)return rc;
+        if (rc != NO_ERROR)return NULL;
+
+        argument_node->left->right = create_ast_node(AST_EXPRESSION, NULL);
+        argument_node->left->right->expr = EXPRESSION(NULL);
+        if (rc != NO_ERROR)return NULL;
+
+        PARAMETER_TAIL(argument_node->left);
+        if (rc != NO_ERROR)return NULL;
+        return argument_node;
     }
-
-    return NO_ERROR;
+    return NULL;
 }
-static int PARAMETER_LIST(){
-    if (!((token.type == TOKEN_RPAREN))){
-        rc = token_control(TOKEN_IDENTIFIER,NULL);
-        if (rc != NO_ERROR)return rc;
 
-        next_token(&token);
-        if (rc != NO_ERROR)return rc;
-        PARAMETER_TAIL();
-        if (rc != NO_ERROR)return rc;
-
-
+static  ASTNode* PARAMETER_LIST(){
+    if(token.type != TOKEN_RPAREN){
+        ASTNode* argument_node = create_ast_node(AST_FUNC_ARG,NULL); 
+        argument_node->right = create_ast_node(AST_EXPRESSION, NULL);
+        argument_node->right->expr = EXPRESSION(NULL);
+        if (rc != NO_ERROR)return NULL;
+        PARAMETER_TAIL(argument_node);
+        return argument_node;
     }
-    return NO_ERROR;
+    return NULL;
 }
 static int DEF_FUN_TAIL(ASTNode* function){
     if(!((token.type == TOKEN_RPAREN))){
         next_token(&token);
         if (rc != NO_ERROR)return rc;
-        PARAMETER_LIST();
+        function->left = PARAMETER_LIST();
 
         rc = (token_control(TOKEN_RPAREN,NULL));
         if (rc != NO_ERROR)return rc;
@@ -765,7 +765,6 @@ static int CLASS(ASTNode* PROGRAM){
     eol();
     if(rc != NO_ERROR)return rc;
 
-    printf("TOKEN before DEF_FUN_LIST: %s\n", token_type_name(token.type));
     DEF_FUN_LIST(PROGRAM);
     if(rc != NO_ERROR)return rc;
 
