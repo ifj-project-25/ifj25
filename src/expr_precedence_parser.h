@@ -1,18 +1,14 @@
 /**
  * @file parser.c
  * @author xmikusm00
- * @brief expression parser header file
+ * @brief Stack implementation for expression evaluation
  */
-#ifndef EXPR_PARSER_H
-#define EXPR_PARSER_H
+#ifndef EXPR_STACK_PRECEDENCE_H
+#define EXPR_STACK_PRECEDENCE_H
 #include "scanner.h"
-#include "symtable.h"
-#include "expr_stack.h"
+#include <stdbool.h>
 #include "expr_ast.h"
 
 
-ExprNode*  expression_parser_main( char* first_expr_parser_token, Token *token, int *error_code);
-
-
-
-#endif //EXPR_PARSER_H
+ASTNode* main_precedence_parser();
+#endif //EXPR_STACK_PRECEDENCE_H
