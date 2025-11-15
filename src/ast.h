@@ -8,6 +8,7 @@
 #define AST_H
 
 #include "symtable.h"
+#include "expr_ast.h"
 
 
 /**  ===== All possible node types in the AST =====
@@ -24,6 +25,8 @@ typedef enum {
     AST_FUNC_CALL,       // function call  ->   left - AST_FUNC_ARG (arguments), right - next program  
 
     AST_FUNC_ARG,        // function argument    ->   left - another AST_FUNC_ARG or NULL (end of args), right - expression/value
+
+    AST_FUNC_PARAM, // function argument parameter in declaration   ->   left - another AST_FUNC_ARG or NULL (end of args), right - expression/value
 
     AST_BLOCK,           // { statements }  -> left - inside code, right - next program - in if continues with else, in functiondef another function...
 
@@ -58,15 +61,15 @@ typedef enum {
                          //actual equals should be handled in expression node
                          //for exammple var a = 15;
 
-                         
+    AST_EXPRESSION,      // expression node -> left - AST_FUNC_CALL, expr - ExprNode
 // Expressions -TODO Matej had to check and fix/add/remove that
-    AST_EXPRESSION,      // expression node
+   /*
     AST_OP,             // operator
     
     AST_LITERAL_INT,     // integer literal
     AST_LITERAL_FLOAT,   // float literal
     AST_LITERAL_STRING,  // string literal
-    AST_LITERAL_NULL,    // null literal
+    AST_LITERAL_NULL,    // null literal*/
 } ASTNodeType;
 
 typedef struct ASTNode {
@@ -75,13 +78,14 @@ typedef struct ASTNode {
 
     struct ASTNode *left;  // left / subnode
     struct ASTNode *right; // right / subnode
+    struct ExprNode *expr; // expression node (for expressions)
 
     // Literal values
-    int int_val;
+    /*int int_val;
     double float_val;
-    char *string_val;
+    char *string_val;*/
 
-    struct Symtable* current_table; // current symbol table for the block
+    SymTable *current_table; // current symbol table for the block
 
     // Type of the variable / expression (e.g., TYPE_NUM, TYPE_STRING, ...) - used from symtable.h
     DataType data_type;
@@ -91,5 +95,7 @@ typedef struct ASTNode {
 ASTNode* create_ast_node(ASTNodeType type, const char* name);   // Create a new AST node
 
 void free_ast_tree(ASTNode* node);                          // Free the entire AST tree recursively
+
+void print_ast_tree(ASTNode* node);                         // Print the AST tree with visual connections
 
 #endif //AST_H

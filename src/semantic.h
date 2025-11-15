@@ -11,6 +11,8 @@
 #include "ast.h"
 #include "error.h"
 
+extern int semantic_visit_count;
+
 //---------- Scope structure for symbol tables ----------
 // Scope structure for symbol tables
 typedef struct Scope {
@@ -34,14 +36,29 @@ char* my_strdup(const char* s);
 // print all symbols in the symbol table (for debugging)
 void print_all_symbols(ASTNode *node);
 
+// Convert AST node type to string for debugging
+const char* ast_node_type_to_string(ASTNodeType type);
+
 // Look up symbol in current and parent scopes
 SymTableData* lookup_symbol(Scope *scope, const char *name);
 
 // Preload built-in functions into global scope
 void preload_builtins(Scope *global_scope);
 
+// Check of uninitialized variables
+int check_uninitialized_usage(ExprNode* expr, Scope* scope);
+
 // Infer data type of an expression
 DataType infer_expression_type(ASTNode *expr, Scope *scope);
+
+// Count arguments in function call
+int count_arguments(ASTNode *arg_list);
+
+// Check built-in function call
+int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_name);
+
+// Check user function call
+int check_user_function_call(ASTNode *node, Scope *scope, SymTableData *func_symbol);
 
 //---------- Semantic analysis functions ----------
 
