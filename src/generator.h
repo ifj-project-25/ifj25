@@ -9,6 +9,7 @@
 
 #include "ast.h"
 #include "symtable.h"
+#include "semantic.h"
 #include <stdio.h>
 
 //---------- Function declarations ----------
@@ -100,7 +101,8 @@ int assign (ASTNode *node, FILE *output);
 
 //funkcion ast types
 int funkc_call (ASTNode *node, FILE *output);
-int func_def (ASTNode *node, FILE *output);
+int getter_call (ASTNode *node, FILE *output);
+int setter_call (ASTNode *node, FILE *output);
 int block (ASTNode *node, FILE *output);
 
 //definitions ast types
@@ -111,7 +113,6 @@ int setter_def (ASTNode *node, FILE *output);
 
 //statements ast types
 int if_stmt (ASTNode *node, FILE *output);
-int else_stmt (ASTNode *node, FILE *output);
 int while_loop (ASTNode *node, FILE *output);
 int return_stmt (ASTNode *node, FILE *output);
 
