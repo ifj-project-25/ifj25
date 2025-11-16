@@ -1104,6 +1104,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
         case AST_IDENTIFIER: {
                 // AST_IDENTIFIER - check if variable exists and is initialized
                 const char* var_name = node->name;
+                node->current_scope = current_scope;
                 
                 if (!var_name) {
                     fprintf(stderr, "[SEMANTIC] Identifier has no name\n");

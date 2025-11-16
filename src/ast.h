@@ -90,6 +90,7 @@ typedef struct ASTNode {
     char *string_val;*/
 
     SymTable *current_table; // current symbol table for the block
+    Scope *current_scope;      // current scope for semantic analysis
 
     // Type of the variable / expression (e.g., TYPE_NUM, TYPE_STRING, ...) - used from symtable.h
     DataType data_type;
