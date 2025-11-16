@@ -11,6 +11,7 @@
 #include "expr_ast.h"
 
 typedef struct Scope Scope;
+
 /**  ===== All possible node types in the AST =====
  *
  * This enum includes every kind of syntactic construct that
