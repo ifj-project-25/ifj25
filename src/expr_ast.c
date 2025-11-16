@@ -95,6 +95,18 @@ ExprNode* create_binary_op_node(BinaryOpType op, ExprNode* left, ExprNode* right
     return node;
 }
 
+ExprNode* create_getter_call_node(const char* name) {
+    ExprNode* node = (ExprNode*)malloc(sizeof(ExprNode));
+    if (!node) return NULL;
+    node->type = EXPR_GETTER_CALL;
+    node->data.getter_name = my_strdup(name);
+    if (!node->data.getter_name) {
+        free(node);
+        return NULL;
+    }
+    return node;
+}
+
 void free_expr_node(ExprNode* node){
     if (!node) return;
 
@@ -104,6 +116,9 @@ void free_expr_node(ExprNode* node){
             break;
         case EXPR_IDENTIFIER:
             free(node->data.identifier_name);
+            break;
+        case EXPR_GETTER_CALL:
+            free(node->data.getter_name);
             break;
         case EXPR_BINARY_OP:
             free_expr_node(node->data.binary.left);
@@ -158,6 +173,9 @@ void print_expr_ast(ExprNode* node, int indent) {
             break;
         case EXPR_IDENTIFIER:
             printf("ID: %s\n", node->data.identifier_name);
+            break;
+        case EXPR_GETTER_CALL:
+            printf("GETTER_CALL: %s()\n", node->data.getter_name);
             break;
         case EXPR_BINARY_OP:
             printf("BINARY_OP: %s\n", get_op_string(node->data.binary.op));

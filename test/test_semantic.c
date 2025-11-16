@@ -367,7 +367,7 @@ int test_program3_builtin_write() {
     
     ASTNode* expr_arg1 = create_ast_node(AST_EXPRESSION, NULL);
     arg1->right = expr_arg1;
-    expr_arg1->expr = create_identifier_node("str1");
+    expr_arg1->expr = create_string_literal_node("str1");
 
     // Ifj.write("\n")
     ASTNode* call_write2 = create_ast_node(AST_FUNC_CALL, "Ifj.write");

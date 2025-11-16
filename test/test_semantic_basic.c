@@ -472,6 +472,199 @@ int test_setter_redefinition() {
     return result;
 }
 
+// Test 57: Getter used in RHS expression - should pass (NO_ERROR)
+int test_getter_in_rhs() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Define getter 'g' that returns 10
+    ASTNode* getter = create_ast_node(AST_GETTER_DEF, "g");
+    program->left = getter;
+    ASTNode* getter_block = create_ast_node(AST_BLOCK, NULL);
+    getter->right = getter_block;
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->expr = create_num_literal_node(10.0);
+    getter_block->left = ret;
+
+    // var a
+    ASTNode* decl_a = create_ast_node(AST_VAR_DECL, NULL);
+    getter_block->right = decl_a; // place after getter
+    decl_a->left = create_ast_node(AST_IDENTIFIER, "a");
+
+    // a = g()
+    ASTNode* assign = create_ast_node(AST_ASSIGN, NULL);
+    decl_a->right = assign;
+    ASTNode* equals = create_ast_node(AST_EQUALS, NULL);
+    assign->left = equals;
+    equals->left = create_ast_node(AST_IDENTIFIER, "a");
+    ASTNode* expr = create_ast_node(AST_EXPRESSION, NULL);
+    equals->right = expr;
+    expr->expr = create_identifier_node("g");
+
+    int result = semantic_analyze(program);
+    free_ast_tree(program);
+    return result; // expect NO_ERROR
+}
+
+// Test 58: Getter used inside binary expression - should pass (NO_ERROR)
+int test_getter_in_binary_expr() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Define getter 'g' that returns 2
+    ASTNode* getter = create_ast_node(AST_GETTER_DEF, "g");
+    program->left = getter;
+    ASTNode* getter_block = create_ast_node(AST_BLOCK, NULL);
+    getter->right = getter_block;
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->expr = create_num_literal_node(2.0);
+    getter_block->left = ret;
+
+    // var b
+    ASTNode* decl_b = create_ast_node(AST_VAR_DECL, NULL);
+    getter_block->right = decl_b;
+    decl_b->left = create_ast_node(AST_IDENTIFIER, "b");
+
+    // b = g() + 5
+    ASTNode* assign = create_ast_node(AST_ASSIGN, NULL);
+    decl_b->right = assign;
+    ASTNode* equals = create_ast_node(AST_EQUALS, NULL);
+    assign->left = equals;
+    equals->left = create_ast_node(AST_IDENTIFIER, "b");
+    ASTNode* expr = create_ast_node(AST_EXPRESSION, NULL);
+    equals->right = expr;
+
+    ExprNode* add = create_binary_op_node(OP_ADD, create_identifier_node("g"), create_num_literal_node(5.0));
+    expr->expr = add;
+
+    int result = semantic_analyze(program);
+    free_ast_tree(program);
+    return result; // expect NO_ERROR
+}
+
+// Test 59: Getter used as function argument - should pass (NO_ERROR)
+int test_getter_as_argument() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Define getter 'g' that returns 3
+    ASTNode* getter = create_ast_node(AST_GETTER_DEF, "g");
+    program->left = getter;
+    ASTNode* getter_block = create_ast_node(AST_BLOCK, NULL);
+    getter->right = getter_block;
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->expr = create_num_literal_node(3.0);
+    getter_block->left = ret;
+
+    // Define function foo(num)
+    ASTNode* func = create_ast_node(AST_FUNC_DEF, "foo");
+    getter_block->right = func;
+    ASTNode* param = create_ast_node(AST_FUNC_ARG, NULL);
+    func->left = param;
+    ASTNode* idparam = create_ast_node(AST_IDENTIFIER, "p");
+    idparam->data_type = TYPE_NUM;
+    param->right = idparam;
+    func->right = create_ast_node(AST_BLOCK, NULL);
+
+    // Call foo(g())
+    ASTNode* call = create_ast_node(AST_FUNC_CALL, "foo");
+    func->right->right = call;
+    ASTNode* arg = create_ast_node(AST_FUNC_ARG, NULL);
+    call->left = arg;
+    ASTNode* expr = create_ast_node(AST_EXPRESSION, NULL);
+    arg->right = expr;
+    expr->expr = create_identifier_node("g");
+
+    int result = semantic_analyze(program);
+    free_ast_tree(program);
+    return result; // expect NO_ERROR
+}
+
+// Test 60: Getter used in condition - should pass (NO_ERROR)
+int test_getter_in_condition() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Define getter 'g' that returns 1
+    ASTNode* getter = create_ast_node(AST_GETTER_DEF, "g");
+    program->left = getter;
+    ASTNode* getter_block = create_ast_node(AST_BLOCK, NULL);
+    getter->right = getter_block;
+    ASTNode* ret = create_ast_node(AST_RETURN, NULL);
+    ret->expr = create_num_literal_node(1.0);
+    getter_block->left = ret;
+
+    // if (g()) { }
+    ASTNode* ifnode = create_ast_node(AST_IF, NULL);
+    getter_block->right = ifnode;
+    ASTNode* cond = create_ast_node(AST_EXPRESSION, NULL);
+    ifnode->left = cond;
+    cond->expr = create_identifier_node("g");
+    ASTNode* thenb = create_ast_node(AST_BLOCK, NULL);
+    ifnode->right = thenb;
+
+    int result = semantic_analyze(program);
+    free_ast_tree(program);
+    return result; // expect NO_ERROR
+}
+
+// Test 55: Simple setter call via assignment - should pass (NO_ERROR)
+int test_setter_call_simple() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Define setter 'prop'
+    ASTNode* setter = create_ast_node(AST_SETTER_DEF, "prop");
+    program->left = setter;
+
+    // Setter parameter
+    ASTNode* param = create_ast_node(AST_IDENTIFIER, "val");
+    setter->left = param;
+    setter->right = create_ast_node(AST_BLOCK, NULL);
+
+    // Following statement: prop = 7 (should be treated as setter call)
+    ASTNode* assign = create_ast_node(AST_ASSIGN, NULL);
+    setter->right->right = assign; // place after setter block
+
+    ASTNode* equals = create_ast_node(AST_EQUALS, NULL);
+    assign->left = equals;
+    equals->left = create_ast_node(AST_IDENTIFIER, "prop");
+
+    ASTNode* expr = create_ast_node(AST_EXPRESSION, NULL);
+    equals->right = expr;
+    expr->expr = create_num_literal_node(7.0);
+
+    int result = semantic_analyze(program);
+    free_ast_tree(program);
+    return result; // Expect NO_ERROR
+}
+
+// Test 56: Setter call with type mismatch - should fail (SEM_ERROR_TYPE_COMPATIBILITY)
+int test_setter_call_type_mismatch() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    // Define setter 'prop' with explicit string parameter type
+    ASTNode* setter = create_ast_node(AST_SETTER_DEF, "prop");
+    program->left = setter;
+
+    // Setter parameter with string type
+    ASTNode* param = create_ast_node(AST_IDENTIFIER, "val");
+    param->data_type = TYPE_STRING;
+    setter->left = param;
+    setter->right = create_ast_node(AST_BLOCK, NULL);
+
+    // Following statement: prop = 123 (number) -> should be type mismatch
+    ASTNode* assign = create_ast_node(AST_ASSIGN, NULL);
+    setter->right->right = assign; // place after setter block
+
+    ASTNode* equals = create_ast_node(AST_EQUALS, NULL);
+    assign->left = equals;
+    equals->left = create_ast_node(AST_IDENTIFIER, "prop");
+
+    ASTNode* expr = create_ast_node(AST_EXPRESSION, NULL);
+    equals->right = expr;
+    expr->expr = create_num_literal_node(123.0);
+
+    int result = semantic_analyze(program);
+    free_ast_tree(program);
+    return result; // Expect SEM_ERROR_TYPE_COMPATIBILITY
+}
+
 // Test 20: Getter/Setter with regular function same name - should pass (NO_ERROR)
 int test_getter_setter_function_same_name() {
     ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
@@ -2141,6 +2334,12 @@ int main() {
             {52, "Global variable across functions", "NO_ERROR", NO_ERROR, test_global_var_multiple_funcs},
             {53, "Multiple global variables", "NO_ERROR", NO_ERROR, test_global_var_multiple_types},
             {54, "Global variable in blocks", "NO_ERROR", NO_ERROR, test_global_var_blocks_conditions},
+            {55, "Setter call simple", "NO_ERROR", NO_ERROR, test_setter_call_simple},
+            {56, "Setter call type mismatch", "SEM_ERROR_TYPE_COMPATIBILITY", SEM_ERROR_TYPE_COMPATIBILITY, test_setter_call_type_mismatch},
+            {57, "Getter in RHS", "NO_ERROR", NO_ERROR, test_getter_in_rhs},
+            {58, "Getter in binary expr", "NO_ERROR", NO_ERROR, test_getter_in_binary_expr},
+            {59, "Getter as argument", "NO_ERROR", NO_ERROR, test_getter_as_argument},
+            {60, "Getter in condition", "NO_ERROR", NO_ERROR, test_getter_in_condition},
             {0, NULL, NULL, 0, NULL} // Ukončovací prvok
         };
 

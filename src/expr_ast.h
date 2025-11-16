@@ -11,6 +11,7 @@ typedef enum {
     EXPR_STRING_LITERAL,
     EXPR_NULL_LITERAL,
     EXPR_IDENTIFIER,
+    EXPR_GETTER_CALL,
     EXPR_BINARY_OP,
     EXPR_TYPE_LITERAL
 } ExprNodeType;
@@ -36,6 +37,7 @@ typedef struct ExprNode {
         double num_literal; // For EXPR_NUM_LITERAL
         char* string_literal; // For EXPR_STRING_LITERAL
         char* identifier_name; // For EXPR_IDENTIFIER
+        char* getter_name; // For EXPR_GETTER_CALL
         struct 
         {
             BinaryOpType op;
@@ -50,6 +52,7 @@ ExprNode* create_string_literal_node(const char* value);
 ExprNode* create_null_literal_node();
 ExprNode* create_type_node(const char* name);
 ExprNode* create_identifier_node(const char* name);
+ExprNode* create_getter_call_node(const char* name);
 ExprNode* create_binary_op_node(BinaryOpType op, ExprNode* left, ExprNode* right);
 void free_expr_node(ExprNode* node);
 void print_expr_ast(ExprNode* node, int indent);
