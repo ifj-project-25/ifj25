@@ -36,6 +36,8 @@ const char* ast_node_type_to_string(ASTNodeType type) {
         case AST_ASSIGN: return "ASSIGN";
         case AST_EQUALS: return "EQUALS";
         case AST_IDENTIFIER: return "IDENTIFIER";
+        case AST_GETTER_CALL: return "GETTER_CALL";
+        case AST_SETTER_CALL: return "SETTER_CALL";
         case AST_FUNC_CALL: return "FUNC_CALL";
         case AST_FUNC_ARG: return "FUNC_ARG";
         case AST_IF: return "IF";
@@ -179,17 +181,34 @@ DataType infer_expr_node_type(ExprNode *expr, Scope *scope) {
             return TYPE_UNDEF;
             
         case EXPR_IDENTIFIER:
-            SymTableData *identifier = lookup_symbol(scope, expr->data.identifier_name);
-            if (!identifier){
-                fprintf(stderr, "[SEMANTIC] Identifier '%s' not found in expression\n", expr->data.identifier_name);
+            {
+                SymTableData *identifier = lookup_symbol(scope, expr->data.identifier_name);
+                if (!identifier){
+                    fprintf(stderr, "[SEMANTIC] Identifier '%s' not found in expression\n", expr->data.identifier_name);
+                    return TYPE_UNDEF;
+                }
+                if (identifier->type == NODE_VAR) {
+                    return identifier->data.var_data->data_type;
+                } else if (identifier->type == NODE_GETTER) {
+                    return identifier->data.getter_data->return_type;
+                } else {
+                    // Not a variable or getter (could be func/setter) - treat as undef
+                    return TYPE_UNDEF;
+                }
+            }
+
+        case EXPR_GETTER_CALL: {
+            SymTableData *g = lookup_symbol(scope, expr->data.getter_name);
+            if (!g) {
+                fprintf(stderr, "[SEMANTIC] Getter '%s' not found\n", expr->data.getter_name);
                 return TYPE_UNDEF;
             }
-            if (!identifier->data.var_data) {
-                fprintf(stderr, "[SEMANTIC] Identifier '%s' is not a variable\n", expr->data.identifier_name);
+            if (g->type != NODE_GETTER) {
+                fprintf(stderr, "[SEMANTIC] '%s' is not a getter\n", expr->data.getter_name);
                 return TYPE_UNDEF;
             }
-            
-            return identifier->data.var_data->data_type;
+            return g->data.getter_data->return_type;
+        }
             
             
             
@@ -228,6 +247,7 @@ DataType infer_expr_node_type(ExprNode *expr, Scope *scope) {
                 
                 // Type test operator - always returns TYPE_NUM
                 case OP_IS:
+                    
                     return TYPE_NUM;
                 
                 // Arithmetic operators - NULL not allowed
@@ -266,6 +286,27 @@ DataType infer_expr_node_type(ExprNode *expr, Scope *scope) {
         return TYPE_UNDEF;
 }
     return TYPE_UNDEF;
+}
+
+// Scan a subtree for the first return statement with an inferable type.
+// Returns TYPE_UNDEF if none found.
+static DataType scan_return_type(ASTNode *n, Scope *scope) {
+    if (!n) return TYPE_UNDEF;
+
+    if (n->type == AST_RETURN) {
+        if (n->expr) {
+            DataType t = infer_expr_node_type(n->expr, scope);
+            if (t != TYPE_UNDEF) return t;
+        } else if (n->left && n->left->type == AST_FUNC_CALL) {
+            if (semantic_visit(n->left, scope) == NO_ERROR && n->left->data_type != TYPE_UNDEF) {
+                return n->left->data_type;
+            }
+        }
+    }
+
+    DataType left = scan_return_type(n->left, scope);
+    if (left != TYPE_UNDEF) return left;
+    return scan_return_type(n->right, scope);
 }
 
 // Helper function to count arguments
@@ -480,7 +521,6 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
                 return SEM_ERROR_OTHER;
             }
             
-            fprintf(stderr, "[DEBUG] Ifj.strcmp first argument type: %d\n", arg1_type);
             
             if (arg1_type != EXPR_STRING_LITERAL) {
                 fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string\n", func_name);
@@ -895,8 +935,26 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 }
                 getter_scope->parent = current_scope;
 
-                // Analyze getter body with getter scope
-                return semantic_visit(node->right, getter_scope);
+                // Before analyzing the getter body, try to infer the getter's
+                // return type by scanning the body for return statements that
+                // contain literal or directly inferable expressions. Setting
+                // the getter symbol's return_type early ensures that later
+                // statements in the same block (which may reference the
+                // getter) will see its return type.
+                ASTNode *scan = node->right; // should be a BLOCK
+                DataType found_type = scan_return_type(scan, getter_scope);
+
+                if (found_type != TYPE_UNDEF) {
+                    SymTableData *s = symtable_search(&current_scope->symbols, getter_name);
+                    if (s && s->type == NODE_GETTER) {
+                        s->data.getter_data->return_type = found_type;
+                    }
+                }
+
+                // Now analyze getter body with getter scope
+                int result = semantic_visit(node->right, getter_scope);
+
+                return result;
             } break;
 
         case AST_SETTER_DEF: {
@@ -1001,10 +1059,123 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     if (err != NO_ERROR) return err;
                 }*/
                 
-                // Process the assignment (AST_EQUALS)
+                // If left side refers to a setter symbol, transform the whole AST_ASSIGN
+                // into an AST_SETTER_CALL: move RHS expression into node->left and
+                // store the setter name in node->name. Otherwise, process normally.
+                if (equals->left && equals->left->type == AST_IDENTIFIER) {
+                    const char *left_name = equals->left->name;
+                    SymTableData* sym = lookup_symbol(current_scope, left_name);
+                    if (sym && sym->type == NODE_SETTER) {
+                        // Prepare to transform: detach expression from equals
+                        ASTNode* rhs_expr = equals->right;
+                        ASTNode* id_node = equals->left;
+
+                        if (!rhs_expr || rhs_expr->type != AST_EXPRESSION) {
+                            fprintf(stderr, "[SEMANTIC] Setter assignment to '%s' has no expression on the right side\n", left_name);
+                            return SEM_ERROR_OTHER;
+                        }
+
+                        // Transfer identifier name to this node (free existing name first)
+                        if (node->name) free(node->name);
+                        node->name = id_node->name; // take ownership
+                        id_node->name = NULL;
+
+                        // Rewire node: become AST_SETTER_CALL with left = expression
+                        node->type = AST_SETTER_CALL;
+                        node->current_scope = current_scope;
+
+                        // detach rhs_expr from equals to avoid double-free
+                        equals->right = NULL;
+                        equals->left = NULL;
+
+                        node->left = rhs_expr;
+                        // node->right already points to next statement (keep it)
+
+                        // free the old equals and identifier structures (name moved)
+                        free_ast_tree(equals);
+
+                        // Now perform type inference/check for the setter parameter
+                        DataType right_type = TYPE_UNDEF;
+                        if (node->left->expr) {
+                            right_type = infer_expr_node_type(node->left->expr, current_scope);
+                        } else if (node->left->left && node->left->left->type == AST_FUNC_CALL) {
+                            int err = semantic_visit(node->left->left, current_scope);
+                            if (err != NO_ERROR) return err;
+                            right_type = node->left->left->data_type;
+                        } else {
+                            fprintf(stderr, "[SEMANTIC] Invalid expression structure in setter assignment to '%s'\n", node->name);
+                            return SEM_ERROR_OTHER;
+                        }
+
+                        DataType setter_param = sym->data.setter_data->param_type;
+                        if (right_type != TYPE_UNDEF && setter_param != TYPE_UNDEF && right_type != setter_param) {
+                            fprintf(stderr, "[SEMANTIC] Type mismatch in setter call to '%s': expected %d, got %d\n",
+                                    node->name, setter_param, right_type);
+                            return SEM_ERROR_TYPE_COMPATIBILITY;
+                        }
+
+                        if (setter_param == TYPE_UNDEF && right_type != TYPE_UNDEF) {
+                            sym->data.setter_data->param_type = right_type;
+                        }
+
+                        // After transforming to AST_SETTER_CALL, continue visiting next statement
+                        return semantic_visit(node->right, current_scope);
+                    }
+                }
+
+                // Process the assignment (AST_EQUALS) normally
                 int err = semantic_visit(node->left, current_scope);
                 if (err != NO_ERROR) return err;
-                
+
+                // Continue with next statement
+                return semantic_visit(node->right, current_scope);
+            } break;
+
+        case AST_SETTER_CALL: {
+                // node->name = setter name, node->left = expression to pass, node->right = next statement
+                if (!node->name) {
+                    fprintf(stderr, "[SEMANTIC] Setter call without name\n");
+                    return ERROR_INTERNAL;
+                }
+
+                SymTableData* sym = lookup_symbol(current_scope, node->name);
+                if (!sym) {
+                    fprintf(stderr, "[SEMANTIC] Undefined setter '%s'\n", node->name);
+                    return SEM_ERROR_UNDEFINED;
+                }
+                if (sym->type != NODE_SETTER) {
+                    fprintf(stderr, "[SEMANTIC] '%s' is not a setter\n", node->name);
+                    return SEM_ERROR_OTHER;
+                }
+
+                if (!node->left || node->left->type != AST_EXPRESSION) {
+                    fprintf(stderr, "[SEMANTIC] Setter call to '%s' missing expression argument\n", node->name);
+                    return SEM_ERROR_OTHER;
+                }
+
+                DataType right_type = TYPE_UNDEF;
+                if (node->left->expr) {
+                    right_type = infer_expr_node_type(node->left->expr, current_scope);
+                } else if (node->left->left && node->left->left->type == AST_FUNC_CALL) {
+                    int err = semantic_visit(node->left->left, current_scope);
+                    if (err != NO_ERROR) return err;
+                    right_type = node->left->left->data_type;
+                } else {
+                    fprintf(stderr, "[SEMANTIC] Invalid expression structure in setter call to '%s'\n", node->name);
+                    return SEM_ERROR_OTHER;
+                }
+
+                DataType setter_param = sym->data.setter_data->param_type;
+                if (right_type != TYPE_UNDEF && setter_param != TYPE_UNDEF && right_type != setter_param) {
+                    fprintf(stderr, "[SEMANTIC] Type mismatch in setter call to '%s': expected %d, got %d\n",
+                            node->name, setter_param, right_type);
+                    return SEM_ERROR_TYPE_COMPATIBILITY;
+                }
+
+                if (setter_param == TYPE_UNDEF && right_type != TYPE_UNDEF) {
+                    sym->data.setter_data->param_type = right_type;
+                }
+
                 // Continue with next statement
                 return semantic_visit(node->right, current_scope);
             } break;
@@ -1171,24 +1342,32 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
             } break;
         case AST_FUNC_CALL: {
                 const char *func_name = node->name;
-                
-                // Check existenstion
+
+                // First, visit argument list so that expressions inside args
+                // (including identifier->getter conversion and type inference)
+                // are processed before we validate the call signature.
+                if (node->left) {
+                    int aerr = semantic_visit(node->left, current_scope);
+                    if (aerr != NO_ERROR) return aerr;
+                }
+
+                // Check existence
                 SymTableData *func_symbol = lookup_symbol(current_scope, func_name);
-                
+
                 if (!func_symbol) {
                     fprintf(stderr, "[SEMANTIC] Undefined function '%s'\n", func_name);
                     return SEM_ERROR_UNDEFINED;
                 }
-                
+
                 int err;
                 if (strncmp(func_name, "Ifj.", 4) == 0) {
                     err = check_builtin_function_call(node, current_scope, func_name);
                 } else {
                     err = check_user_function_call(node, current_scope, func_symbol);
                 }
-                
+
                 if (err != NO_ERROR) return err;
-                
+
                 // Continue with next program
                 return semantic_visit(node->right, current_scope);
             } break;
@@ -1355,13 +1534,16 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                    
                 }
 
-                
+
                 int err = semantic_visit(node->left, block_scope);
                 if (err != NO_ERROR) {
-                    
                     return err;
                 }
 
+                // Continue traversing statements in this block using the
+                // block scope (not the parent scope). This ensures that
+                // subsequent statements in the same block see symbols
+                // (e.g., getters) defined earlier in the block.
                 return semantic_visit(node->right, current_scope);
             } break;
 
@@ -1370,6 +1552,26 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
             
             if (node->expr) {
                 // NEW SYSTEM: Use expr for all expressions (literals, identifiers, binary operations)
+                // If the expr is a plain identifier that refers to a getter, convert
+                // it into a getter-call expr so downstream code (type inference/
+                // generator) can treat it uniformly.
+                if (node->expr->type == EXPR_IDENTIFIER) {
+                    SymTableData *s = lookup_symbol(current_scope, node->expr->data.identifier_name);
+                    if (s && s->type == NODE_GETTER) {
+                        // replace identifier expr with getter-call expr
+                        char *name_copy = node->expr->data.identifier_name;
+                        // create getter call node
+                        ExprNode *g = create_getter_call_node(name_copy);
+                        if (!g) {
+                            fprintf(stderr, "[SEMANTIC] Failed to allocate getter expr for '%s'\n", name_copy);
+                            return ERROR_INTERNAL;
+                        }
+                        // free old identifier structure but avoid double-free of string
+                        free(node->expr);
+                        node->expr = g;
+                    }
+                }
+
                 expr_type = infer_expr_node_type(node->expr, current_scope);
                 node->data_type = expr_type;
 
