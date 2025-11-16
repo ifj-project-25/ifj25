@@ -16,7 +16,7 @@
 //TODO:: add global variable support
 
 static void next_token(Token *token);
-static int token_control(TokenType expected_type, const void *expected_value);
+static void token_control(TokenType expected_type, const void *expected_value);
 // Debug helpers
 static const char *token_type_name(TokenType t) {
     switch (t) {
@@ -102,7 +102,7 @@ static int skip_eol(void) {
 
 static void next_token(Token *token){
     token_output = get_token(token);
-    debug_print_token("token ->", token);
+    //debug_print_token("token ->", token);
     if (token_output != NO_ERROR){
         rc = token_output;
         
@@ -110,34 +110,37 @@ static void next_token(Token *token){
     } 
 }
 
-static int token_control(TokenType expected_type, const void *expected_value){
+static void token_control(TokenType expected_type, const void *expected_value){
     if(token.type != expected_type){
         printf("token_control mismatch: expected=%s(%d) got=%s(%d)\n", token_type_name(expected_type), expected_type, token_type_name(token.type), token.type);
         debug_print_token("  current", &token);
         rc = SYNTAX_ERROR;
 
-        return rc;
+        return ;
     } 
     switch( expected_type){
         case TOKEN_KEYWORD:
             if(token.value.keyword != *(const Keyword*)expected_value){
-                return SYNTAX_ERROR;
+                rc = SYNTAX_ERROR;
+                return ;
             }
-        return NO_ERROR;
+        return ;
         case TOKEN_STRING:
             if(token.value.string == NULL || d_string_cmp(token.value.string,expected_value)){
-                return SYNTAX_ERROR;
+                rc = SYNTAX_ERROR;
+                return ;
             }
-            return NO_ERROR;
+            return ;
         case TOKEN_IDENTIFIER:
                 if(expected_value != NULL){
                 if(token.value.string == NULL || d_string_cmp(token.value.string,expected_value)){
-                    return SYNTAX_ERROR;
+                    rc = SYNTAX_ERROR;
+                    return ;
                 }
             }
-            return NO_ERROR;
+            return ;
         default:
-            return NO_ERROR;
+            return ;
     }
 
 }
@@ -153,7 +156,7 @@ static ASTNode* FUNC_CALL(ASTNode* id_node){
     call_node->left = PARAMETER_LIST();
     if (rc != NO_ERROR)return NULL;
 
-    rc = token_control(TOKEN_RPAREN,NULL);
+    token_control(TOKEN_RPAREN,NULL);
     if (rc != NO_ERROR)return NULL;
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
@@ -161,7 +164,7 @@ static ASTNode* FUNC_CALL(ASTNode* id_node){
 }
 /* static int ARGUMENT_TAIL(){
     if (!((token.type == TOKEN_RPAREN))){
-        rc = token_control(TOKEN_COMMA,NULL);
+        token_control(TOKEN_COMMA,NULL);
         if (rc != NO_ERROR)return rc;
         next_token(&token);
         if (rc != NO_ERROR)return rc;
@@ -196,7 +199,7 @@ static ASTNode* EXPRESSION( ){
         if (rc != NO_ERROR)return NULL;
         expressionTree->left = PARAMETER_LIST();
         if (rc != NO_ERROR)return NULL;
-        rc = token_control(TOKEN_RPAREN,NULL);
+        token_control(TOKEN_RPAREN,NULL);
         if (rc != NO_ERROR)return NULL;
         next_token(&token);
         if (rc != NO_ERROR)return NULL;
@@ -221,7 +224,7 @@ static ASTNode* IF(){
         return NULL;
     }
 
-    rc = token_control(TOKEN_LPAREN,NULL);
+    token_control(TOKEN_LPAREN,NULL);
     if (rc != NO_ERROR){
         free_ast_tree(node);
         rc = SYNTAX_ERROR;
@@ -242,7 +245,7 @@ static ASTNode* IF(){
         return NULL;
     }
 
-    rc = token_control(TOKEN_RPAREN,NULL);
+    token_control(TOKEN_RPAREN,NULL);
     if (rc != NO_ERROR){
         free_ast_tree(node);
         rc = SYNTAX_ERROR;
@@ -272,7 +275,7 @@ static ASTNode* IF(){
     }
 
     expected_keyword = KEYWORD_ELSE;
-    rc = token_control(TOKEN_KEYWORD, &expected_keyword);
+    token_control(TOKEN_KEYWORD, &expected_keyword);
     if (rc != NO_ERROR){
         free_ast_tree(node);
         rc = SYNTAX_ERROR;
@@ -305,7 +308,7 @@ static ASTNode* WHILE(){
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
-    rc = token_control(TOKEN_LPAREN,NULL);
+    token_control(TOKEN_LPAREN,NULL);
     if (rc != NO_ERROR)return NULL;
     while_node -> left = create_ast_node(AST_EXPRESSION, NULL);
     next_token(&token);
@@ -314,7 +317,7 @@ static ASTNode* WHILE(){
     while_node -> left = EXPRESSION(NULL); // attach expression tree to WHILE condition
     if (rc != NO_ERROR)return NULL;
 
-    rc = token_control(TOKEN_RPAREN,NULL);
+    token_control(TOKEN_RPAREN,NULL);
     if (rc != NO_ERROR)return NULL;
 
     next_token(&token);
@@ -330,7 +333,7 @@ static ASTNode* VAR(){
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
-    rc = token_control(TOKEN_IDENTIFIER,NULL);
+    token_control(TOKEN_IDENTIFIER,NULL);
     if (rc != NO_ERROR)return NULL;
     var_node -> left = create_ast_node(AST_IDENTIFIER, token.value.string->str);
     
@@ -338,7 +341,7 @@ static ASTNode* VAR(){
 }
 static ASTNode* IFJ(){
     // Expect to be called when current token is DOT (STML consumed KEYWORD_IFJ and advanced)
-    rc = token_control(TOKEN_DOT, NULL);
+    token_control(TOKEN_DOT, NULL);
     if (rc != NO_ERROR) return NULL;
 
     // Move to method identifier
@@ -346,7 +349,7 @@ static ASTNode* IFJ(){
     if (rc != NO_ERROR) return NULL;
 
     // Method name identifier
-    rc = token_control(TOKEN_IDENTIFIER, NULL);
+    token_control(TOKEN_IDENTIFIER, NULL);
     if (rc != NO_ERROR) return NULL;
 
     // Create call node with method name (e.g., write)
@@ -359,7 +362,7 @@ static ASTNode* IFJ(){
     // Expect '('
     next_token(&token);
     if (rc != NO_ERROR) return NULL;
-    rc = token_control(TOKEN_LPAREN, NULL);
+    token_control(TOKEN_LPAREN, NULL);
     if (rc != NO_ERROR) return NULL;
 
     // Move to first argument or RPAREN
@@ -371,14 +374,13 @@ static ASTNode* IFJ(){
     if (rc != NO_ERROR) return NULL;
 
     // Expect ')'
-    rc = token_control(TOKEN_RPAREN, NULL);
+    token_control(TOKEN_RPAREN, NULL);
     if (rc != NO_ERROR) return NULL;
 
     return node;
 }
 
 static ASTNode* STML(ASTNode* function){
-    printf("STML processing token type: %s (%d)\n", token_type_name(token.type), token.type);
     ASTNode* statement = NULL;
     
     switch (token.type)
@@ -445,7 +447,7 @@ static ASTNode* STML(ASTNode* function){
         PARAMETER_LIST();
         if (rc != NO_ERROR)return NULL;
 
-        rc = token_control(TOKEN_RPAREN,NULL);
+        token_control(TOKEN_RPAREN,NULL);
 
         next_token(&token);
         if (rc != NO_ERROR)return NULL;
@@ -549,7 +551,7 @@ static int STML_LIST(ASTNode* function){
 
 static int eol(){
     
-    rc = token_control(TOKEN_EOL,NULL);
+    token_control(TOKEN_EOL,NULL);
     skip_eol();
     if(rc != NO_ERROR)return rc;
     return rc;
@@ -557,7 +559,7 @@ static int eol(){
 
 static ASTNode* BLOCK(){
     ASTNode* block = create_ast_node(AST_BLOCK, NULL);
-    rc = (token_control(TOKEN_LCURLY,NULL));
+    (token_control(TOKEN_LCURLY,NULL));
     if (rc != NO_ERROR){
         rc = SYNTAX_ERROR;
         return NULL;
@@ -586,7 +588,7 @@ static ASTNode* BLOCK(){
     }
     
 
-    rc = (token_control(TOKEN_RCURLY,NULL));
+    (token_control(TOKEN_RCURLY,NULL));
     if (rc != NO_ERROR){
         rc = SYNTAX_ERROR;
         return NULL;
@@ -600,13 +602,13 @@ static ASTNode* BLOCK(){
 ASTNode* PARAMETER_TAIL(ASTNode* argument_node){
     if(token.type != TOKEN_RPAREN){
         argument_node->left=create_ast_node(AST_FUNC_ARG,NULL);
-        rc = token_control(TOKEN_COMMA,NULL);
+        token_control(TOKEN_COMMA,NULL);
         if (rc != NO_ERROR)return NULL;
 
         next_token(&token);
         if (rc != NO_ERROR)return NULL;
 
-        argument_node->left->right = EXPRESSION(NULL);
+        argument_node->left->right = EXPRESSION();
         if (rc != NO_ERROR || argument_node->right == NULL || argument_node->right->type == AST_FUNC_CALL){
             rc = SYNTAX_ERROR;
             return NULL;
@@ -622,13 +624,15 @@ ASTNode* PARAMETER_TAIL(ASTNode* argument_node){
 ASTNode* PARAMETER_LIST(){
     if(token.type != TOKEN_RPAREN){
         ASTNode* argument_node = create_ast_node(AST_FUNC_ARG,NULL); 
-        argument_node->right = EXPRESSION(NULL);
+        argument_node->right = EXPRESSION();
         if (rc != NO_ERROR || argument_node->right == NULL || argument_node->right->type == AST_FUNC_CALL){
             rc = SYNTAX_ERROR;
+            printf ("It failed here\n");
             return NULL;
         }
         if (rc != NO_ERROR)return NULL;
         PARAMETER_TAIL(argument_node);
+        if (rc != NO_ERROR)return NULL;
         return argument_node;
     }
     return NULL;
@@ -638,20 +642,20 @@ static int SETTER(ASTNode* function){
     next_token(&token);
         if (rc != NO_ERROR)return rc;
         
-        rc = token_control(TOKEN_LPAREN,NULL);
+        token_control(TOKEN_LPAREN,NULL);
         if (rc != NO_ERROR)return rc;
 
         next_token(&token);
         if (rc != NO_ERROR)return rc;
 
-        rc = token_control(TOKEN_IDENTIFIER,NULL);
+        token_control(TOKEN_IDENTIFIER,NULL);
         if (rc != NO_ERROR)return rc; 
         function->left = create_ast_node(AST_IDENTIFIER, token.value.string->str);      
 
         next_token(&token);
         if (rc != NO_ERROR)return rc;
 
-        rc = token_control(TOKEN_RPAREN,NULL);
+        token_control(TOKEN_RPAREN,NULL);
         if (rc != NO_ERROR)return rc;
 
         next_token(&token);
@@ -705,8 +709,9 @@ static ASTNode* DEF_FUN_TAIL(char* id_name){
         if(token.type != TOKEN_RPAREN){
             function->left = PARAMETER_LIST();
         }
+        if (rc != NO_ERROR)return NULL;
 
-        rc = (token_control(TOKEN_RPAREN,NULL));
+        (token_control(TOKEN_RPAREN,NULL));
         if (rc != NO_ERROR)return NULL;
 
         next_token(&token);
@@ -731,12 +736,12 @@ static ASTNode* DEF_FUN_TAIL(char* id_name){
 }
 static ASTNode* DEF_FUN(){
     expected_keyword = KEYWORD_STATIC;
-    rc =token_control(TOKEN_KEYWORD,&expected_keyword);
+    token_control(TOKEN_KEYWORD,&expected_keyword);
     if (rc != NO_ERROR)return NULL;
 
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
-    rc = token_control(TOKEN_IDENTIFIER,NULL);
+    token_control(TOKEN_IDENTIFIER,NULL);
     if (rc != NO_ERROR)return NULL; 
     char* id_name = token.value.string->str;
     next_token(&token);
@@ -786,7 +791,7 @@ static ASTNode* DEF_FUN_LIST(ASTNode* current_node){
 static int CLASS(ASTNode* PROGRAM){
 
     expected_keyword = KEYWORD_CLASS;
-    rc = token_control(TOKEN_KEYWORD,&expected_keyword);
+    token_control(TOKEN_KEYWORD,&expected_keyword);
     if (rc != NO_ERROR)return rc;
 
     next_token(&token);
@@ -795,7 +800,7 @@ static int CLASS(ASTNode* PROGRAM){
 
     next_token(&token);
     if (rc != NO_ERROR)return rc;
-    rc = (token_control(TOKEN_LCURLY,NULL));
+    (token_control(TOKEN_LCURLY,NULL));
     if (rc != NO_ERROR)return rc;
  
     next_token(&token);
@@ -807,7 +812,7 @@ static int CLASS(ASTNode* PROGRAM){
     DEF_FUN_LIST(PROGRAM);
     if(rc != NO_ERROR)return rc;
 
-     rc = token_control(TOKEN_RCURLY,NULL);
+     token_control(TOKEN_RCURLY,NULL);
      if (rc != NO_ERROR) return rc;
 
     return rc;
@@ -816,23 +821,23 @@ static int CLASS(ASTNode* PROGRAM){
 static int PROLOG(){//CORRECT
     
     expected_keyword = KEYWORD_IMPORT;
-    rc = (token_control(TOKEN_KEYWORD,&expected_keyword));
+    (token_control(TOKEN_KEYWORD,&expected_keyword));
     if (rc != NO_ERROR)return rc;
 
     next_token(&token);
     if (rc != NO_ERROR)return rc;
-    rc = token_control(TOKEN_STRING,"ifj25");
+    token_control(TOKEN_STRING,"ifj25");
     if (rc != NO_ERROR)return rc;
 
     next_token(&token);
     if (rc != NO_ERROR)return rc;
     expected_keyword = KEYWORD_FOR;
-    rc = (token_control(TOKEN_KEYWORD,&expected_keyword));
+    (token_control(TOKEN_KEYWORD,&expected_keyword));
     if (rc != NO_ERROR)return rc;
     next_token(&token);
     if (rc != NO_ERROR)return rc;
     expected_keyword = KEYWORD_IFJ;
-    rc = (token_control(TOKEN_KEYWORD,&expected_keyword));
+    (token_control(TOKEN_KEYWORD,&expected_keyword));
     if (rc != NO_ERROR)return rc;
 
     
