@@ -3,3 +3,4 @@ main
 test_symtable
 test_semantic
 test_semantic_basic
+generator.md

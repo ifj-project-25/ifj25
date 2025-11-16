@@ -16,11 +16,10 @@
 //---------- Helper functions ----------
 
 /**
- * @brief Converts a string to a IFJcode25 compatible format.
+ * @brief Converts a string to a IFJcode25 compatible format and prints it.
  * @param input Input string to convert.
- * @return Newly allocated string with converted format, or NULL on failure.
  */
-void convert_string(const char* input);
+void print_convert_string(const char* input);
 
 //---------- Built-in functions ----------
 
