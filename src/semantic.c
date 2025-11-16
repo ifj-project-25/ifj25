@@ -174,6 +174,10 @@ DataType infer_expr_node_type(ExprNode *expr, Scope *scope) {
         case EXPR_NULL_LITERAL:
             return TYPE_NULL;
             
+        case EXPR_TYPE_LITERAL:
+            // Type literals (Num, String, Null) used in 'is' operator
+            return TYPE_UNDEF;
+            
         case EXPR_IDENTIFIER:
             SymTableData *identifier = lookup_symbol(scope, expr->data.identifier_name);
             if (!identifier){

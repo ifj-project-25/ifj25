@@ -61,6 +61,8 @@ static Sym token_to_sym(const Token* token){
             return PS_IS;
         case KEYWORD_NULL_C:
         case KEYWORD_NULL_L:
+        case KEYWORD_NUM:
+        case KEYWORD_STRING:
             return PS_TERM;
         default:
             return PS_TERM; // Other keywords shouldn't appear
@@ -96,10 +98,10 @@ ExprNode* reduce_term_to_node(ExprPstack* stack){
                 node = create_null_literal_node();
             }
             else if (stack->top->token.value.keyword == KEYWORD_NUM) {
-                node = create_identifier_node("Num");
+                node = create_type_node("Num");
             }
             else if (stack->top->token.value.keyword == KEYWORD_STRING) {
-                node = create_identifier_node("String");
+                node = create_type_node("String");
             }
             break;
         default:

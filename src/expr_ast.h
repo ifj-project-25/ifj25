@@ -12,6 +12,7 @@ typedef enum {
     EXPR_NULL_LITERAL,
     EXPR_IDENTIFIER,
     EXPR_BINARY_OP,
+    EXPR_TYPE_LITERAL
 } ExprNodeType;
 
 typedef enum{
@@ -47,6 +48,7 @@ typedef struct ExprNode {
 ExprNode* create_num_literal_node(double value);
 ExprNode* create_string_literal_node(const char* value);
 ExprNode* create_null_literal_node();
+ExprNode* create_type_node(const char* name);
 ExprNode* create_identifier_node(const char* name);
 ExprNode* create_binary_op_node(BinaryOpType op, ExprNode* left, ExprNode* right);
 void free_expr_node(ExprNode* node);

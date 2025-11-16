@@ -101,6 +101,7 @@ static int skip_eol(void) {
 }
 
 static void next_token(Token *token){
+    if (rc != NO_ERROR) return;  // Don't proceed if error already set
     token_output = get_token(token);
     //debug_print_token("token ->", token);
     if (token_output != NO_ERROR){
@@ -111,6 +112,7 @@ static void next_token(Token *token){
 }
 
 static void token_control(TokenType expected_type, const void *expected_value){
+    if (rc != NO_ERROR) return;  // Don't proceed if error already set
     if(token.type != expected_type){
         printf("token_control mismatch: expected=%s(%d) got=%s(%d)\n", token_type_name(expected_type), expected_type, token_type_name(token.type), token.type);
         debug_print_token("  current", &token);
@@ -238,7 +240,7 @@ static ASTNode* IF(){
         return NULL;
     }
 
-    node->left = EXPRESSION(NULL);
+    node->left = EXPRESSION();
     if (rc != NO_ERROR){
         free_ast_tree(node);
         rc = SYNTAX_ERROR;
@@ -314,7 +316,7 @@ static ASTNode* WHILE(){
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
-    while_node -> left = EXPRESSION(NULL); // attach expression tree to WHILE condition
+    while_node -> left = EXPRESSION(); // attach expression tree to WHILE condition
     if (rc != NO_ERROR)return NULL;
 
     token_control(TOKEN_RPAREN,NULL);
@@ -419,7 +421,7 @@ static ASTNode* STML(ASTNode* function){
             if (rc != NO_ERROR)return NULL;
 
             statement = create_ast_node(AST_RETURN, NULL);
-            statement->right = EXPRESSION(NULL);
+            statement->right = EXPRESSION();
             if (rc != NO_ERROR)return NULL;
             break;
         case KEYWORD_IFJ:
@@ -496,7 +498,7 @@ static ASTNode* STML(ASTNode* function){
                 next_token(&token);
                 if (rc != NO_ERROR) return NULL;
             } else {
-                assign_node->left->right = EXPRESSION(NULL);
+                assign_node->left->right = EXPRESSION();
                 if (rc != NO_ERROR)return NULL;
             }
             break;

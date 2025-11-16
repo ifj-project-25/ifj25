@@ -182,6 +182,9 @@ static void print_expr_inline(ExprNode* expr, int depth, int is_last[]) {
         case EXPR_NULL_LITERAL:
             printf("NULL\n");
             break;
+        case EXPR_TYPE_LITERAL:
+            printf("TYPE: %s\n", expr->data.identifier_name);
+            break;
         case EXPR_IDENTIFIER:
             printf("ID: %s\n", expr->data.identifier_name);
             break;

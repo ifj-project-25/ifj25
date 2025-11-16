@@ -54,6 +54,21 @@ ExprNode* create_null_literal_node(){
     return node;
 }
 
+ExprNode* create_type_node(const char* name){
+    ExprNode* node = (ExprNode*)malloc(sizeof(ExprNode));
+    if (!node) {
+        return NULL;
+    }
+    node->type = EXPR_TYPE_LITERAL;
+    node->data.identifier_name = my_strdup(name);
+    if (!node->data.identifier_name) {
+        free(node);
+        return NULL;
+    }
+    return node;
+}
+
+
 ExprNode* create_identifier_node(const char* name){
     ExprNode* node = (ExprNode*)malloc(sizeof(ExprNode));
     if (!node) {
@@ -137,6 +152,9 @@ void print_expr_ast(ExprNode* node, int indent) {
             break;
         case EXPR_NULL_LITERAL:
             printf("NULL\n");
+            break;
+        case EXPR_TYPE_LITERAL:
+            printf("TYPE: %s\n", node->data.identifier_name);
             break;
         case EXPR_IDENTIFIER:
             printf("ID: %s\n", node->data.identifier_name);
