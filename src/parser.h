@@ -12,5 +12,7 @@
 int parser(ASTNode* PROGRAM);
 void parser_next_token(void);
 const Token *parser_current_token(void);
+ASTNode* PARAMETER_LIST();
+void debug_print_token(const char *prefix, const Token *t);
 
 #endif
