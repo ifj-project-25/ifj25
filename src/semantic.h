@@ -49,7 +49,7 @@ void preload_builtins(Scope *global_scope);
 int check_uninitialized_usage(ExprNode* expr, Scope* scope);
 
 // Infer data type of an expression
-DataType infer_expression_type(ASTNode *expr, Scope *scope);
+int infer_expression_type(ASTNode *expr, Scope *scope, DataType *out_type);
 
 // Count arguments in function call
 int count_arguments(ASTNode *arg_list);

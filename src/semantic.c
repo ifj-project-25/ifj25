@@ -36,7 +36,6 @@ const char* ast_node_type_to_string(ASTNodeType type) {
         case AST_ASSIGN: return "ASSIGN";
         case AST_EQUALS: return "EQUALS";
         case AST_IDENTIFIER: return "IDENTIFIER";
-        case AST_GETTER_CALL: return "GETTER_CALL";
         case AST_SETTER_CALL: return "SETTER_CALL";
         case AST_FUNC_CALL: return "FUNC_CALL";
         case AST_FUNC_ARG: return "FUNC_ARG";
@@ -163,37 +162,46 @@ int check_uninitialized_usage(ExprNode* expr, Scope* scope) {
 }
 
 // Helper: Infer type of an expression from ExprNode
-DataType infer_expr_node_type(ExprNode *expr, Scope *scope) {
-    if (!expr) return TYPE_UNDEF;
-    
+int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
+    if (!out_type) return ERROR_INTERNAL;
+    *out_type = TYPE_UNDEF;
+    if (!expr) return NO_ERROR; // nothing to infer
+
     switch (expr->type) {
         case EXPR_NUM_LITERAL:
-            return TYPE_NUM;
-            
+            *out_type = TYPE_NUM;
+            return NO_ERROR;
+
         case EXPR_STRING_LITERAL:
-            return TYPE_STRING;
-            
+            *out_type = TYPE_STRING;
+            return NO_ERROR;
+
         case EXPR_NULL_LITERAL:
-            return TYPE_NULL;
-            
+            *out_type = TYPE_NULL;
+            return NO_ERROR;
+
         case EXPR_TYPE_LITERAL:
             // Type literals (Num, String, Null) used in 'is' operator
-            return TYPE_UNDEF;
-            
+            *out_type = TYPE_UNDEF;
+            return NO_ERROR;
+
         case EXPR_IDENTIFIER:
             {
                 SymTableData *identifier = lookup_symbol(scope, expr->data.identifier_name);
                 if (!identifier){
                     fprintf(stderr, "[SEMANTIC] Identifier '%s' not found in expression\n", expr->data.identifier_name);
-                    return TYPE_UNDEF;
+                    return SEM_ERROR_UNDEFINED;
                 }
                 if (identifier->type == NODE_VAR) {
-                    return identifier->data.var_data->data_type;
+                    *out_type = identifier->data.var_data->data_type;
+                    return NO_ERROR;
                 } else if (identifier->type == NODE_GETTER) {
-                    return identifier->data.getter_data->return_type;
+                    *out_type = identifier->data.getter_data->return_type;
+                    return NO_ERROR;
                 } else {
                     // Not a variable or getter (could be func/setter) - treat as undef
-                    return TYPE_UNDEF;
+                    *out_type = TYPE_UNDEF;
+                    return NO_ERROR;
                 }
             }
 
@@ -201,35 +209,39 @@ DataType infer_expr_node_type(ExprNode *expr, Scope *scope) {
             SymTableData *g = lookup_symbol(scope, expr->data.getter_name);
             if (!g) {
                 fprintf(stderr, "[SEMANTIC] Getter '%s' not found\n", expr->data.getter_name);
-                return TYPE_UNDEF;
+                return SEM_ERROR_UNDEFINED;
             }
             if (g->type != NODE_GETTER) {
                 fprintf(stderr, "[SEMANTIC] '%s' is not a getter\n", expr->data.getter_name);
-                return TYPE_UNDEF;
+                return SEM_ERROR_OTHER;
             }
-            return g->data.getter_data->return_type;
+            *out_type = g->data.getter_data->return_type;
+            return NO_ERROR;
         }
-            
-            
-            
-        case EXPR_BINARY_OP:
-            DataType left = infer_expr_node_type(expr->data.binary.left, scope);
-            DataType right = infer_expr_node_type(expr->data.binary.right, scope);
-            
-            // If either operand has undefined type, return UNDEF
+
+        case EXPR_BINARY_OP: {
+            DataType left, right;
+            int err = infer_expr_node_type(expr->data.binary.left, scope, &left);
+            if (err != NO_ERROR) return err;
+            err = infer_expr_node_type(expr->data.binary.right, scope, &right);
+            if (err != NO_ERROR) return err;
+
+            // If either operand has undefined type, return UNDEF (not an error)
             if (left == TYPE_UNDEF || right == TYPE_UNDEF) {
-                return TYPE_UNDEF;
+                *out_type = TYPE_UNDEF;
+                return NO_ERROR;
             }
-            
+
             BinaryOpType op = expr->data.binary.op;
-            
+
             switch (op) {
                 // Equality operators - always return TYPE_NUM (boolean)
                 // NULL je povolený v rovnostných operátoroch
                 case OP_EQ:
                 case OP_NEQ:
-                    return TYPE_NUM;
-                
+                    *out_type = TYPE_NUM;
+                    return NO_ERROR;
+
                 // Relational operators - require NUM and return TYPE_NUM
                 case OP_LT:
                 case OP_GT:
@@ -238,75 +250,107 @@ DataType infer_expr_node_type(ExprNode *expr, Scope *scope) {
                     // NULL not allowed in relation op
                     if (left == TYPE_NULL || right == TYPE_NULL) {
                         fprintf(stderr, "[SEMANTIC] TYPE_NULL not allowed in relational operator %d\n", op);
-                        return TYPE_UNDEF;
+                        return SEM_ERROR_TYPE_COMPATIBILITY;
                     }
                     if (left == TYPE_NUM && right == TYPE_NUM) {
-                        return TYPE_NUM;
+                        *out_type = TYPE_NUM;
+                        return NO_ERROR;
                     }
                     break;
-                
+
                 // Type test operator - always returns TYPE_NUM
                 case OP_IS:
-                    
-                    return TYPE_NUM;
-                
+                    if (expr->data.binary.right->type != EXPR_TYPE_LITERAL) {
+                        fprintf(stderr, "[SEMANTIC] Right operand of 'is' must be a type literal\n");
+                        return SEM_ERROR_OTHER;
+                    }
+                    else if(strcmp(expr->data.binary.right->data.identifier_name, "Num") == 0 ){
+                        *out_type = TYPE_NUM;
+                        return NO_ERROR;
+                    }
+                    else if(strcmp(expr->data.binary.right->data.identifier_name, "String") == 0 ){
+                        *out_type = TYPE_STRING;
+                        return NO_ERROR;
+                    }
+                    else if(strcmp(expr->data.binary.right->data.identifier_name, "Null") == 0 ){
+                        *out_type = TYPE_NULL;
+                        return NO_ERROR;
+                    }
+
+                    else {
+                        fprintf(stderr, "[SEMANTIC] Unknown type literal '%s' in 'is' operator\n", expr->data.binary.right->data.identifier_name);
+                        return SEM_ERROR_OTHER;
+                    }
+
                 // Arithmetic operators - NULL not allowed
                 case OP_ADD:
                     if (left == TYPE_NULL || right == TYPE_NULL) {
                         fprintf(stderr, "[SEMANTIC] TYPE_NULL not allowed in arithmetic operator ADD\n");
-                        return TYPE_UNDEF;
+                        return SEM_ERROR_TYPE_COMPATIBILITY;
                     }
-                    if (left == TYPE_NUM && right == TYPE_NUM) return TYPE_NUM;
-                    if (left == TYPE_STRING && right == TYPE_STRING) return TYPE_STRING;
+                    if (left == TYPE_NUM && right == TYPE_NUM) { *out_type = TYPE_NUM; return NO_ERROR; }
+                    if (left == TYPE_STRING && right == TYPE_STRING) { *out_type = TYPE_STRING; return NO_ERROR; }
                     break;
-                    
+
                 case OP_SUB:
                 case OP_DIV:
                     if (left == TYPE_NULL || right == TYPE_NULL) {
                         fprintf(stderr, "[SEMANTIC] TYPE_NULL not allowed in arithmetic operator %d\n", op);
-                        return TYPE_UNDEF;
+                        return SEM_ERROR_TYPE_COMPATIBILITY;
                     }
-                    if (left == TYPE_NUM && right == TYPE_NUM) return TYPE_NUM;
+                    if (left == TYPE_NUM && right == TYPE_NUM) { *out_type = TYPE_NUM; return NO_ERROR; }
                     break;
-                    
+
                 case OP_MUL:
                     if (left == TYPE_NULL || right == TYPE_NULL) {
                         fprintf(stderr, "[SEMANTIC] TYPE_NULL not allowed in arithmetic operator MUL\n");
-                        return TYPE_UNDEF;
+                        return SEM_ERROR_TYPE_COMPATIBILITY;
                     }
-                    if (left == TYPE_NUM && right == TYPE_NUM) return TYPE_NUM;
-                    if (left == TYPE_STRING && right == TYPE_NUM) return TYPE_STRING;
+                    if (left == TYPE_NUM && right == TYPE_NUM) { *out_type = TYPE_NUM; return NO_ERROR; }
+                    if (left == TYPE_STRING && right == TYPE_NUM) { *out_type = TYPE_STRING; return NO_ERROR; }
                     break;
-                
+
                 default:
                     break;
             }
-            
-        fprintf(stderr, "[SEMANTIC] Expression type compatibility error for operator %d\n", op);
-        return TYPE_UNDEF;
-}
-    return TYPE_UNDEF;
+
+            fprintf(stderr, "[SEMANTIC] Expression type compatibility error for operator %d\n", op);
+            return SEM_ERROR_TYPE_COMPATIBILITY;
+        }
+    }
+
+    return NO_ERROR;
 }
 
 // Scan a subtree for the first return statement with an inferable type.
-// Returns TYPE_UNDEF if none found.
-static DataType scan_return_type(ASTNode *n, Scope *scope) {
-    if (!n) return TYPE_UNDEF;
+// Returns NO_ERROR and sets *out_type if found. If none found, *out_type is TYPE_UNDEF.
+static int scan_return_type(ASTNode *n, Scope *scope, DataType *out_type) {
+    if (!out_type) return ERROR_INTERNAL;
+    *out_type = TYPE_UNDEF;
+    if (!n) return NO_ERROR;
 
     if (n->type == AST_RETURN) {
         if (n->expr) {
-            DataType t = infer_expr_node_type(n->expr, scope);
-            if (t != TYPE_UNDEF) return t;
+            DataType t;
+            int ierr = infer_expr_node_type(n->expr, scope, &t);
+            if (ierr != NO_ERROR) return ierr;
+            if (t != TYPE_UNDEF) { *out_type = t; return NO_ERROR; }
         } else if (n->left && n->left->type == AST_FUNC_CALL) {
-            if (semantic_visit(n->left, scope) == NO_ERROR && n->left->data_type != TYPE_UNDEF) {
-                return n->left->data_type;
+            int err = semantic_visit(n->left, scope);
+            if (err != NO_ERROR) return err;
+            if (n->left->data_type != TYPE_UNDEF) {
+                *out_type = n->left->data_type;
+                return NO_ERROR;
             }
         }
     }
 
-    DataType left = scan_return_type(n->left, scope);
-    if (left != TYPE_UNDEF) return left;
-    return scan_return_type(n->right, scope);
+    DataType left_type;
+    int lerr = scan_return_type(n->left, scope, &left_type);
+    if (lerr != NO_ERROR) return lerr;
+    if (left_type != TYPE_UNDEF) { *out_type = left_type; return NO_ERROR; }
+
+    return scan_return_type(n->right, scope, out_type);
 }
 
 // Helper function to count arguments
@@ -660,7 +704,8 @@ int check_user_function_call(ASTNode *node, Scope *scope, SymTableData *func_sym
         
         if (arg_node->right->expr) {
             // NEW SYSTEM: Use expr for expressions
-            arg_type = infer_expr_node_type(arg_node->right->expr, scope);
+            int ierr = infer_expr_node_type(arg_node->right->expr, scope, &arg_type);
+            if (ierr != NO_ERROR) return ierr;
         } else if (arg_node->right->left && arg_node->right->left->type == AST_FUNC_CALL) {
             // FUNCTION CALL: Process it first to get its return type
             int err = semantic_visit(arg_node->right->left, scope);
@@ -942,7 +987,9 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 // statements in the same block (which may reference the
                 // getter) will see its return type.
                 ASTNode *scan = node->right; // should be a BLOCK
-                DataType found_type = scan_return_type(scan, getter_scope);
+                DataType found_type = TYPE_UNDEF;
+                int serr = scan_return_type(scan, getter_scope, &found_type);
+                if (serr != NO_ERROR) return serr;
 
                 if (found_type != TYPE_UNDEF) {
                     SymTableData *s = symtable_search(&current_scope->symbols, getter_name);
@@ -1097,7 +1144,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         // Now perform type inference/check for the setter parameter
                         DataType right_type = TYPE_UNDEF;
                         if (node->left->expr) {
-                            right_type = infer_expr_node_type(node->left->expr, current_scope);
+                            int ierr = infer_expr_node_type(node->left->expr, current_scope, &right_type);
+                            if (ierr != NO_ERROR) return ierr;
                         } else if (node->left->left && node->left->left->type == AST_FUNC_CALL) {
                             int err = semantic_visit(node->left->left, current_scope);
                             if (err != NO_ERROR) return err;
@@ -1155,7 +1203,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 DataType right_type = TYPE_UNDEF;
                 if (node->left->expr) {
-                    right_type = infer_expr_node_type(node->left->expr, current_scope);
+                    int ierr = infer_expr_node_type(node->left->expr, current_scope, &right_type);
+                    if (ierr != NO_ERROR) return ierr;
                 } else if (node->left->left && node->left->left->type == AST_FUNC_CALL) {
                     int err = semantic_visit(node->left->left, current_scope);
                     if (err != NO_ERROR) return err;
@@ -1241,7 +1290,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 // Handle AST_EXPRESSION internals
                 if (expr_node->expr) {
                     // Expression contains an internal expression tree (from expr_ast)
-                    right_type = infer_expr_node_type(expr_node->expr, current_scope);
+                    int ierr = infer_expr_node_type(expr_node->expr, current_scope, &right_type);
+                    if (ierr != NO_ERROR) return ierr;
                 } 
                 else if (expr_node->left && expr_node->left->type == AST_FUNC_CALL) {
                     // Expression is just a function call (e.g., a = Ifj.read_num())
@@ -1472,7 +1522,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 
                 if (node->expr) {
                     // NEW SYSTEM: Use expr for expressions
-                    return_type = infer_expr_node_type(node->expr, current_scope);
+                    int ierr = infer_expr_node_type(node->expr, current_scope, &return_type);
+                    if (ierr != NO_ERROR) return ierr;
                 } else if (node->left && node->left->type == AST_FUNC_CALL) {
                     // FUNCTION CALL: Process it first to get its return type
                     int err = semantic_visit(node->left, current_scope);
@@ -1550,7 +1601,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
         case AST_EXPRESSION: {
             DataType expr_type = TYPE_UNDEF;
             
-            if (node->expr) {
+                if (node->expr) {
                 // NEW SYSTEM: Use expr for all expressions (literals, identifiers, binary operations)
                 // If the expr is a plain identifier that refers to a getter, convert
                 // it into a getter-call expr so downstream code (type inference/
@@ -1572,7 +1623,9 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     }
                 }
 
-                expr_type = infer_expr_node_type(node->expr, current_scope);
+                DataType expr_type;
+                int ierr = infer_expr_node_type(node->expr, current_scope, &expr_type);
+                if (ierr != NO_ERROR) return ierr;
                 node->data_type = expr_type;
 
                 // Check if expression type inference failed
