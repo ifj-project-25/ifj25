@@ -1,7 +1,7 @@
 # author: xcernoj00,xmikusm00,xmalikm00
 
 CC = gcc
-CFLAGS = -g -std=c11 -Wall  -Werror 
+CFLAGS = -g -std=c11 -Wall  
 
 TARGET = main
 
@@ -14,7 +14,9 @@ SRCS =  src/main.c \
         src/expr_stack.c \
         src/expr_ast.c \
         src/ast.c \
-		    src/semantic.c \
+		src/semantic.c \
+		src/expr_precedence_parser.c \
+		src/expr_precedence_stack.c \
 		
 
 TEST_SYMTABLE_SRCS = test/test_symtable.c \

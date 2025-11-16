@@ -14,6 +14,7 @@
 #include "expr_precedence_parser.h"
 #include "expr_precedence_stack.h"
 #include "expr_ast.h"
+#include "ast.h"
 
 static Sym token_to_sym(const Token* token){
     switch (token->type)
@@ -43,7 +44,9 @@ static Sym token_to_sym(const Token* token){
     case TOKEN_RPAREN:
         return PS_RPAREN;
     case TOKEN_IDENTIFIER:
+    case TOKEN_GLOBAL_VAR:
     case TOKEN_INTEGER:
+    case TOKEN_DOUBLE:
     case TOKEN_STRING:
         return PS_TERM;
     case TOKEN_DOLLAR:
@@ -76,16 +79,31 @@ ExprNode* reduce_term_to_node(ExprPstack* stack){
         switch (stack->top->token.type)
         {
         case TOKEN_IDENTIFIER:
+        case TOKEN_GLOBAL_VAR:
             node = create_identifier_node(stack->top->token.value.string->str);
             break;
         case TOKEN_INTEGER:
+        case TOKEN_DOUBLE:
             node = create_num_literal_node(stack->top->token.value.integer);
             break;
         case TOKEN_STRING:
             node = create_string_literal_node(stack->top->token.value.string->str);
+            break;  
+            
+        case TOKEN_KEYWORD:
+            if (stack->top->token.value.keyword == KEYWORD_NULL_C ||
+                stack->top->token.value.keyword == KEYWORD_NULL_L) {
+                node = create_null_literal_node();
+            }
+            else if (stack->top->token.value.keyword == KEYWORD_NUM) {
+                node = create_identifier_node("Num");
+            }
+            else if (stack->top->token.value.keyword == KEYWORD_STRING) {
+                node = create_identifier_node("String");
+            }
             break;
         default:
-            break;
+            return NULL;
         }
         if (node){
             expr_Pstack_pop(stack);
@@ -94,7 +112,7 @@ ExprNode* reduce_term_to_node(ExprPstack* stack){
         break;
     
     default:
-        return node;
+        return NULL;
     }
     return node;
 }
@@ -166,6 +184,9 @@ static void print_stack(ExprPstack* stack) {
                     case EXPR_STRING_LITERAL:
                         printf("E(\"%s\")", current->node->data.string_literal);
                         break;
+                    case EXPR_NULL_LITERAL:
+                        printf("E(NULL)");
+                        break;
                     default:
                         printf("E(?)");
                         break;
@@ -212,6 +233,16 @@ int reduce_expr_op_expr(ExprPstack* stack){
         case TOKEN_GREATER_EQUAL: op = OP_GTE; break;
         case TOKEN_LOGIC_EQUAL: op = OP_EQ; break;
         case TOKEN_NEQUAL: op = OP_NEQ; break;
+        case TOKEN_KEYWORD:
+            if (stack->top->token.value.keyword == KEYWORD_IS){
+                op = OP_IS;
+                printf("opearot IS");
+                break;
+            }
+            else{
+                return SYNTAX_ERROR;
+            }
+
         default:
             return SYNTAX_ERROR;
     }
@@ -275,7 +306,11 @@ int reduce(ExprPstack* stack){
     // Reduce TERM -> E
     else if (stack->top->type == SYM_TERM){
         if (stack->top->sym == PS_PLUS || stack->top->sym == PS_MINUS ||
-            stack->top->sym == PS_MUL || stack->top->sym == PS_DIV){
+            stack->top->sym == PS_MUL || stack->top->sym == PS_DIV ||
+            stack->top->sym == PS_LT || stack->top->sym == PS_GT ||
+            stack->top->sym == PS_LTE || stack->top->sym == PS_GTE ||
+            stack->top->sym == PS_EQ || stack->top->sym == PS_NEQ ||
+            stack->top->sym == PS_IS){
             return SYNTAX_ERROR;
         }
         ExprNode* node = reduce_term_to_node(stack);
@@ -304,7 +339,27 @@ ASTNode* main_precedence_parser(Token* token, int* rc) {
 
     expr_Pstack_init(&stack);
 
-
+    if (token->type == TOKEN_IDENTIFIER){
+        Token id_token = *token;
+        get_token(token);
+        if (*rc != NO_ERROR) {
+            expr_Pstack_free(&stack);
+            return NULL;
+        }
+        if (token->type == TOKEN_LPAREN){
+            printf("Detected standalone function call: %s\n", id_token.value.string->str);
+            ASTNode* call_node = create_ast_node(AST_FUNC_CALL, id_token.value.string->str);
+            if (call_node == NULL) {
+                *rc = ERROR_INTERNAL;
+                expr_Pstack_free(&stack);
+                return NULL;
+            }
+            expr_Pstack_free(&stack);
+            return call_node;
+        }
+        
+        expr_Pstack_push_term(&stack, &id_token, PS_TERM);
+    }
     do{ 
         ExprPstackNode* scan = stack.top;
         while (scan && scan->type == SYM_NONTERM) {
