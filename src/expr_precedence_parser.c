@@ -95,7 +95,7 @@ ExprNode* reduce_term_to_node(ExprPstack* stack){
         case TOKEN_KEYWORD:
             if (stack->top->token.value.keyword == KEYWORD_NULL_C ||
                 stack->top->token.value.keyword == KEYWORD_NULL_L) {
-                node = create_null_literal_node();
+                node = create_type_node("Null");
             }
             else if (stack->top->token.value.keyword == KEYWORD_NUM) {
                 node = create_type_node("Num");
