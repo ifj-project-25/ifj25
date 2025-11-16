@@ -63,6 +63,7 @@ typedef enum {
     TOKEN_RCURLY, // }
     TOKEN_DOT,    // .
     TOKEN_COMMA,  // ,
+    TOKEN_DOLLAR // $ bottom-of-stack marker for operator stack
 } TokenType;
 
 typedef enum {

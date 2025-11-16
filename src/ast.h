@@ -26,7 +26,7 @@ typedef enum {
 
     AST_FUNC_ARG,        // function argument    ->   left - another AST_FUNC_ARG or NULL (end of args), right - expression/value
 
-    AST_FUNC_PARAM, // function argument parameter in declaration   ->   left - another AST_FUNC_ARG or NULL (end of args), right - expression/value
+    // CANCELLED AST_FUNC_PARAM, // function argument parameter in declaration   ->   left - another AST_FUNC_ARG or NULL (end of args), right - expression/value
 
     AST_BLOCK,           // { statements }  -> left - inside code, right - next program - in if continues with else, in functiondef another function...
 

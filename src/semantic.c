@@ -37,7 +37,6 @@ const char* ast_node_type_to_string(ASTNodeType type) {
         case AST_EQUALS: return "EQUALS";
         case AST_IDENTIFIER: return "IDENTIFIER";
         case AST_FUNC_CALL: return "FUNC_CALL";
-        case AST_FUNC_PARAM: return "FUNC_PARAM";
         case AST_FUNC_ARG: return "FUNC_ARG";
         case AST_IF: return "IF";
         case AST_ELSE: return "ELSE";
@@ -668,7 +667,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 Param *last_param = NULL;
 
                 ASTNode *param_node = node->left;
-                while (param_node && param_node->type == AST_FUNC_PARAM) {  // ✅ Zmena na AST_FUNC_PARAM
+                while (param_node && param_node->type == AST_FUNC_ARG) { 
                     if (!param_node->right || param_node->right->type != AST_IDENTIFIER) {
                         fprintf(stderr, "[SEMANTIC] Invalid parameter node in main().\n");
                         return ERROR_INTERNAL;
@@ -767,7 +766,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 Param *last_param = NULL;
 
                 ASTNode *param_node = node->left;
-                while (param_node && param_node->type == AST_FUNC_PARAM) {  
+                while (param_node && param_node->type == AST_FUNC_ARG) {  
                     if (!param_node->right || param_node->right->type != AST_IDENTIFIER) {
                         fprintf(stderr, "[SEMANTIC] Invalid parameter node in function '%s'.\n", func_name);
                         return ERROR_INTERNAL;
@@ -1188,7 +1187,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 // Continue with next program
                 return semantic_visit(node->right, current_scope);
             } break;
-        case AST_FUNC_PARAM: {
+        /*case AST_FUNC_PARAM: {
                 // Parameters are already added in AST_FUNC_DEF, just check structure
                 if (!node->right || node->right->type != AST_IDENTIFIER) {
                     fprintf(stderr, "[SEMANTIC] Invalid parameter structure.\n");
@@ -1204,19 +1203,35 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 }
 
                 return semantic_visit(node->left, current_scope);
-            } break;
+            } break;*/
         case AST_FUNC_ARG: {
-                // Function call argument - process the expression
-                if (!node->right || node->right->type != AST_EXPRESSION) {
-                    fprintf(stderr, "[SEMANTIC] Invalid argument structure in function call.\n");
+                // This node can represent two contexts:
+                // 1. Parameters of function (in definitions) - right = AST_IDENTIFIER
+                // 2. Arguments of calls (in calls) - right = AST_EXPRESSION
+                
+                if (!node->right) {
+                    fprintf(stderr, "[SEMANTIC] Invalid FUNC_ARG structure.\n");
                     return ERROR_INTERNAL;
                 }
-                
-                // Process the expression
-                int err = semantic_visit(node->right, current_scope);
-                if (err != NO_ERROR) return err;
 
-                // Process other arguments
+                
+                if (node->right->type == AST_IDENTIFIER) {
+                    const char* param_name = node->right->name;
+                    SymTableData* existing = symtable_search(&current_scope->symbols, param_name);
+                    if (existing) {
+                        fprintf(stderr, "[SEMANTIC] Parameter '%s' already declared\n", param_name);
+                        return SEM_ERROR_REDEFINED;
+                    }
+                } 
+                else if (node->right->type == AST_EXPRESSION) {
+                    int err = semantic_visit(node->right, current_scope);
+                    if (err != NO_ERROR) return err;
+                }
+                else {
+                    fprintf(stderr, "[SEMANTIC] Invalid FUNC_ARG right child type: %d\n", node->right->type);
+                    return ERROR_INTERNAL;
+                }
+
                 return semantic_visit(node->left, current_scope);
             } break;
         case AST_IF: {

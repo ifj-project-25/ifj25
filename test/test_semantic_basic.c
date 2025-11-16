@@ -270,10 +270,10 @@ int test_func_duplicate_param() {
     program->left = func;
 
     // func foo(a, a)
-    ASTNode* param2 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param2 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     param2->right = create_ast_node(AST_IDENTIFIER, "a");
 
-    ASTNode* param1 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param1 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     param1->right = create_ast_node(AST_IDENTIFIER, "a");
     param1->left = param2;
 
@@ -292,7 +292,7 @@ int test_func_param_shadowed_by_var() {
     ASTNode* func = create_ast_node(AST_FUNC_DEF, "foo");
     program->left = func;
 
-    ASTNode* param = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     param->right = create_ast_node(AST_IDENTIFIER, "x");
     func->left = param;
 
@@ -333,7 +333,7 @@ int test_func_and_builtin_conflict() {
     program->left = func;
     
     // Create one parameter to match built-in Ifj.write (1 parameter)
-    ASTNode* param = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     func->left = param;
     param->right = create_ast_node(AST_IDENTIFIER, "term");
     
@@ -351,7 +351,7 @@ int test_func_param_scope_shadowed_block_var() {
     ASTNode* func = create_ast_node(AST_FUNC_DEF, "foo");
     program->left = func;
 
-    ASTNode* param = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     param->right = create_ast_node(AST_IDENTIFIER, "a");
     func->left = param;
 
@@ -526,11 +526,11 @@ int test_complex_getter_setter_program() {
     setter->right = func;
     
     // Function with 2 parameters
-    ASTNode* param1 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param1 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     func->left = param1;
     param1->right = create_ast_node(AST_IDENTIFIER, "a");
     
-    ASTNode* param2 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param2 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     param1->left = param2;
     param2->right = create_ast_node(AST_IDENTIFIER, "b");
     
@@ -611,11 +611,11 @@ int test_func_call_wrong_arg_count() {
     ASTNode* func_def = create_ast_node(AST_FUNC_DEF, "foo");
     program->left = func_def;
 
-    ASTNode* param1 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param1 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     func_def->left = param1;
     param1->right = create_ast_node(AST_IDENTIFIER, "a");
 
-    ASTNode* param2 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param2 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     param1->left = param2;
     param2->right = create_ast_node(AST_IDENTIFIER, "b");
 
@@ -647,13 +647,13 @@ int test_func_call_correct_arg_types() {
     ASTNode* func_def = create_ast_node(AST_FUNC_DEF, "foo");
     program->left = func_def;
 
-    ASTNode* param1 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param1 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     func_def->left = param1;
     ASTNode* id1 = create_ast_node(AST_IDENTIFIER, "num");
     id1->data_type = TYPE_NUM;
     param1->right = id1;
 
-    ASTNode* param2 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param2 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     param1->left = param2;
     ASTNode* id2 = create_ast_node(AST_IDENTIFIER, "s");
     id2->data_type = TYPE_STRING;
@@ -692,13 +692,13 @@ int test_func_call_wrong_arg_types() {
     ASTNode* func_def = create_ast_node(AST_FUNC_DEF, "foo");
     program->left = func_def;
 
-    ASTNode* param1 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param1 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     func_def->left = param1;
     ASTNode* id1 = create_ast_node(AST_IDENTIFIER, "num");
     id1->data_type = TYPE_NUM;
     param1->right = id1;
 
-    ASTNode* param2 = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param2 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     param1->left = param2;
     ASTNode* id2 = create_ast_node(AST_IDENTIFIER, "s");
     id2->data_type = TYPE_STRING;
@@ -1003,8 +1003,8 @@ int test_assignment_to_parameter() {
     ASTNode* func = create_ast_node(AST_FUNC_DEF, "foo");
     program->left = func;
 
-    // Zmenené: AST_FUNC_ARG -> AST_FUNC_PARAM
-    ASTNode* param = create_ast_node(AST_FUNC_PARAM, NULL);  // ← ZMENENÉ
+    // Zmenené: AST_FUNC_ARG -> AST_FUNC_ARG
+    ASTNode* param = create_ast_node(AST_FUNC_ARG, NULL);  // ← ZMENENÉ
     func->left = param;
     param->right = create_ast_node(AST_IDENTIFIER, "x");
 
@@ -1320,13 +1320,13 @@ int test_complex_if_else_returns() {
     program->left = func;
 
     // Parameters: a, b
-    ASTNode* param_a = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param_a = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     func->left = param_a;
     ASTNode* id_a = create_ast_node(AST_IDENTIFIER, "a");
     id_a->data_type = TYPE_NUM;
     param_a->right = id_a;
 
-    ASTNode* param_b = create_ast_node(AST_FUNC_PARAM, NULL);  // Zmenené
+    ASTNode* param_b = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
     param_a->left = param_b;
     ASTNode* id_b = create_ast_node(AST_IDENTIFIER, "b");
     id_b->data_type = TYPE_NUM;
