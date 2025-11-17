@@ -6,7 +6,6 @@
 #ifndef EXPR_AST_H
 #define EXPR_AST_H
 
-// Forward declaration
 typedef struct Scope Scope;
 
 typedef enum {
@@ -35,6 +34,7 @@ typedef enum{
 
 typedef struct ExprNode {
     ExprNodeType type;
+    Scope* current_scope; // For EXPR_IDENTIFIER and EXPR_GETTER_CALL
     union 
     {
         double num_literal; // For EXPR_NUM_LITERAL

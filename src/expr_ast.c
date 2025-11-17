@@ -76,6 +76,7 @@ ExprNode* create_identifier_node(const char* name){
     }
     node->type = EXPR_IDENTIFIER;
     node->data.identifier_name = my_strdup(name);
+    node->current_scope = NULL;
     if (!node->data.identifier_name) {
         free(node);
         return NULL;

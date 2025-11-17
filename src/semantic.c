@@ -196,6 +196,7 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
                     fprintf(stderr, "[SEMANTIC] Identifier '%s' not found in expression\n", expr->data.identifier_name);
                     return SEM_ERROR_UNDEFINED;
                 }
+                expr->current_scope = scope;
                 if (identifier->type == NODE_VAR) {
                     *out_type = identifier->data.var_data->data_type;
                     return NO_ERROR;
@@ -881,6 +882,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 // TEMPORARY, BC AST_MAIN_DEF NOT WORKING RIGHT NOW
                 if(strcmp(func_name, "main") == 0 && param_count == 0) {
                     main_zero_defined = true;
+                    node->type = AST_MAIN_DEF;
                 }
                 // Create new scope for function body
                 Scope *func_scope = init_scope();
