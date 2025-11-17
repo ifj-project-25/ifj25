@@ -27,7 +27,7 @@ typedef enum {
 
     AST_FUNC_ARG,        // function argument    ->   left - another AST_FUNC_ARG or NULL (end of args), right - expression/identifier
 
-    AST_GETTER_CALL,       // getter call  ->   left - null, right - next program  
+    AST_GETTER_CALL,       // getter call  ->   left - null, right - null 
 
     AST_SETTER_CALL,       // setter call  ->   left - expression/value, right - next program
 
@@ -47,7 +47,7 @@ typedef enum {
 
     AST_GETTER_DEF,      // static getter ->   left - NULL, right - AST_BLOCK
 
-    AST_SETTER_DEF,      // static setter ->   left - NULL, right - AST_BLOCK
+    AST_SETTER_DEF,      // static setter ->   left - identifier, right - AST_BLOCK
 
 // statements
     AST_IF,              // if statement   ->   left - condition AST_EXPRESSION, right - AST_BLOCK
