@@ -13,7 +13,7 @@ CLASS -> class Program { eol DEF_FUN_LIST }
 
 DEF_FUN_LIST -> DEF_FUN  DEF_FUN_LIST |ε
 DEF_FUN -> static id DEF_FUN_TAIL
-DEF_FUN_TAIL -> (PARAMETER_LIST) BLOCK eol | SETTER | GETTER
+DEF_FUN_TAIL -> (ARGUMENT_LIST) BLOCK eol | SETTER | GETTER
 GETTER -> BLOCK eol
 SETTER -> = (id) BLOCK eol
 PARAMETER_LIST -> TERM PARAMETER_TAIL  | ε
@@ -27,8 +27,8 @@ STML_ID -> ( PARAMETER_LIST ) | = EXPRESSION
 VAR -> var id
 IF -> if ( EXPRESSION ) BLOCK else BLOCK
 WHILE -> while ( EXPRESSION ) BLOCK  
-//ARGUMENT_LIST -> EXPRESSION | ε
-//ARGUMENT_TAIL -> , TERM ARGUMENT_TAIL | ε ***I think i dont need this***
+ARGUMENT_LIST -> ID ARGUMENT_TAIL | ε
+ARGUMENT_TAIL -> , ID ARGUMENT_TAIL | ε 
 TERM -> literal_num | literal_string | literal_null | id | global_id | getter_id
 RETURN -> return EXPRESSION
 EXPRESSION -> */Handeled by precedence parser/* Place Holder

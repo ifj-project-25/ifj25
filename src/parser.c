@@ -674,6 +674,49 @@ static int SETTER(ASTNode* function){
 
         return NO_ERROR;
 }
+static ASTNode* ARGUMENT_TAIL(ASTNode* node){
+    if(token.type != TOKEN_RPAREN){
+        node->left=create_ast_node(AST_FUNC_ARG,NULL);
+        token_control(TOKEN_COMMA,NULL);
+        if (rc != NO_ERROR)return NULL;
+
+        next_token(&token);
+        if (rc != NO_ERROR)return NULL;
+
+        token_control(TOKEN_IDENTIFIER, NULL);
+        if (rc != NO_ERROR)return NULL;
+
+        node->left->right = create_ast_node(AST_IDENTIFIER, token.value.string->str);
+        if (rc != NO_ERROR)return NULL;
+
+        next_token(&token);
+        if (rc != NO_ERROR)return NULL;
+
+        ARGUMENT_TAIL(node->left);
+        if (rc != NO_ERROR)return NULL;
+        return node;
+    }
+    return NULL;
+}
+
+static ASTNode* ARGUMENT_LIST(){
+    if(token.type != TOKEN_RPAREN){
+        token_control(TOKEN_IDENTIFIER, NULL);
+        if (rc != NO_ERROR)return NULL;
+
+        ASTNode* argument_node = create_ast_node(AST_FUNC_ARG,NULL); 
+        argument_node->right = create_ast_node(AST_IDENTIFIER, token.value.string->str);
+        if (rc != NO_ERROR)return NULL;
+
+        next_token(&token);
+        if (rc != NO_ERROR)return NULL;
+
+        ARGUMENT_TAIL(argument_node);
+        if (rc != NO_ERROR)return NULL;
+        return argument_node;
+    }
+    return NULL;
+}
 static ASTNode* DEF_FUN_TAIL(char* id_name){
     ASTNode* function = NULL;
     
@@ -709,7 +752,7 @@ static ASTNode* DEF_FUN_TAIL(char* id_name){
         function = create_ast_node(AST_FUNC_DEF, id_name);
         
         if(token.type != TOKEN_RPAREN){
-            function->left = PARAMETER_LIST();
+            function->left = ARGUMENT_LIST();
         }
         if (rc != NO_ERROR)return NULL;
 
@@ -852,8 +895,6 @@ int parser(ASTNode* PROGRAM){
     next_token(&token);
     skip_eol();
     if (rc != NO_ERROR)return rc;
-    //TODO:: add Global function support
-    if(rc != NO_ERROR)return rc;
     rc = PROLOG();
     if(rc != NO_ERROR)return rc;
     
