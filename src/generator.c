@@ -319,10 +319,7 @@ int return_stmt(ASTNode *node, FILE *output) {
     // Evaluate return expression
     if (node->left) {
         expression(node->left, output);
-    } else {
-        // Return nil if no expression
-        fprintf(output, "PUSHS nil@nil\n");
-    }
+    } 
     
     fprintf(output, "POPFRAME\n");
     fprintf(output, "RETURN\n");
@@ -1156,10 +1153,20 @@ int next_step(ASTNode *node, FILE *output) {
             return assign(node, output);
         case AST_FUNC_DEF:
             return func_def(node, output);
+        case AST_GETTER_DEF:
+            return getter_def(node, output);
+        case AST_SETTER_DEF:
+            return setter_def(node, output);
         case AST_MAIN_DEF:
             return main_def(node, output);
         case AST_FUNC_CALL:
             func_call(node, output);
+            return next_step(node->right, output);
+        case AST_SETTER_CALL:
+            setter_call(node, output);
+            return next_step(node->right, output);
+        case AST_GETTER_CALL:
+            getter_call(node, output);
             return next_step(node->right, output);
         case AST_IF:
             return if_stmt(node, output);
