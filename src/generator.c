@@ -1093,12 +1093,15 @@ void generate_builtin_functions(FILE *output) {
 // Main function definition
 int main_def(ASTNode *node, FILE *output) {
     if (!node) return -1;
-    
+    fprintf(output, "LABEL $$main\n");
+    fprintf(output, "CREATEFRAME\n");
+    fprintf(output, "PUSHFRAME\n");
     // Main body is in the block (right child)
     if (node->right && node->right->type == AST_BLOCK) {
-        return block(node->right, output);
+        block(node->right, output);
     }
-    
+    fprintf(output, "POPFRAME\n");
+
     // Continue with next node (other functions)
     if (node->right) {
         return next_step(node->right->right, output);
@@ -1121,9 +1124,7 @@ int generate_code(ASTNode *root, FILE *output) {
     generate_builtin_functions(output);
     
     // 4. Generate main label
-    fprintf(output, "LABEL $$main\n");
-    fprintf(output, "CREATEFRAME\n");
-    fprintf(output, "PUSHFRAME\n");
+
     
     // 5. Traverse AST
     if (root->type == AST_PROGRAM) {
@@ -1138,7 +1139,6 @@ int generate_code(ASTNode *root, FILE *output) {
     }
     
     // 6. Exit program
-    fprintf(output, "POPFRAME\n");
     fprintf(output, "CLEARS\n");
     fprintf(output, "EXIT int@0\n");
     
