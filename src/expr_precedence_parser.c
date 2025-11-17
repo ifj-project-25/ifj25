@@ -74,7 +74,6 @@ static Sym token_to_sym(const Token* token){
 
 ExprNode* reduce_term_to_node(ExprPstack* stack){
     ExprNode* node = NULL;
-    printf("Reducing TERM to ExprNode\n");
     switch (stack->top->type)
     {
     case SYM_TERM:
@@ -238,7 +237,6 @@ int reduce_expr_op_expr(ExprPstack* stack){
         case TOKEN_KEYWORD:
             if (stack->top->token.value.keyword == KEYWORD_IS){
                 op = OP_IS;
-                printf("opearot IS");
                 break;
             }
             else{
@@ -259,7 +257,6 @@ int reduce_expr_op_expr(ExprPstack* stack){
     ExprNode* left = stack->top->node;
     expr_Pstack_pop(stack);
     
-    printf("Reducing: left=%p op=%d right=%p\n", (void*)left, op, (void*)right);
 
     // Create binary operation node
     ExprNode* new_node = create_binary_op_node(op, left, right);
@@ -349,7 +346,6 @@ ASTNode* main_precedence_parser(Token* token, int* rc) {
             return NULL;
         }
         if (token->type == TOKEN_LPAREN){
-            printf("Detected standalone function call: %s\n", id_token.value.string->str);
             ASTNode* call_node = create_ast_node(AST_FUNC_CALL, id_token.value.string->str);
             if (call_node == NULL) {
                 *rc = ERROR_INTERNAL;
@@ -369,8 +365,6 @@ ASTNode* main_precedence_parser(Token* token, int* rc) {
         }
         Sym stack_sym = scan ? token_to_sym(&scan->token) : PS_DOLLAR;
         Sym current_sym = token_to_sym(token);
-        debug_print_token("Current token:", token);
-        printf("stack_sym=%d current_sym=%d prec:%c\n", stack_sym, current_sym, prec_table[stack_sym][current_sym]);
         print_stack(&stack);
         if (prec_table[stack_sym][current_sym] == '<'){
             expr_Pstack_push_term(&stack, token, current_sym);
@@ -401,7 +395,6 @@ ASTNode* main_precedence_parser(Token* token, int* rc) {
         stack.top->next->sym == PS_DOLLAR) {
         break;
     }
-        printf("TOP type = %d\n", stack.top->type);
         Sym stack_sym = token_to_sym(&stack.top->token);
         Sym current_sym = PS_DOLLAR; // End marker
         
