@@ -13,8 +13,6 @@
 #include "expr_precedence_parser.h"
 #include "ast.h"
 
-//TODO:: add global variable support
-
 static void next_token(Token *token);
 static void token_control(TokenType expected_type, const void *expected_value);
 // Debug helpers
@@ -101,9 +99,8 @@ static int skip_eol(void) {
 }
 
 static void next_token(Token *token){
-    if (rc != NO_ERROR) return;  // Don't proceed if error already set
+    if (rc != NO_ERROR) return;  
     token_output = get_token(token);
-    //debug_print_token("token ->", token);
     if (token_output != NO_ERROR){
         rc = token_output;
         
@@ -112,7 +109,7 @@ static void next_token(Token *token){
 }
 
 static void token_control(TokenType expected_type, const void *expected_value){
-    if (rc != NO_ERROR) return;  // Don't proceed if error already set
+    if (rc != NO_ERROR) return;  
     if(token.type != expected_type){
         printf("token_control mismatch: expected=%s(%d) got=%s(%d)\n", token_type_name(expected_type), expected_type, token_type_name(token.type), token.type);//debug
         debug_print_token("  current", &token);//debug
@@ -164,30 +161,6 @@ static ASTNode* FUNC_CALL(ASTNode* id_node){
     if (rc != NO_ERROR)return NULL;
     return call_node;
 }
-/* static int ARGUMENT_TAIL(){
-    if (!((token.type == TOKEN_RPAREN))){
-        token_control(TOKEN_COMMA,NULL);
-        if (rc != NO_ERROR)return rc;
-        next_token(&token);
-        if (rc != NO_ERROR)return rc;
-        
-        EXPRESSION(NULL);
-        if (rc != NO_ERROR)return rc;
-
-        ARGUMENT_TAIL();
-        if (rc != NO_ERROR)return rc;
-    }
-    //dont i need next token here because what it ends on epsilon and the caller will automaticaly make next token then i skipp one token, right ? 
-    return NO_ERROR;
-}
-
-static int ARGUMENT_LIST(){
-    EXPRESSION(NULL);
-    if (rc != NO_ERROR)return rc;
-
-    ARGUMENT_TAIL();
-    return NO_ERROR;
-} */
 static ASTNode* EXPRESSION( ){
     int error_code = NO_ERROR;
     ASTNode* expressionTree = main_precedence_parser( &token, &error_code);
@@ -226,21 +199,18 @@ static ASTNode* IF(){
     next_token(&token);
     if (rc != NO_ERROR){
         free_ast_tree(node);
-        rc = SYNTAX_ERROR;
         return NULL;
     }
 
     token_control(TOKEN_LPAREN,NULL);
     if (rc != NO_ERROR){
         free_ast_tree(node);
-        rc = SYNTAX_ERROR;
         return NULL;
     }
 
     next_token(&token);
     if (rc != NO_ERROR){
         free_ast_tree(node);
-        rc = SYNTAX_ERROR;
         return NULL;
     }
 
@@ -261,7 +231,6 @@ static ASTNode* IF(){
     next_token(&token);
     if (rc != NO_ERROR){
         free_ast_tree(node);
-        rc = SYNTAX_ERROR;
         return NULL;
     }
 
@@ -276,7 +245,6 @@ static ASTNode* IF(){
     next_token(&token);
     if (rc != NO_ERROR){
         free_ast_tree(node);
-        rc = SYNTAX_ERROR;
         return NULL;
     }
 
@@ -298,7 +266,6 @@ static ASTNode* IF(){
     next_token(&token);
     if (rc != NO_ERROR){
         free_ast_tree(node);
-        rc = SYNTAX_ERROR;
         return NULL;
     }
 
@@ -332,7 +299,7 @@ static ASTNode* WHILE(){
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
-    while_node -> left = EXPRESSION(); // attach expression tree to WHILE condition
+    while_node -> left = EXPRESSION();
     if (rc != NO_ERROR)return NULL;
 
     token_control(TOKEN_RPAREN,NULL);
@@ -521,7 +488,7 @@ static ASTNode* STML(ASTNode* function){
                 rc = ERROR_INTERNAL;
                 return NULL; 
             }
-            statement = assign_node;  // Fix: assign to statement, not statement->left
+            statement = assign_node;  
             assign_node->left = create_ast_node(AST_EQUALS, NULL);
             if (assign_node->left == NULL){
                 rc = ERROR_INTERNAL;
@@ -531,14 +498,11 @@ static ASTNode* STML(ASTNode* function){
 
             next_token(&token);
             if (rc != NO_ERROR)return NULL;
-            // If RHS starts with Ifj.method(...), parse it via IFJ handler instead of precedence parser
             if (token.type == TOKEN_KEYWORD && token.value.keyword == KEYWORD_IFJ) {
-                // Advance to DOT and parse the call
                 next_token(&token);
                 if (rc != NO_ERROR) return NULL;
                 assign_node->left->right = IFJ();
                 if (rc != NO_ERROR) return NULL;
-                // After IFJ() we're at ')', advance once to continue
                 next_token(&token);
                 if (rc != NO_ERROR) return NULL;
             } else {
@@ -599,7 +563,6 @@ static int eol(){
     
     token_control(TOKEN_EOL,NULL);
     skip_eol();
-    if(rc != NO_ERROR)return rc;
     return rc;
 }
 
@@ -611,21 +574,18 @@ static ASTNode* BLOCK(){
     }
     (token_control(TOKEN_LCURLY,NULL));
     if (rc != NO_ERROR){
-        rc = SYNTAX_ERROR;
         return NULL;
     }
     
 
     next_token(&token);
         if (rc != NO_ERROR){
-        rc = SYNTAX_ERROR;
         return NULL;
     }
     
     
     eol();
     if (rc != NO_ERROR){
-        rc = SYNTAX_ERROR;
         return NULL;
     }
     
@@ -633,14 +593,12 @@ static ASTNode* BLOCK(){
 
     rc = STML_LIST(block);
     if (rc != NO_ERROR){
-        rc = SYNTAX_ERROR;
         return block;
     }
     
 
     (token_control(TOKEN_RCURLY,NULL));
     if (rc != NO_ERROR){
-        rc = SYNTAX_ERROR;
         return NULL;
     }
     
@@ -888,28 +846,19 @@ static ASTNode* DEF_FUN_LIST(ASTNode* current_node){
     if (((token.type == TOKEN_KEYWORD) && (token.value.keyword == KEYWORD_STATIC))){
         ASTNode* new_function = DEF_FUN();
         if (new_function == NULL){
-            rc = SYNTAX_ERROR;
             return NULL;
         }
 
-        // For PROGRAM node, assign to right directly
-        // For FUNC_DEF nodes, assign to right->right (BLOCK's right)
-
-        /* if (current_node->right->right == NULL){
-            current_node->right->right = new_function;
-        } else {
-            current_node->left = new_function;
-        } */
-       if (current_node->right == NULL){
+        if (current_node->right == NULL){
         if (current_node->type == AST_PROGRAM){
             current_node->left = new_function;
-       }
-       }
-       else if (current_node -> right ->right == NULL){
+    }
+    }
+    else if (current_node -> right ->right == NULL){
         current_node->right->right = new_function;
-       }
-       
-       
+    }
+    
+    
 
         ASTNode* tail = DEF_FUN_LIST(new_function);
         if (tail != NULL && rc != NO_ERROR){
@@ -928,7 +877,13 @@ static int CLASS(ASTNode* PROGRAM){
 
     next_token(&token);
     if (rc != NO_ERROR)return rc;
+
+    token_control(TOKEN_IDENTIFIER,NULL);
     if (rc != NO_ERROR)return rc;
+    if (strcmp(token.value.string->str, "Program") != 0){
+        rc = SYNTAX_ERROR;
+        return rc;
+    }
 
     next_token(&token);
     if (rc != NO_ERROR)return rc;
@@ -980,6 +935,7 @@ static int PROLOG(){//CORRECT
 
 int parser(ASTNode* PROGRAM){
     next_token(&token);
+    if (rc != NO_ERROR)return rc;
     skip_eol();
     if (rc != NO_ERROR)return rc;
     rc = PROLOG();
