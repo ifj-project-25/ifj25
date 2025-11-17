@@ -77,11 +77,17 @@ int main() {
         return error_code;
     }
     else{
+        FILE *fileOut = fopen("output.ifj25", "w");
+        if (fileOut == NULL) {
+            perror("Failed to open output file");
+            return ERROR_INTERNAL;
+        }
         error_code = semantic_analyze(PROGRAM);
         if (error_code != NO_ERROR) {
             fprintf(stderr, "Error during semantic analysis: %d\n", error_code);
             return error_code;
         }
+        fclose(fileOut);
     }
     
     return error_code;
