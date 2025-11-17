@@ -449,7 +449,7 @@ static ASTNode* STML(ASTNode* function){
                 rc = ERROR_INTERNAL;
                 return NULL; 
             }
-            if (token.type == TOKEN_EOL || token.type == TOKEN_RCURLY) {
+            if (token.type == TOKEN_EOL) {
                 
             } else {
             statement->right = EXPRESSION();
