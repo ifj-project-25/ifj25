@@ -6,6 +6,9 @@
 #ifndef EXPR_AST_H
 #define EXPR_AST_H
 
+// Forward declaration
+typedef struct Scope Scope;
+
 typedef enum {
     EXPR_NUM_LITERAL,
     EXPR_STRING_LITERAL,

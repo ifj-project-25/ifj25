@@ -14,6 +14,7 @@
 #include "expr_precedence_parser.h"
 #include "expr_ast.h"
 #include "ast.h"
+#include "generator.h"
 
 
 
@@ -87,6 +88,12 @@ int main() {
             fprintf(stderr, "Error during semantic analysis: %d\n", error_code);
             return error_code;
         }
+        error_code = generate_code(PROGRAM, fileOut);
+        if (error_code != NO_ERROR) {
+            fprintf(stderr, "Error during code generation: %d\n", error_code);
+            return error_code;
+        }
+        fclose(source_file);
         fclose(fileOut);
     }
     
