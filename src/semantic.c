@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 
 int semantic_visit_count = 0;
@@ -391,10 +392,19 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
         }
         // Check if argument is numeric type
         ASTNode *first_arg = node->left;
-        if (first_arg && first_arg->right) {
+            if (first_arg && first_arg->right) {
             ExprNodeType arg_type = EXPR_NULL_LITERAL;
             if (first_arg->right->expr) {
                 arg_type = first_arg->right->expr->type;
+                /* If this is Ifj.chr and the argument is a numeric literal, require it to be integer */
+                if (arg_type == EXPR_NUM_LITERAL && strcmp(func_name, "Ifj.chr") == 0) {
+                    ExprNode *en = first_arg->right->expr;
+                    double v = en->data.num_literal;
+                    if ((double)(long long)v != v) {
+                        fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires integer literal argument\n", func_name);
+                        return SEM_ERROR_TYPE_COMPATIBILITY;
+                    }
+                }
             } else if (first_arg->right->left && first_arg->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(first_arg->right->left, scope);
                 if (err != NO_ERROR) return err;
@@ -411,7 +421,7 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
                 fprintf(stderr, "[SEMANTIC] Invalid argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
-            
+
             if (arg_type != EXPR_NUM_LITERAL) {
                 fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires numeric argument\n", func_name);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
@@ -486,10 +496,19 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
             }
         }
         // Check 2nd and 3rd arguments are numeric
-        if (arg && arg->left && arg->left->right) {
+            if (arg && arg->left && arg->left->right) {
             ExprNodeType arg2_type = EXPR_NULL_LITERAL;
             if (arg->left->right->expr) {
                 arg2_type = arg->left->right->expr->type;
+                /* if numeric literal, require integer */
+                if (arg2_type == EXPR_NUM_LITERAL) {
+                    ExprNode *en = arg->left->right->expr;
+                    double v = en->data.num_literal;
+                    if ((double)(long long)v != v) {
+                        fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be integer literal\n", func_name);
+                        return SEM_ERROR_TYPE_COMPATIBILITY;
+                    }
+                }
             } else if (arg->left->right->left && arg->left->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(arg->left->right->left, scope);
                 if (err != NO_ERROR) return err;
@@ -505,16 +524,25 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
                 fprintf(stderr, "[SEMANTIC] Invalid second argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
-            
+
             if (arg2_type != EXPR_NUM_LITERAL) {
                 fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be numeric\n", func_name);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
             }
         }
-        if (arg && arg->left && arg->left->left && arg->left->left->right) {
+            if (arg && arg->left && arg->left->left && arg->left->left->right) {
             ExprNodeType arg3_type = EXPR_NULL_LITERAL;
             if (arg->left->left->right->expr) {
                 arg3_type = arg->left->left->right->expr->type;
+                /* if numeric literal, require integer */
+                if (arg3_type == EXPR_NUM_LITERAL) {
+                    ExprNode *en = arg->left->left->right->expr;
+                    double v = en->data.num_literal;
+                    if ((double)(long long)v != v) {
+                        fprintf(stderr, "[SEMANTIC] Built-in function '%s' third argument must be integer literal\n", func_name);
+                        return SEM_ERROR_TYPE_COMPATIBILITY;
+                    }
+                }
             } else if (arg->left->left->right->left && arg->left->left->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(arg->left->left->right->left, scope);
                 if (err != NO_ERROR) return err;
@@ -530,7 +558,7 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
                 fprintf(stderr, "[SEMANTIC] Invalid third argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
-            
+
             if (arg3_type != EXPR_NUM_LITERAL) {
                 fprintf(stderr, "[SEMANTIC] Built-in function '%s' third argument must be numeric\n", func_name);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
@@ -1712,11 +1740,11 @@ int semantic_analyze(ASTNode *root) {
 
     if (result != NO_ERROR) return result;
 
-    SymTableData *data = lookup_symbol(global_scope, "main");
+    /*SymTableData *data = lookup_symbol(global_scope, "main");
     if (!data || data->type != NODE_FUNC || data->data.func_data->param_count != 0) {
         fprintf(stderr, "[SEMANTIC] Program must define 'main' as a function with 0 parameters\n");
         return SEM_ERROR_OTHER;
-    }
+    }*/
 
     return NO_ERROR;
 }
