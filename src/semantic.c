@@ -282,6 +282,7 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
                         fprintf(stderr, "[SEMANTIC] Unknown type literal '%s' in 'is' operator\n", expr->data.binary.right->data.identifier_name);
                         return SEM_ERROR_OTHER;
                     }
+                    break;
 
                 // Arithmetic operators - NULL not allowed
                 case OP_ADD:
@@ -1585,10 +1586,10 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 node->data_type = expr_type;
 
                 // Check if expression type inference failed
-            if (expr_type == TYPE_UNDEF) {
+            /* if (expr_type == TYPE_UNDEF) {
                 fprintf(stderr, "[SEMANTIC] Expression type inference failed\n");
                 return SEM_ERROR_TYPE_COMPATIBILITY;
-            }
+            }*/
                 
                 
             } else if (node->left && node->left->type == AST_FUNC_CALL) {
