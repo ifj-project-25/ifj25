@@ -392,39 +392,34 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
         }
         // Check if argument is numeric type
         ASTNode *first_arg = node->left;
-            if (first_arg && first_arg->right) {
-            ExprNodeType arg_type = EXPR_NULL_LITERAL;
+        if (first_arg && first_arg->right) {
+            DataType arg_type = TYPE_UNDEF;
             if (first_arg->right->expr) {
-                arg_type = first_arg->right->expr->type;
-                /* If this is Ifj.chr and the argument is a numeric literal, require it to be integer */
-                if (arg_type == EXPR_NUM_LITERAL && strcmp(func_name, "Ifj.chr") == 0) {
-                    ExprNode *en = first_arg->right->expr;
-                    double v = en->data.num_literal;
-                    if ((double)(long long)v != v) {
-                        fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires integer literal argument\n", func_name);
-                        return SEM_ERROR_TYPE_COMPATIBILITY;
-                    }
-                }
+                int ierr = infer_expr_node_type(first_arg->right->expr, scope, &arg_type);
+                if (ierr != NO_ERROR) return ierr;
             } else if (first_arg->right->left && first_arg->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(first_arg->right->left, scope);
                 if (err != NO_ERROR) return err;
-                // For function calls, we need to check the return type from data_type
-                DataType return_type = first_arg->right->left->data_type;
-                if (return_type == TYPE_NUM) {
-                    arg_type = EXPR_NUM_LITERAL;
-                } else if (return_type == TYPE_STRING) {
-                    arg_type = EXPR_STRING_LITERAL;
-                } else if (return_type == TYPE_NULL) {
-                    arg_type = EXPR_NULL_LITERAL;
-                }
+                arg_type = first_arg->right->left->data_type;
             } else {
                 fprintf(stderr, "[SEMANTIC] Invalid argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
 
-            if (arg_type != EXPR_NUM_LITERAL) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires numeric argument\n", func_name);
+            if (arg_type != TYPE_NUM) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires numeric argument, got type %d\n", func_name, arg_type);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
+            }
+
+            // Additional check for Ifj.chr: if the argument is a literal, it must be integer
+            if (strcmp(func_name, "Ifj.chr") == 0) {
+                if (first_arg->right->expr && first_arg->right->expr->type == EXPR_NUM_LITERAL) {
+                    double v = first_arg->right->expr->data.num_literal;
+                    if ((double)(long long)v != v) {
+                        fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires integer literal argument\n", func_name);
+                        return SEM_ERROR_TYPE_COMPATIBILITY;
+                    }
+                }
             }
         }
     }
@@ -437,27 +432,21 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
         // Check if argument is string type
         ASTNode *first_arg = node->left;
         if (first_arg && first_arg->right) {
-            ExprNodeType arg_type = EXPR_NULL_LITERAL;
+            DataType arg_type = TYPE_UNDEF;
             if (first_arg->right->expr) {
-                arg_type = first_arg->right->expr->type;
+                int ierr = infer_expr_node_type(first_arg->right->expr, scope, &arg_type);
+                if (ierr != NO_ERROR) return ierr;
             } else if (first_arg->right->left && first_arg->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(first_arg->right->left, scope);
                 if (err != NO_ERROR) return err;
-                DataType return_type = first_arg->right->left->data_type;
-                if (return_type == TYPE_NUM) {
-                    arg_type = EXPR_NUM_LITERAL;
-                } else if (return_type == TYPE_STRING) {
-                    arg_type = EXPR_STRING_LITERAL;
-                } else if (return_type == TYPE_NULL) {
-                    arg_type = EXPR_NULL_LITERAL;
-                }
+                arg_type = first_arg->right->left->data_type;
             } else {
                 fprintf(stderr, "[SEMANTIC] Invalid argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
             
-            if (arg_type != EXPR_STRING_LITERAL) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires string argument\n", func_name);
+            if (arg_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires string argument, got type %d\n", func_name, arg_type);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
             }
         }
@@ -471,96 +460,60 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
         // Check argument types: string, num, num
         ASTNode *arg = node->left;
         if (arg && arg->right) {
-            ExprNodeType arg1_type = EXPR_NULL_LITERAL;
+            DataType arg1_type = TYPE_UNDEF;
             if (arg->right->expr) {
-                arg1_type = arg->right->expr->type;
+                int ierr = infer_expr_node_type(arg->right->expr, scope, &arg1_type);
+                if (ierr != NO_ERROR) return ierr;
             } else if (arg->right->left && arg->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(arg->right->left, scope);
                 if (err != NO_ERROR) return err;
-                DataType return_type = arg->right->left->data_type;
-                if (return_type == TYPE_NUM) {
-                    arg1_type = EXPR_NUM_LITERAL;
-                } else if (return_type == TYPE_STRING) {
-                    arg1_type = EXPR_STRING_LITERAL;
-                } else if (return_type == TYPE_NULL) {
-                    arg1_type = EXPR_NULL_LITERAL;
-                }
+                arg1_type = arg->right->left->data_type;
             } else {
                 fprintf(stderr, "[SEMANTIC] Invalid first argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
             
-            if (arg1_type != EXPR_STRING_LITERAL) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string\n", func_name);
+            if (arg1_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string, got type %d\n", func_name, arg1_type);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
             }
         }
         // Check 2nd and 3rd arguments are numeric
-            if (arg && arg->left && arg->left->right) {
-            ExprNodeType arg2_type = EXPR_NULL_LITERAL;
+        if (arg && arg->left && arg->left->right) {
+            DataType arg2_type = TYPE_UNDEF;
             if (arg->left->right->expr) {
-                arg2_type = arg->left->right->expr->type;
-                /* if numeric literal, require integer */
-                if (arg2_type == EXPR_NUM_LITERAL) {
-                    ExprNode *en = arg->left->right->expr;
-                    double v = en->data.num_literal;
-                    if ((double)(long long)v != v) {
-                        fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be integer literal\n", func_name);
-                        return SEM_ERROR_TYPE_COMPATIBILITY;
-                    }
-                }
+                int ierr = infer_expr_node_type(arg->left->right->expr, scope, &arg2_type);
+                if (ierr != NO_ERROR) return ierr;
             } else if (arg->left->right->left && arg->left->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(arg->left->right->left, scope);
                 if (err != NO_ERROR) return err;
-                DataType return_type = arg->left->right->left->data_type;
-                if (return_type == TYPE_NUM) {
-                    arg2_type = EXPR_NUM_LITERAL;
-                } else if (return_type == TYPE_STRING) {
-                    arg2_type = EXPR_STRING_LITERAL;
-                } else if (return_type == TYPE_NULL) {
-                    arg2_type = EXPR_NULL_LITERAL;
-                }
+                arg2_type = arg->left->right->left->data_type;
             } else {
                 fprintf(stderr, "[SEMANTIC] Invalid second argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
 
-            if (arg2_type != EXPR_NUM_LITERAL) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be numeric\n", func_name);
+            if (arg2_type != TYPE_NUM) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be numeric, got type %d\n", func_name, arg2_type);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
             }
         }
-            if (arg && arg->left && arg->left->left && arg->left->left->right) {
-            ExprNodeType arg3_type = EXPR_NULL_LITERAL;
+        if (arg && arg->left && arg->left->left && arg->left->left->right) {
+            DataType arg3_type = TYPE_UNDEF;
             if (arg->left->left->right->expr) {
-                arg3_type = arg->left->left->right->expr->type;
-                /* if numeric literal, require integer */
-                if (arg3_type == EXPR_NUM_LITERAL) {
-                    ExprNode *en = arg->left->left->right->expr;
-                    double v = en->data.num_literal;
-                    if ((double)(long long)v != v) {
-                        fprintf(stderr, "[SEMANTIC] Built-in function '%s' third argument must be integer literal\n", func_name);
-                        return SEM_ERROR_TYPE_COMPATIBILITY;
-                    }
-                }
+                int ierr = infer_expr_node_type(arg->left->left->right->expr, scope, &arg3_type);
+                if (ierr != NO_ERROR) return ierr;
             } else if (arg->left->left->right->left && arg->left->left->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(arg->left->left->right->left, scope);
                 if (err != NO_ERROR) return err;
-                DataType return_type = arg->left->left->right->left->data_type;
-                if (return_type == TYPE_NUM) {
-                    arg3_type = EXPR_NUM_LITERAL;
-                } else if (return_type == TYPE_STRING) {
-                    arg3_type = EXPR_STRING_LITERAL;
-                } else if (return_type == TYPE_NULL) {
-                    arg3_type = EXPR_NULL_LITERAL;
-                }
+                arg3_type = arg->left->left->right->left->data_type;
             } else {
                 fprintf(stderr, "[SEMANTIC] Invalid third argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
 
-            if (arg3_type != EXPR_NUM_LITERAL) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' third argument must be numeric\n", func_name);
+            if (arg3_type != TYPE_NUM) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' third argument must be numeric, got type %d\n", func_name, arg3_type);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
             }
         }
@@ -574,53 +527,40 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
         // Check both arguments are strings
         ASTNode *arg = node->left;
         if (arg && arg->right) {
-            ExprNodeType arg1_type = EXPR_NULL_LITERAL;
+            DataType arg1_type = TYPE_UNDEF;
             if (arg->right->expr) {
-                arg1_type = arg->right->expr->type;
+                int ierr = infer_expr_node_type(arg->right->expr, scope, &arg1_type);
+                if (ierr != NO_ERROR) return ierr;
             } else if (arg->right->left && arg->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(arg->right->left, scope);
                 if (err != NO_ERROR) return err;
-                DataType return_type = arg->right->left->data_type;
-                if (return_type == TYPE_NUM) {
-                    arg1_type = EXPR_NUM_LITERAL;
-                } else if (return_type == TYPE_STRING) {
-                    arg1_type = EXPR_STRING_LITERAL;
-                } else if (return_type == TYPE_NULL) {
-                    arg1_type = EXPR_NULL_LITERAL;
-                }
+                arg1_type = arg->right->left->data_type;
             } else {
                 fprintf(stderr, "[SEMANTIC] Invalid first argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
             
-            
-            if (arg1_type != EXPR_STRING_LITERAL) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string\n", func_name);
+            if (arg1_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string, got type %d\n", func_name, arg1_type);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
             }
         }
         if (arg && arg->left && arg->left->right) {
-            ExprNodeType arg2_type = EXPR_NULL_LITERAL;
+            DataType arg2_type = TYPE_UNDEF;
             if (arg->left->right->expr) {
-                arg2_type = arg->left->right->expr->type;
+                int ierr = infer_expr_node_type(arg->left->right->expr, scope, &arg2_type);
+                if (ierr != NO_ERROR) return ierr;
             } else if (arg->left->right->left && arg->left->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(arg->left->right->left, scope);
                 if (err != NO_ERROR) return err;
-                DataType return_type = arg->left->right->left->data_type;
-                if (return_type == TYPE_NUM) {
-                    arg2_type = EXPR_NUM_LITERAL;
-                } else if (return_type == TYPE_STRING) {
-                    arg2_type = EXPR_STRING_LITERAL;
-                } else if (return_type == TYPE_NULL) {
-                    arg2_type = EXPR_NULL_LITERAL;
-                }
+                arg2_type = arg->left->right->left->data_type;
             } else {
                 fprintf(stderr, "[SEMANTIC] Invalid second argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
             
-            if (arg2_type != EXPR_STRING_LITERAL) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be string\n", func_name);
+            if (arg2_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be string, got type %d\n", func_name, arg2_type);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
             }
         }
@@ -634,52 +574,40 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
         // Check first argument is string, second is numeric
         ASTNode *arg = node->left;
         if (arg && arg->right) {
-            ExprNodeType arg1_type = EXPR_NULL_LITERAL;
+            DataType arg1_type = TYPE_UNDEF;
             if (arg->right->expr) {
-                arg1_type = arg->right->expr->type;
+                int ierr = infer_expr_node_type(arg->right->expr, scope, &arg1_type);
+                if (ierr != NO_ERROR) return ierr;
             } else if (arg->right->left && arg->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(arg->right->left, scope);
                 if (err != NO_ERROR) return err;
-                DataType return_type = arg->right->left->data_type;
-                if (return_type == TYPE_NUM) {
-                    arg1_type = EXPR_NUM_LITERAL;
-                } else if (return_type == TYPE_STRING) {
-                    arg1_type = EXPR_STRING_LITERAL;
-                } else if (return_type == TYPE_NULL) {
-                    arg1_type = EXPR_NULL_LITERAL;
-                }
+                arg1_type = arg->right->left->data_type;
             } else {
                 fprintf(stderr, "[SEMANTIC] Invalid first argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
             
-            if (arg1_type != EXPR_STRING_LITERAL) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string\n", func_name);
+            if (arg1_type != TYPE_STRING) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string, got type %d\n", func_name, arg1_type);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
             }
         }
         if (arg && arg->left && arg->left->right) {
-            ExprNodeType arg2_type = EXPR_NULL_LITERAL;
+            DataType arg2_type = TYPE_UNDEF;
             if (arg->left->right->expr) {
-                arg2_type = arg->left->right->expr->type;
+                int ierr = infer_expr_node_type(arg->left->right->expr, scope, &arg2_type);
+                if (ierr != NO_ERROR) return ierr;
             } else if (arg->left->right->left && arg->left->right->left->type == AST_FUNC_CALL) {
                 int err = semantic_visit(arg->left->right->left, scope);
                 if (err != NO_ERROR) return err;
-                DataType return_type = arg->left->right->left->data_type;
-                if (return_type == TYPE_NUM) {
-                    arg2_type = EXPR_NUM_LITERAL;
-                } else if (return_type == TYPE_STRING) {
-                    arg2_type = EXPR_STRING_LITERAL;
-                } else if (return_type == TYPE_NULL) {
-                    arg2_type = EXPR_NULL_LITERAL;
-                }
+                arg2_type = arg->left->right->left->data_type;
             } else {
                 fprintf(stderr, "[SEMANTIC] Invalid second argument expression for '%s'\n", func_name);
                 return SEM_ERROR_OTHER;
             }
             
-            if (arg2_type != EXPR_NUM_LITERAL) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be numeric\n", func_name);
+            if (arg2_type != TYPE_NUM) {
+                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be numeric, got type %d\n", func_name, arg2_type);
                 return SEM_ERROR_TYPE_COMPATIBILITY;
             }
         }
@@ -1740,11 +1668,11 @@ int semantic_analyze(ASTNode *root) {
 
     if (result != NO_ERROR) return result;
 
-    /*SymTableData *data = lookup_symbol(global_scope, "main");
+    SymTableData *data = lookup_symbol(global_scope, "main");
     if (!data || data->type != NODE_FUNC || data->data.func_data->param_count != 0) {
         fprintf(stderr, "[SEMANTIC] Program must define 'main' as a function with 0 parameters\n");
         return SEM_ERROR_OTHER;
-    }*/
+    }
 
     return NO_ERROR;
 }

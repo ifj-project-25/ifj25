@@ -2282,6 +2282,100 @@ int test_same_functions() {
     return result;
 }
 
+// Test 62: Ifj.substring function call
+int test_substring_function() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+    
+    // Create main function
+    ASTNode* main_func = create_ast_node(AST_MAIN_DEF, "main");
+    program->left = main_func;
+    
+    // Create main function body (block)
+    ASTNode* main_block = create_ast_node(AST_BLOCK, NULL);
+    main_func->right = main_block;
+    
+    // Variable declarations: var a, var b, var c
+    ASTNode* decl_a = create_ast_node(AST_VAR_DECL, NULL);
+    decl_a->left = create_ast_node(AST_IDENTIFIER, "a");
+    decl_a->left->data_type = TYPE_UNDEF;
+    
+    ASTNode* decl_b = create_ast_node(AST_VAR_DECL, NULL);
+    decl_b->left = create_ast_node(AST_IDENTIFIER, "b");
+    decl_b->left->data_type = TYPE_UNDEF;
+    
+    ASTNode* decl_c = create_ast_node(AST_VAR_DECL, NULL);
+    decl_c->left = create_ast_node(AST_IDENTIFIER, "c");
+    decl_c->left->data_type = TYPE_UNDEF;
+    
+    // Link declarations in block
+    main_block->left = decl_a;
+    decl_a->right = decl_b;
+    decl_b->right = decl_c;
+    
+    // Assignments: a = "ahoj", b = 1, c = 2
+    ASTNode* assign_a = create_ast_node(AST_ASSIGN, NULL);
+    ASTNode* equals_a = create_ast_node(AST_EQUALS, NULL);
+    assign_a->left = equals_a;
+    
+    equals_a->left = create_ast_node(AST_IDENTIFIER, "a");
+    ASTNode* expr_a = create_ast_node(AST_EXPRESSION, NULL);
+    expr_a->expr = create_string_literal_node("ahoj");
+    equals_a->right = expr_a;
+    
+    ASTNode* assign_b = create_ast_node(AST_ASSIGN, NULL);
+    ASTNode* equals_b = create_ast_node(AST_EQUALS, NULL);
+    assign_b->left = equals_b;
+    
+    equals_b->left = create_ast_node(AST_IDENTIFIER, "b");
+    ASTNode* expr_b = create_ast_node(AST_EXPRESSION, NULL);
+    expr_b->expr = create_num_literal_node(1.0);
+    equals_b->right = expr_b;
+    
+    ASTNode* assign_c = create_ast_node(AST_ASSIGN, NULL);
+    ASTNode* equals_c = create_ast_node(AST_EQUALS, NULL);
+    assign_c->left = equals_c;
+    
+    equals_c->left = create_ast_node(AST_IDENTIFIER, "c");
+    ASTNode* expr_c = create_ast_node(AST_EXPRESSION, NULL);
+    expr_c->expr = create_num_literal_node(2.0);
+    equals_c->right = expr_c;
+    
+    // Link assignments after declarations
+    decl_c->right = assign_a;
+    assign_a->right = assign_b;
+    assign_b->right = assign_c;
+    
+    // Ifj.substring(a, b, c) function call
+    ASTNode* substring_call = create_ast_node(AST_FUNC_CALL, "Ifj.substring");
+    
+    // Create argument list: a, b, c
+    ASTNode* arg_c = create_ast_node(AST_FUNC_ARG, NULL);
+    ASTNode* expr_arg_c = create_ast_node(AST_EXPRESSION, NULL);
+    expr_arg_c->expr = create_identifier_node("c");
+    arg_c->right = expr_arg_c;
+    
+    ASTNode* arg_b = create_ast_node(AST_FUNC_ARG, NULL);
+    ASTNode* expr_arg_b = create_ast_node(AST_EXPRESSION, NULL);
+    expr_arg_b->expr = create_identifier_node("b");
+    arg_b->right = expr_arg_b;
+    arg_b->left = arg_c;
+    
+    ASTNode* arg_a = create_ast_node(AST_FUNC_ARG, NULL);
+    ASTNode* expr_arg_a = create_ast_node(AST_EXPRESSION, NULL);
+    expr_arg_a->expr = create_identifier_node("a");
+    arg_a->right = expr_arg_a;
+    arg_a->left = arg_b;
+    
+    substring_call->left = arg_a;
+    
+    // Add function call as last statement
+    assign_c->right = substring_call;
+
+    int result = semantic_analyze(program);
+    free_ast_tree(program);
+    return result;
+}
+
 void print_summary() {
     printf(COLOR_YELLOW "========================================\n" COLOR_RESET);
     printf(COLOR_YELLOW "           TEST SUMMARY\n" COLOR_RESET);
@@ -2376,6 +2470,7 @@ int main() {
             {59, "Getter as argument", "NO_ERROR", NO_ERROR, test_getter_as_argument},
             {60, "Getter in condition", "NO_ERROR", NO_ERROR, test_getter_in_condition},
             {61, "Same functions", "NO_ERROR", NO_ERROR, test_same_functions},
+            {62, "Ifj.substring function call", "NO_ERROR", NO_ERROR, test_substring_function},
             {0, NULL, NULL, 0, NULL} // Ukončovací prvok
         };
 
