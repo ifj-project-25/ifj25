@@ -188,6 +188,9 @@ static void print_expr_inline(ExprNode* expr, int depth, int is_last[]) {
         case EXPR_IDENTIFIER:
             printf("ID: %s\n", expr->data.identifier_name);
             break;
+        case EXPR_GETTER_CALL:
+            printf("GETTER: %s\n", expr->data.getter_name);
+            break;
         case EXPR_BINARY_OP: {
             const char* ops[] = {"+", "-", "*", "/", "==", "!=", "<", ">", "<=", ">=", "IS"};
             printf("OP: %s\n", ops[expr->data.binary.op]);
