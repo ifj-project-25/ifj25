@@ -18,7 +18,7 @@
 static void next_token(Token *token);
 static void token_control(TokenType expected_type, const void *expected_value);
 // Debug helpers
-static const char *token_type_name(TokenType t) {
+static const char *token_type_name(TokenType t) {//debug
     switch (t) {
         case TOKEN_UNDEFINED: return "UNDEFINED";
         case TOKEN_EOF: return "EOF";
@@ -51,7 +51,7 @@ static const char *token_type_name(TokenType t) {
     }
 }
 
-void debug_print_token(const char *prefix, const Token *t) {
+void debug_print_token(const char *prefix, const Token *t) {//debug
     if (!t) return;
     const char *name = token_type_name(t->type);
     if (t->type == TOKEN_IDENTIFIER || t->type == TOKEN_STRING || t->type == TOKEN_GLOBAL_VAR) {
@@ -114,8 +114,8 @@ static void next_token(Token *token){
 static void token_control(TokenType expected_type, const void *expected_value){
     if (rc != NO_ERROR) return;  // Don't proceed if error already set
     if(token.type != expected_type){
-        printf("token_control mismatch: expected=%s(%d) got=%s(%d)\n", token_type_name(expected_type), expected_type, token_type_name(token.type), token.type);
-        debug_print_token("  current", &token);
+        printf("token_control mismatch: expected=%s(%d) got=%s(%d)\n", token_type_name(expected_type), expected_type, token_type_name(token.type), token.type);//debug
+        debug_print_token("  current", &token);//debug
         rc = SYNTAX_ERROR;
 
         return ;
@@ -218,6 +218,10 @@ static ASTNode* EXPRESSION( ){
 }
 static ASTNode* IF(){
     ASTNode* node = create_ast_node(AST_IF, NULL);
+    if (node == NULL){
+        rc = ERROR_INTERNAL;
+        return NULL; 
+    }
 
     next_token(&token);
     if (rc != NO_ERROR){
@@ -285,6 +289,10 @@ static ASTNode* IF(){
     }
     
     ASTNode* else_node = create_ast_node(AST_ELSE, NULL);
+    if (node == NULL){
+        rc = ERROR_INTERNAL;
+        return NULL; 
+    }
     node->right->right = else_node;
 
     next_token(&token);
@@ -307,12 +315,20 @@ static ASTNode* IF(){
 }
 static ASTNode* WHILE(){
     ASTNode* while_node = create_ast_node(AST_WHILE, NULL);
+    if (while_node == NULL){
+        rc = ERROR_INTERNAL;
+        return NULL; 
+    }
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
     token_control(TOKEN_LPAREN,NULL);
     if (rc != NO_ERROR)return NULL;
     while_node -> left = create_ast_node(AST_EXPRESSION, NULL);
+    if (while_node->left == NULL){
+        rc = ERROR_INTERNAL;
+        return NULL; 
+    }
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
@@ -332,12 +348,20 @@ static ASTNode* WHILE(){
 
 static ASTNode* VAR(){
     ASTNode* var_node = create_ast_node(AST_VAR_DECL, NULL);
+    if (var_node == NULL){
+        rc = ERROR_INTERNAL;
+        return NULL; 
+    }
     next_token(&token);
     if (rc != NO_ERROR)return NULL;
 
     token_control(TOKEN_IDENTIFIER,NULL);
     if (rc != NO_ERROR)return NULL;
     var_node -> left = create_ast_node(AST_IDENTIFIER, token.value.string->str);
+    if (var_node->left == NULL){
+        rc = ERROR_INTERNAL;
+        return NULL; 
+    }
     
     return var_node;
 }
@@ -421,6 +445,10 @@ static ASTNode* STML(ASTNode* function){
             if (rc != NO_ERROR)return NULL;
 
             statement = create_ast_node(AST_RETURN, NULL);
+            if (statement == NULL){
+                rc = ERROR_INTERNAL;
+                return NULL; 
+    }
             statement->right = EXPRESSION();
             if (rc != NO_ERROR)return NULL;
             break;
@@ -469,6 +497,10 @@ static ASTNode* STML(ASTNode* function){
     case TOKEN_IDENTIFIER:
     case TOKEN_GLOBAL_VAR:
         ASTNode* id_node = create_ast_node(AST_IDENTIFIER, token.value.string->str);
+        if (id_node == NULL){
+            rc = ERROR_INTERNAL;
+            return NULL; 
+        }
         next_token(&token);
         if (rc != NO_ERROR)return NULL;
 
@@ -481,8 +513,16 @@ static ASTNode* STML(ASTNode* function){
 
         if (token.type == TOKEN_EQUAL){//ASSIGNMENT
             ASTNode* assign_node = create_ast_node(AST_ASSIGN, NULL);
+            if (assign_node == NULL){
+                rc = ERROR_INTERNAL;
+                return NULL; 
+            }
             statement = assign_node;  // Fix: assign to statement, not statement->left
             assign_node->left = create_ast_node(AST_EQUALS, NULL);
+            if (assign_node->left == NULL){
+                rc = ERROR_INTERNAL;
+                return NULL; 
+            }
             assign_node->left->left = id_node;
 
             next_token(&token);
@@ -561,6 +601,10 @@ static int eol(){
 
 static ASTNode* BLOCK(){
     ASTNode* block = create_ast_node(AST_BLOCK, NULL);
+    if (block == NULL){
+        rc = ERROR_INTERNAL;
+        return NULL; 
+    }
     (token_control(TOKEN_LCURLY,NULL));
     if (rc != NO_ERROR){
         rc = SYNTAX_ERROR;
@@ -604,6 +648,10 @@ static ASTNode* BLOCK(){
 ASTNode* PARAMETER_TAIL(ASTNode* argument_node){
     if(token.type != TOKEN_RPAREN){
         argument_node->left=create_ast_node(AST_FUNC_ARG,NULL);
+        if (argument_node->left == NULL){
+        rc = ERROR_INTERNAL;
+        return NULL; 
+    }
         token_control(TOKEN_COMMA,NULL);
         if (rc != NO_ERROR)return NULL;
 
@@ -625,11 +673,14 @@ ASTNode* PARAMETER_TAIL(ASTNode* argument_node){
 
 ASTNode* PARAMETER_LIST(){
     if(token.type != TOKEN_RPAREN){
-        ASTNode* argument_node = create_ast_node(AST_FUNC_ARG,NULL); 
+        ASTNode* argument_node = create_ast_node(AST_FUNC_ARG,NULL);
+        if (argument_node == NULL){
+            rc = ERROR_INTERNAL;
+            return NULL; 
+        } 
         argument_node->right = EXPRESSION();
         if (rc != NO_ERROR || argument_node->right == NULL || argument_node->right->type == AST_FUNC_CALL){
             rc = SYNTAX_ERROR;
-            printf ("It failed here\n");
             return NULL;
         }
         if (rc != NO_ERROR)return NULL;
@@ -652,7 +703,11 @@ static int SETTER(ASTNode* function){
 
         token_control(TOKEN_IDENTIFIER,NULL);
         if (rc != NO_ERROR)return rc; 
-        function->left = create_ast_node(AST_IDENTIFIER, token.value.string->str);      
+        function->left = create_ast_node(AST_IDENTIFIER, token.value.string->str);
+        if (function->left == NULL){
+            rc = ERROR_INTERNAL;
+            return rc; 
+    }      
 
         next_token(&token);
         if (rc != NO_ERROR)return rc;
@@ -677,6 +732,10 @@ static int SETTER(ASTNode* function){
 static ASTNode* ARGUMENT_TAIL(ASTNode* node){
     if(token.type != TOKEN_RPAREN){
         node->left=create_ast_node(AST_FUNC_ARG,NULL);
+        if (node->left == NULL){
+            rc = ERROR_INTERNAL;
+            return NULL; 
+        }
         token_control(TOKEN_COMMA,NULL);
         if (rc != NO_ERROR)return NULL;
 
@@ -687,6 +746,10 @@ static ASTNode* ARGUMENT_TAIL(ASTNode* node){
         if (rc != NO_ERROR)return NULL;
 
         node->left->right = create_ast_node(AST_IDENTIFIER, token.value.string->str);
+        if (node->left->right == NULL){
+            rc = ERROR_INTERNAL;
+            return NULL; 
+        }
         if (rc != NO_ERROR)return NULL;
 
         next_token(&token);
@@ -704,8 +767,16 @@ static ASTNode* ARGUMENT_LIST(){
         token_control(TOKEN_IDENTIFIER, NULL);
         if (rc != NO_ERROR)return NULL;
 
-        ASTNode* argument_node = create_ast_node(AST_FUNC_ARG,NULL); 
+        ASTNode* argument_node = create_ast_node(AST_FUNC_ARG,NULL);
+        if (argument_node == NULL){
+            rc = ERROR_INTERNAL;
+            return NULL; 
+        } 
         argument_node->right = create_ast_node(AST_IDENTIFIER, token.value.string->str);
+        if (argument_node->right == NULL){
+            rc = ERROR_INTERNAL;
+            return NULL; 
+        }
         if (rc != NO_ERROR)return NULL;
 
         next_token(&token);
@@ -723,6 +794,10 @@ static ASTNode* DEF_FUN_TAIL(char* id_name){
     // Getter: static identifier {
     if(token.type == TOKEN_LCURLY){
         function = create_ast_node(AST_GETTER_DEF, id_name);
+        if (function == NULL){
+            rc = ERROR_INTERNAL;
+            return NULL; 
+        }
 
         function->right = BLOCK();
         if (rc != NO_ERROR)return NULL;
@@ -739,6 +814,10 @@ static ASTNode* DEF_FUN_TAIL(char* id_name){
     // Setter: static identifier=(param) {
     else if(token.type == TOKEN_EQUAL){
         function = create_ast_node(AST_SETTER_DEF, id_name);
+        if (function == NULL){
+            rc = ERROR_INTERNAL;
+            return NULL; 
+        }
         SETTER(function);
         if (rc != NO_ERROR)return NULL;
         return function;
@@ -750,6 +829,10 @@ static ASTNode* DEF_FUN_TAIL(char* id_name){
         if (rc != NO_ERROR)return NULL;
         
         function = create_ast_node(AST_FUNC_DEF, id_name);
+        if (function == NULL){
+            rc = ERROR_INTERNAL;
+            return NULL; 
+        }
         
         if(token.type != TOKEN_RPAREN){
             function->left = ARGUMENT_LIST();

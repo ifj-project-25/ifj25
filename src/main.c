@@ -71,27 +71,18 @@ int main() {
 
     if (PROGRAM) {
         print_ast_tree(PROGRAM);
-    } else {
-        printf("AST not created (PROGRAM is NULL)\n");
-    }
-
-
+    } 
     if (error_code != NO_ERROR) {
-        printf("Parsing failed with error code: %d\n", error_code);
+        fprintf(stderr, "Error during parsing: %d\n", error_code);
         return error_code;
     }
     else{
-        printf("Parsing completed successfully.\n");
-        int result = semantic_analyze(PROGRAM);
-        if (result == NO_ERROR){
-            printf("Semantic analyze completed successfully\n");
+        error_code = semantic_analyze(PROGRAM);
+        if (error_code != NO_ERROR) {
+            fprintf(stderr, "Error during semantic analysis: %d\n", error_code);
+            return error_code;
         }
-        else {
-            printf("Semantic analyze failed with error code: %d\n", result);
-
-        }
-        
     }
     
-    return NO_ERROR;
+    return error_code;
 }

@@ -218,7 +218,7 @@ int get_token(Token *token) {
             if (isalnum(c) || c == '_') {
                 d_string_add_char(&d_string, c);
             } else { // check if word is 'ifj' and is followed by dot
-                if (d_string_cmp(&d_string, "ifj") == 0) {
+                if (d_string_cmp(&d_string, "Ifj") == 0) {
                     if (c == '.') {
                         d_string_add_char(&d_string, c);
                     } else {
