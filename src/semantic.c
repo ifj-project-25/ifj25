@@ -13,6 +13,9 @@
 
 int semantic_visit_count = 0;
 
+// Simple global flag to track presence of main() with 0 params
+static bool main_zero_defined = false;
+
 //Debug - print all AST nodes
 void print_all_symbols(ASTNode *node) {
     if (!node) {
@@ -707,7 +710,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 const char *func_name = "main";
 
-                // Count parameters and check for duplicates - ROVNAKO AKO V AST_FUNC_DEF
+                // Count parameters and check for duplicates
                 int param_count = 0;
                 Param *params = NULL;
                 Param *last_param = NULL;
@@ -722,7 +725,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     const char *param_name = param_node->right->name;
                     DataType param_type = param_node->right->data_type;
 
-                    // Check for duplicate parameter names - ROVNAKO AKO V AST_FUNC_DEF
+                    // Check for duplicate parameter names
                     for (Param *p = params; p; p = p->next) {
                         if (strcmp(p->name, param_name) == 0) {
                             fprintf(stderr, "[SEMANTIC] Duplicate parameter '%s' in main().\n", param_name);
@@ -730,7 +733,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         }
                     }
 
-                    // Create parameter structure - ROVNAKO AKO V AST_FUNC_DEF
+                    // Create parameter structure
                     Param *new_param = make_param(param_name, param_type);
                     if (!new_param) return ERROR_INTERNAL;
 
@@ -743,8 +746,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     param_count++;
                     param_node = param_node->left;
                 }
-
-                // Check for redefinition of main - ROVNAKO AKO V AST_FUNC_DEF
+                
+                // Check for redefinition of main
                 SymTableData *existing = lookup_symbol(current_scope, func_name);
                 if (existing && existing->type == NODE_FUNC) {
                     FunctionData *fdata = existing->data.func_data;
@@ -755,7 +758,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     // Different parameter count - overloading allowed ✓
                 }
 
-                // Create and insert main symbol - ROVNAKO AKO V AST_FUNC_DEF
+                // Create and insert main symbol
                 SymTableData *main_symbol = make_function(param_count, params, true, TYPE_UNDEF);
                 if (!main_symbol) {
                     fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for 'main'.\n");
@@ -767,7 +770,14 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     return ERROR_INTERNAL;
                 }
 
-                // Create new scope for main function body - ROVNAKO AKO V AST_FUNC_DEF
+
+                // Mark that main() with this arity exists (we require 0 params)
+                if (param_count == 0) {
+                    main_zero_defined = true;
+                }
+
+
+                // Create new scope for main function body
                 Scope *main_scope = init_scope();
                 if (!main_scope) {
                     fprintf(stderr, "[SEMANTIC] Failed to create scope for 'main'.\n");
@@ -776,7 +786,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 main_scope->parent = current_scope;
                 node->right->current_table = &main_scope->symbols;
 
-                // Insert parameters into main scope - ROVNAKO AKO V AST_FUNC_DEF
+                // Insert parameters into main scope
                 for (Param *p = params; p; p = p->next) {
                     SymTableData *param_var = make_variable(p->data_type, true, true);
                     if (!param_var) {
@@ -790,11 +800,11 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     }
                 }
 
-                // Analyze main function body with main scope - ROVNAKO AKO V AST_FUNC_DEF
+                // Analyze main function body with main scope
                 int result = semantic_visit(node->right, main_scope);
                 
                 
-                // free_scope(main_scope);  // TOTO ODSTRÁŇTE!
+                // free_scope(main_scope);  
                 
                 return result;
             } break;
@@ -868,6 +878,10 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     return ERROR_INTERNAL;
                 }
 
+                // TEMPORARY, BC AST_MAIN_DEF NOT WORKING RIGHT NOW
+                if(strcmp(func_name, "main") == 0 && param_count == 0) {
+                    main_zero_defined = true;
+                }
                 // Create new scope for function body
                 Scope *func_scope = init_scope();
                 if (!func_scope) {
@@ -1547,12 +1561,10 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 if (err != NO_ERROR) {
                     return err;
                 }
-
-                // Continue traversing statements in this block using the
-                // block scope (not the parent scope). This ensures that
-                // subsequent statements in the same block see symbols
-                // (e.g., getters) defined earlier in the block.
-                return semantic_visit(node->right, current_scope);
+                
+                err = semantic_visit(node->right, current_scope);
+               
+                return err;
             } break;
 
         case AST_EXPRESSION: {
@@ -1653,6 +1665,9 @@ int semantic_analyze(ASTNode *root) {
     
     // Debug: print all nodes
     print_all_symbols(root);
+
+    // Reset simple global state for main() detection
+    main_zero_defined = false;
     
     // Initialize global scope
     Scope* global_scope = init_scope();
@@ -1669,8 +1684,8 @@ int semantic_analyze(ASTNode *root) {
 
     if (result != NO_ERROR) return result;
 
-    SymTableData *data = lookup_symbol(global_scope, "main");
-    if (!data || data->type != NODE_FUNC || data->data.func_data->param_count != 0) {
+    // Simple final check based on the flag set in AST_MAIN_DEF
+    if (!main_zero_defined) {
         fprintf(stderr, "[SEMANTIC] Program must define 'main' as a function with 0 parameters\n");
         return SEM_ERROR_OTHER;
     }

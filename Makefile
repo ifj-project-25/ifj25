@@ -51,7 +51,10 @@ test_semantic_basic: $(TEST_SEMANTIC_BASIC_SRCS)
 	$(CC) $(CFLAGS) -Isrc -o $@ $^
 	@echo "Running basic semantic tests..."
 	./test_semantic_basic
+test_parsem: $(SRCS)
+	$(CC) $(CFLAGS) -Isrc -o main $^
+	@./test/test_parsem.sh
 clean:
-	rm -f $(TARGET) test_symtable test_semantic test_semantic_basic
+	rm -f $(TARGET) test_symtable test_semantic test_semantic_basic test_parsem
 
 .PHONY: all clean 

@@ -25,9 +25,10 @@ typedef enum {
 
     AST_FUNC_CALL,       // function call  ->   left - AST_FUNC_ARG (arguments), right - next program  
 
-    AST_FUNC_ARG,        // function argument    ->   left - another AST_FUNC_ARG or NULL (end of args), right - expression/value
+    AST_FUNC_ARG,        // function argument    ->   left - another AST_FUNC_ARG or NULL (end of args), right - expression/identifier
 
     // moved to expr tree AST_GETTER_CALL,       // getter call  ->   left - null, right - next program  
+    AST_GETTER_CALL,       // getter call  ->   left - null, right - null 
 
     AST_SETTER_CALL,       // setter call  ->   left - expression/value, right - next program
 

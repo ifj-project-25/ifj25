@@ -9,6 +9,8 @@
 
 #include "ast.h"
 #include "symtable.h"
+#include "semantic.h"
+#include "expr_ast.h"
 #include <stdio.h>
 
 //---------- Function declarations ----------
@@ -16,11 +18,10 @@
 //---------- Helper functions ----------
 
 /**
- * @brief Converts a string to a IFJcode25 compatible format.
+ * @brief Converts a string to a IFJcode25 compatible format and prints it.
  * @param input Input string to convert.
- * @return Newly allocated string with converted format, or NULL on failure.
  */
-void convert_string(const char* input);
+void print_convert_string(const char* input);
 
 //---------- Built-in functions ----------
 
@@ -41,6 +42,12 @@ int read_num_func(ASTNode *node, FILE *output);
  * @param node AST node representing the function call.
  */
 int write_func(ASTNode *node, FILE *output);
+
+/**
+ * @brief Generates code for the Ifj.str() built-in function.
+ * @param node AST node representing the function call.
+ */
+int str_func(ASTNode *node, FILE *output);
 
 /**
  * @brief Generates code for the Ifj.floor() built-in function.
@@ -86,6 +93,7 @@ int chr_func(ASTNode *node, FILE *output);
 
 //variable ast types
 int identifier (ASTNode *node, FILE *output);
+int expr_identifier (ASTNode *node, FILE *output);
 int var_decl (ASTNode *node, FILE *output);
 
 //assignments ast types
@@ -101,7 +109,9 @@ int assign (ASTNode *node, FILE *output);
 
 //funkcion ast types
 int funkc_call (ASTNode *node, FILE *output);
-int func_def (ASTNode *node, FILE *output);
+int getter_call (ASTNode *node, FILE *output);
+int expr_getter_call(char* name, FILE *output);
+int setter_call (ASTNode *node, FILE *output);
 int block (ASTNode *node, FILE *output);
 
 //definitions ast types
@@ -112,7 +122,6 @@ int setter_def (ASTNode *node, FILE *output);
 
 //statements ast types
 int if_stmt (ASTNode *node, FILE *output);
-int else_stmt (ASTNode *node, FILE *output);
 int while_loop (ASTNode *node, FILE *output);
 int return_stmt (ASTNode *node, FILE *output);
 
