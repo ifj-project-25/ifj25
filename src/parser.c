@@ -448,9 +448,13 @@ static ASTNode* STML(ASTNode* function){
             if (statement == NULL){
                 rc = ERROR_INTERNAL;
                 return NULL; 
-    }
+            }
+            if (token.type == TOKEN_EOL || token.type == TOKEN_RCURLY) {
+                
+            } else {
             statement->right = EXPRESSION();
             if (rc != NO_ERROR)return NULL;
+            }
             break;
         case KEYWORD_IFJ:
             next_token(&token);
