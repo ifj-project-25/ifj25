@@ -17,6 +17,7 @@ SRCS =  src/main.c \
 		src/semantic.c \
 		src/expr_precedence_parser.c \
 		src/expr_precedence_stack.c \
+		src/generator.c \
 		
 
 TEST_SYMTABLE_SRCS = test/test_symtable.c \
@@ -33,6 +34,20 @@ TEST_SEMANTIC_BASIC_SRCS = test/test_semantic_basic.c \
 			src/ast.c \
 			src/symtable.c \
 			src/semantic.c
+
+TEST_PARSER_SRCS = test/test_parser_runner.c \
+			src/scanner.c \
+			src/dynamic_string.c \
+			src/parser.c \
+			src/symtable.c \
+			src/expr_parser.c \
+			src/expr_stack.c \
+			src/expr_ast.c \
+			src/ast.c \
+			src/semantic.c \
+			src/expr_precedence_parser.c \
+			src/expr_precedence_stack.c
+
 all: $(TARGET)
 
 $(TARGET): $(SRCS)
