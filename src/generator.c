@@ -111,7 +111,7 @@ int expr_identifier (ExprNode *node, FILE *output) {
     else
     {
         
-        fprintf(output, "LF@%s$%d", node->data.identifier_name, get_scope_number(node->data.scope));
+        fprintf(output, "LF@%s$%d", node->data.identifier_name, get_scope_number(node->data.current_scope));
     } 
     
     return 0;
