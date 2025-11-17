@@ -2328,7 +2328,7 @@ int test_substring_function() {
     
     equals_b->left = create_ast_node(AST_IDENTIFIER, "b");
     ASTNode* expr_b = create_ast_node(AST_EXPRESSION, NULL);
-    expr_b->expr = create_num_literal_node(1.0);
+    expr_b->expr = create_num_literal_node(1.5);
     equals_b->right = expr_b;
     
     ASTNode* assign_c = create_ast_node(AST_ASSIGN, NULL);
