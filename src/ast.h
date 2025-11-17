@@ -47,7 +47,7 @@ typedef enum {
 
     AST_GETTER_DEF,      // static getter ->   left - NULL, right - AST_BLOCK
 
-    AST_SETTER_DEF,      // static setter ->   left - NULL, right - AST_BLOCK
+    AST_SETTER_DEF,      // static setter ->   left - identifier, right - AST_BLOCK
 
 // statements
     AST_IF,              // if statement   ->   left - condition AST_EXPRESSION, right - AST_BLOCK

@@ -1709,9 +1709,14 @@ int semantic_analyze(ASTNode *root) {
     
     // Analyze AST
     int result = semantic_visit(root, global_scope);
-    
-    // Cleanup
-    //free_scope(global_scope);
-    
-    return result;
+
+    if (result != NO_ERROR) return result;
+
+    SymTableData *data = lookup_symbol(global_scope, "main");
+    if (!data || data->type != NODE_FUNC || data->data.func_data->param_count != 0) {
+        fprintf(stderr, "[SEMANTIC] Program must define 'main' as a function with 0 parameters\n");
+        return SEM_ERROR_OTHER;
+    }
+
+    return NO_ERROR;
 }

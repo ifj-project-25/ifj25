@@ -2247,6 +2247,41 @@ int test_global_var_blocks_conditions() {
     return result;
 }
 
+// Test 61: 2 Functions - should not fail (NO_ERROR)
+int test_same_functions() {
+    ASTNode* program = create_ast_node(AST_PROGRAM, NULL);
+
+    ASTNode* func1 = create_ast_node(AST_FUNC_DEF, "foo");
+    program->left = func1;
+
+    // func foo(a, a)
+    ASTNode* param2 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
+    param2->right = create_ast_node(AST_IDENTIFIER, "a");
+
+    ASTNode* param1 = create_ast_node(AST_FUNC_ARG, NULL);  // Zmenené
+    param1->right = create_ast_node(AST_IDENTIFIER, "b");
+    param1->left = param2;
+
+    func1->left = param1;
+    func1->right = create_ast_node(AST_BLOCK, NULL);
+
+     // Second function: foo(c) - 1 parameter (different count = overloading allowed)
+    ASTNode* func2 = create_ast_node(AST_FUNC_DEF, "foo");
+    func1->right->right = func2; // Link second function after first
+
+    // Parameter for second function: c
+    ASTNode* param3 = create_ast_node(AST_FUNC_ARG, NULL);
+    param3->right = create_ast_node(AST_IDENTIFIER, "c");
+    //param3->right->data_type = TYPE_STRING; // Different type to make it distinct
+
+    func2->left = param3;
+    func2->right = create_ast_node(AST_BLOCK, NULL);
+
+    int result = semantic_analyze(program);
+    free_ast_tree(program);
+    return result;
+}
+
 void print_summary() {
     printf(COLOR_YELLOW "========================================\n" COLOR_RESET);
     printf(COLOR_YELLOW "           TEST SUMMARY\n" COLOR_RESET);
@@ -2340,6 +2375,7 @@ int main() {
             {58, "Getter in binary expr", "NO_ERROR", NO_ERROR, test_getter_in_binary_expr},
             {59, "Getter as argument", "NO_ERROR", NO_ERROR, test_getter_as_argument},
             {60, "Getter in condition", "NO_ERROR", NO_ERROR, test_getter_in_condition},
+            {61, "Same functions", "NO_ERROR", NO_ERROR, test_same_functions},
             {0, NULL, NULL, 0, NULL} // Ukončovací prvok
         };
 
