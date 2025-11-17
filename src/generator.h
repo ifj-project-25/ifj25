@@ -93,7 +93,7 @@ int chr_func(ASTNode *node, FILE *output);
 
 //variable ast types
 int identifier (ASTNode *node, FILE *output);
-int expr_identifier (ASTNode *node, FILE *output);
+int expr_identifier (ExprNode *node, FILE *output);
 int var_decl (ASTNode *node, FILE *output);
 
 //assignments ast types

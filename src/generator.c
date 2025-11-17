@@ -57,19 +57,21 @@ void print_convert_string(const char* input) {
     
 }
 
-
-
-int read_str_func(ASTNode *node, FILE *output) {
-    fprintf(output, "\n");
-    return 0;
-}
-
-
 // Code generation helper functions
 
 int get_scope_number(ASTNode *node) {
     int scope_number = 0;
     Scope *current_scope = node->current_scope;
+    while (current_scope) {
+        scope_number++;
+        current_scope = current_scope->parent;
+    }
+    return scope_number;
+}
+
+int get_scope_number_from_scope(Scope *scope) {
+    int scope_number = 0;
+    Scope *current_scope = scope;
     while (current_scope) {
         scope_number++;
         current_scope = current_scope->parent;
@@ -111,7 +113,7 @@ int expr_identifier (ExprNode *node, FILE *output) {
     else
     {
         
-        fprintf(output, "LF@%s$%d", node->data.identifier_name, get_scope_number(node->data.current_scope));
+        fprintf(output, "LF@%s$%d", node->data.identifier_name, get_scope_number_from_scope(node->data.current_scope));
     } 
     
     return 0;
@@ -434,8 +436,8 @@ int setter_call(ASTNode *node, FILE *output) {
 int write_func(ASTNode *node, FILE *output) {
     // node->left = argument chain
     ASTNode *arg = node->left;
-    printf(output, "CREATEFRAME\n");
-    printf(output, "PUSHFRAME\n");
+    fprintf(output, "CREATEFRAME\n");
+    fprintf(output, "PUSHFRAME\n");
 
     while (arg && arg->type == AST_FUNC_ARG) {
         // Evaluate argument expression
@@ -449,7 +451,7 @@ int write_func(ASTNode *node, FILE *output) {
         
         arg = arg->left;  // Next argument
     }
-    printf(output, "POPFRAME\n");
+    fprintf(output, "POPFRAME\n");
     return 0;
 }
 
