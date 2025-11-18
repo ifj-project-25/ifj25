@@ -419,7 +419,7 @@ static ASTNode* STML(ASTNode* function){
             if (token.type == TOKEN_EOL) {
                 
             } else {
-            statement->right = EXPRESSION();
+            statement->left = EXPRESSION();
             if (rc != NO_ERROR)return NULL;
             }
             break;
