@@ -33,6 +33,31 @@ static char* make_setter_key(const char *name) {
 // Simple global flag to track presence of main() with 0 params
 static bool main_zero_defined = false;
 
+void free_scope(Scope* scope) {
+    if (!scope) return;
+    
+    // Free symbol table
+    symtable_free(&scope->symbols);
+    
+    // Free the scope itself
+    free(scope);
+}
+
+/**
+ * @brief Frees all semantic analysis resources including AST and symbol tables
+ * @param root Root node of the AST tree
+ * @param global_scope Global scope to free (can be NULL)
+ */
+void free_semantic_resources(ASTNode *root, Scope *global_scope) {
+    if (global_scope) {
+        free_scope(global_scope);
+    }
+    
+    if (root) {
+        free_ast_tree(root);  // Použije existujúcu funkciu z ast.c
+    }
+}
+
 //Debug - print all AST nodes
 void print_all_symbols(ASTNode *node) {
     if (!node) {
@@ -86,11 +111,11 @@ Scope* init_scope(){
     return scope;
 }
 // Function to free a scope and its symbol table recursively
-void free_scope(Scope* scope) {
+/*void free_scope(Scope* scope) {
     if (!scope) return;
     symtable_free(&scope->symbols);
     free(scope);
-}
+}*/
 
 //---------- HELPER: Search symbols in table hierarchy ----------
 SymTableData* lookup_symbol(Scope *scope, const char *name) {
