@@ -8,6 +8,7 @@ __ctr = v
 }
 
 static main() {
+var counter
 counter = 9
 var a
 a = counter

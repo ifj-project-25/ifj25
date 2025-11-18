@@ -13,6 +13,23 @@
 
 int semantic_visit_count = 0;
 
+// Helper functions to create getter/setter keys in symtable
+static char* make_getter_key(const char *name) {
+    size_t len = strlen(name) + 5; // "#get" + '\0'
+    char *key = malloc(len);
+    if (!key) return NULL;
+    snprintf(key, len, "%s#get", name);
+    return key;
+}
+
+static char* make_setter_key(const char *name) {
+    size_t len = strlen(name) + 5; // "#set" + '\0'
+    char *key = malloc(len);
+    if (!key) return NULL;
+    snprintf(key, len, "%s#set", name);
+    return key;
+}
+
 // Simple global flag to track presence of main() with 0 params
 static bool main_zero_defined = false;
 
@@ -203,13 +220,24 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
 
         case EXPR_IDENTIFIER:
             {
+                // First try to find as variable
                 SymTableData *identifier = lookup_symbol(scope, expr->data.identifier_name);
+                
+                // If not found as variable, try as getter with #get suffix
+                if (!identifier) {
+                    char *getter_key = make_getter_key(expr->data.identifier_name);
+                    if (getter_key) {
+                        identifier = lookup_symbol(scope, getter_key);
+                        free(getter_key);
+                    }
+                }
+                
                 if (!identifier){
                     fprintf(stderr, "[SEMANTIC] Identifier '%s' not found in expression\n", expr->data.identifier_name);
                     return SEM_ERROR_UNDEFINED;
                 }
-                expr->current_scope = identifier->data.var_data->scope;
                 if (identifier->type == NODE_VAR) {
+                    expr->current_scope = identifier->data.var_data->scope;
                     *out_type = identifier->data.var_data->data_type;
                     return NO_ERROR;
                 } else if (identifier->type == NODE_GETTER) {
@@ -223,7 +251,12 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
             }
 
         case EXPR_GETTER_CALL: {
-            SymTableData *g = lookup_symbol(scope, expr->data.getter_name);
+            char *getter_key = make_getter_key(expr->data.getter_name);
+            if (!getter_key) return ERROR_INTERNAL;
+            
+            SymTableData *g = lookup_symbol(scope, getter_key);
+            free(getter_key);
+            
             if (!g) {
                 fprintf(stderr, "[SEMANTIC] Getter '%s' not found\n", expr->data.getter_name);
                 return SEM_ERROR_UNDEFINED;
@@ -708,6 +741,238 @@ int check_user_function_call(ASTNode *node, Scope *scope, SymTableData *func_sym
     return NO_ERROR;
 }
 
+int semantic_definition(ASTNode *node, Scope *current_scope){
+    ASTNode *actual = node->left;   //program->left -> first function definition
+    while(actual){
+        if(actual->type == AST_FUNC_DEF){
+            {
+                if (!actual->right) return ERROR_INTERNAL;
+
+                // Get function name
+                const char *func_name = actual->name;
+                if (!func_name) return ERROR_INTERNAL;
+
+                // Count parameters and check for duplicates
+                int param_count = 0;
+                Param *params = NULL;
+                Param *last_param = NULL;
+
+                ASTNode *param_actual = actual->left;
+                while (param_actual && param_actual->type == AST_FUNC_ARG) {  
+                    if (!param_actual->right || param_actual->right->type != AST_IDENTIFIER) {
+                        fprintf(stderr, "[SEMANTIC] Invalid parameter actual in function '%s'.\n", func_name);
+                        return ERROR_INTERNAL;
+                    }
+
+                    const char *param_name = param_actual->right->name;
+                    DataType param_type = param_actual->right->data_type;
+
+                    // Check for duplicate parameter names
+                    for (Param *p = params; p; p = p->next) {
+                        if (strcmp(p->name, param_name) == 0) {
+                            fprintf(stderr, "[SEMANTIC] Duplicate parameter '%s' in function '%s'.\n",
+                                    param_name, func_name);
+                            return SEM_ERROR_REDEFINED;
+                        }
+                    }
+
+                    // Create parameter structure
+                    Param *new_param = make_param(param_name, param_type);
+                    if (!new_param) return ERROR_INTERNAL;
+
+                    if (!params)
+                        params = new_param;
+                    else
+                        last_param->next = new_param;
+                    last_param = new_param;
+
+                    param_count++;
+                    param_actual = param_actual->left;
+                }
+
+                // Build overload key: "name#argc"
+                char overload_key[128];
+                snprintf(overload_key, sizeof(overload_key), "%s#%d", func_name, param_count);
+
+                // Reuse predeclared function symbol if present; else insert new
+                SymTableData *existing = lookup_symbol(current_scope, overload_key);
+                if (!existing) {
+                    SymTableData *func_symbol = make_function(param_count, params, true, TYPE_UNDEF);
+                    if (!func_symbol) {
+                        fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for function '%s'.\n", func_name);
+                        return ERROR_INTERNAL;
+                    }
+                    if (!symtable_insert(&current_scope->symbols, overload_key, func_symbol)) {
+                        fprintf(stderr,
+                            "[SEMANTIC] Failed to insert function '%s' overload '%s' into symbol table.\n",
+                            func_name, overload_key);
+                        return ERROR_INTERNAL;
+                    }
+                }
+
+                // TEMPORARY, BC AST_MAIN_DEF NOT WORKING RIGHT NOW
+                if(strcmp(func_name, "main") == 0 && param_count == 0) {
+                    main_zero_defined = true;
+                    actual->type = AST_MAIN_DEF;
+                }
+                // Create new scope for function body
+                Scope *func_scope = init_scope();
+                if (!func_scope) {
+                    fprintf(stderr, "[SEMANTIC] Failed to create scope for function '%s'.\n", func_name);
+                    return ERROR_INTERNAL;
+                }
+                func_scope->parent = current_scope;
+
+                // Insert parameters into function scope
+                for (Param *p = params; p; p = p->next) {
+                    SymTableData *param_var = make_variable(p->data_type, true, true);  // defined=true, initialized=true
+                    if (!param_var) {
+                        fprintf(stderr, "[SEMANTIC] Failed to create parameter '%s'.\n", p->name);
+                        return ERROR_INTERNAL;
+                    }
+                    if (!symtable_insert(&func_scope->symbols, p->name, param_var)) {
+                        fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into function scope.\n", p->name);
+                        free(param_var);
+                        return ERROR_INTERNAL;
+                    }
+                }
+
+                actual->right->current_table = &func_scope->symbols;
+            } 
+            
+            printf("[SEMANTIC] Function definition '%s' processed successfully.\n", actual->name);
+        }
+        else if (actual->type == AST_SETTER_DEF){
+            
+            if (!actual->right) return ERROR_INTERNAL;
+
+                // Get setter name
+                const char *setter_name = actual->name;
+                if (!setter_name) return ERROR_INTERNAL;
+
+                // Check parameters - setters should have exactly 1 parameter
+                if (!actual->left || actual->left->type != AST_IDENTIFIER) {
+                    fprintf(stderr, "[SEMANTIC] Setter '%s' must have exactly one parameter.\n", setter_name);
+                    return SEM_ERROR_WRONG_PARAMS;
+                }
+
+                const char *param_name = actual->left->name;
+                DataType param_type = actual->left->data_type;
+
+                // Create setter key with #set suffix
+                char *setter_key = make_setter_key(setter_name);
+                if (!setter_key) return ERROR_INTERNAL;
+
+                // Check for existing SETTER with same name (only setter conflicts)
+                SymTableData *existing = symtable_search(&current_scope->symbols, setter_key);
+                if (existing && existing->type == NODE_SETTER) {
+                    fprintf(stderr, "[SEMANTIC] Redefinition of setter '%s'.\n", setter_name);
+                    free(setter_key);
+                    return SEM_ERROR_REDEFINED;
+                }
+
+                // Create setter symbol - setters have 1 parameter
+                SymTableData *setter_symbol = make_setter(param_type, true);
+                if (!setter_symbol) {
+                    fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for setter '%s'.\n", setter_name);
+                    free(setter_key);
+                    return ERROR_INTERNAL;
+                }
+
+                // Insert into current scope
+                if (!symtable_insert(&current_scope->symbols, setter_key, setter_symbol)) {
+                    fprintf(stderr, "[SEMANTIC] Failed to insert setter '%s' into symbol table.\n", setter_name);
+                    free(setter_key);
+                    return ERROR_INTERNAL;
+                }
+                free(setter_key);
+
+                // Create new scope for setter body
+                Scope *setter_scope = init_scope();
+                if (!setter_scope) {
+                    fprintf(stderr, "[SEMANTIC] Failed to create scope for setter '%s'.\n", setter_name);
+                    return ERROR_INTERNAL;
+                }
+                setter_scope->parent = current_scope;
+
+                // Insert parameter into setter scope
+                SymTableData *param_var = make_variable(param_type, true, true);
+                if (!param_var || !symtable_insert(&setter_scope->symbols, param_name, param_var)) {
+                    fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into setter scope.\n", param_name);
+                    return ERROR_INTERNAL;
+                }
+
+            actual->right->current_table = &setter_scope->symbols;
+        }
+        else if (actual->type == AST_GETTER_DEF){
+            if (!actual->right) return ERROR_INTERNAL;
+
+                // Get getter name
+                const char *getter_name = actual->name;
+                if (!getter_name) return ERROR_INTERNAL;
+
+                // Create getter key with #get suffix
+                char *getter_key = make_getter_key(getter_name);
+                if (!getter_key) return ERROR_INTERNAL;
+
+                // Check for existing GETTER with same name (only getter conflicts)
+                SymTableData *existing = symtable_search(&current_scope->symbols, getter_key);
+                if (existing && existing->type == NODE_GETTER) {
+                    fprintf(stderr, "[SEMANTIC] Redefinition of getter '%s'.\n", getter_name);
+                    free(getter_key);
+                    return SEM_ERROR_REDEFINED;
+                }
+
+                // Create getter symbol - getters have 0 parameters
+                SymTableData *getter_symbol = make_getter(TYPE_UNDEF, true);
+                if (!getter_symbol) {
+                    fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for getter '%s'.\n", getter_name);
+                    free(getter_key);
+                    return ERROR_INTERNAL;
+                }
+
+                // Insert into current scope
+                if (!symtable_insert(&current_scope->symbols, getter_key, getter_symbol)) {
+                    fprintf(stderr, "[SEMANTIC] Failed to insert getter '%s' into symbol table.\n", getter_name);
+                    free(getter_key);
+                    return ERROR_INTERNAL;
+                }
+
+                // Create new scope for getter body
+                Scope *getter_scope = init_scope();
+                if (!getter_scope) {
+                    fprintf(stderr, "[SEMANTIC] Failed to create scope for getter '%s'.\n", getter_name);
+                    return ERROR_INTERNAL;
+                }
+                getter_scope->parent = current_scope;
+
+                // Before analyzing the getter body, try to infer the getter's
+                // return type by scanning the body for return statements that
+                // contain literal or directly inferable expressions. Setting
+                // the getter symbol's return_type early ensures that later
+                // statements in the same block (which may reference the
+                // getter) will see its return type.
+                ASTNode *scan = actual->right; // should be a BLOCK
+                DataType found_type = TYPE_UNDEF;
+                int serr = scan_return_type(scan, getter_scope, &found_type);
+                if (serr != NO_ERROR) return serr;
+
+                if (found_type != TYPE_UNDEF) {
+                    char *lookup_key = make_getter_key(getter_name);
+                    if (lookup_key) {
+                        SymTableData *s = symtable_search(&current_scope->symbols, lookup_key);
+                        if (s && s->type == NODE_GETTER) {
+                            s->data.getter_data->return_type = found_type;
+                        }
+                        free(lookup_key);
+                    }
+                }
+                actual->right->current_table = &getter_scope->symbols;
+        }
+        actual = actual->right;
+    }
+    return NO_ERROR;
+}
 //---------- MAIN VISIT: Traverse AST tree ----------
 int semantic_visit(ASTNode *node, Scope *current_scope) {
     if (!node) return NO_ERROR;
@@ -876,13 +1141,15 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 // Check for redefinition of same signature
                 SymTableData *existing = lookup_symbol(current_scope, overload_key);
-                if (existing && existing->type == NODE_FUNC) {
-                    fprintf(stderr,
+                if (!existing || !(existing->type == NODE_FUNC)) {
+                    
+                fprintf(stderr,
                         "[SEMANTIC] Redefinition of function '%s' with %d parameters.\n",
                         func_name, param_count);
                     return SEM_ERROR_REDEFINED;
-                }
 
+                }
+                else{
                 // Create symbol for the function
                 SymTableData *func_symbol = make_function(param_count, params, true, TYPE_UNDEF);
                 if (!func_symbol) {
@@ -890,13 +1157,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     return ERROR_INTERNAL;
                 }
 
-                // Insert into the current (global) scope under overload key
-                if (!symtable_insert(&current_scope->symbols, overload_key, func_symbol)) {
-                    fprintf(stderr,
-                        "[SEMANTIC] Failed to insert function '%s' overload '%s' into symbol table.\n",
-                        func_name, overload_key);
-                    return ERROR_INTERNAL;
-                }
+                
 
                 // TEMPORARY, BC AST_MAIN_DEF NOT WORKING RIGHT NOW
                 if(strcmp(func_name, "main") == 0 && param_count == 0) {
@@ -929,11 +1190,13 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 // Analyze function body with function scope
                 // The AST_BLOCK will handle its own scope creation and cleanup
                 int result = semantic_visit(node->right, func_scope);
-                
+
+                return result;
+                }
                 // Cleanup function scope
                 //free_scope(func_scope);
                 
-                return result;
+                return NO_ERROR;
             } break;
 
 
@@ -944,24 +1207,34 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 const char *getter_name = node->name;
                 if (!getter_name) return ERROR_INTERNAL;
 
-                // Check for existing GETTER with same name (only getter conflicts)
-                SymTableData *existing = lookup_symbol(current_scope, getter_name);
-                if (existing && existing->type == NODE_GETTER) {
-                    fprintf(stderr, "[SEMANTIC] Redefinition of getter '%s'.\n", getter_name);
-                    return SEM_ERROR_REDEFINED;
-                }
+                // Create getter key with #get suffix
+                char *getter_key = make_getter_key(getter_name);
+                if (!getter_key) return ERROR_INTERNAL;
 
-                // Create getter symbol - getters have 0 parameters
-                SymTableData *getter_symbol = make_getter(TYPE_UNDEF, true);
-                if (!getter_symbol) {
-                    fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for getter '%s'.\n", getter_name);
-                    return ERROR_INTERNAL;
-                }
-
-                // Insert into current scope
-                if (!symtable_insert(&current_scope->symbols, getter_name, getter_symbol)) {
-                    fprintf(stderr, "[SEMANTIC] Failed to insert getter '%s' into symbol table.\n", getter_name);
-                    return ERROR_INTERNAL;
+                // If predeclared, reuse; otherwise create and insert
+                SymTableData *existing = symtable_search(&current_scope->symbols, getter_key);
+                SymTableData *getter_symbol = NULL;
+                if (existing) {
+                    if (existing->type != NODE_GETTER) {
+                        fprintf(stderr, "[SEMANTIC] Symbol '%s' exists and is not a getter.\n", getter_name);
+                        free(getter_key);
+                        return SEM_ERROR_REDEFINED;
+                    }
+                    getter_symbol = existing;
+                    free(getter_key);
+                } else {
+                    getter_symbol = make_getter(TYPE_UNDEF, true);
+                    if (!getter_symbol) {
+                        fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for getter '%s'.\n", getter_name);
+                        free(getter_key);
+                        return ERROR_INTERNAL;
+                    }
+                    if (!symtable_insert(&current_scope->symbols, getter_key, getter_symbol)) {
+                        fprintf(stderr, "[SEMANTIC] Failed to insert getter '%s' into symbol table.\n", getter_name);
+                        free(getter_key);
+                        return ERROR_INTERNAL;
+                    }
+                    free(getter_key);
                 }
 
                 // Create new scope for getter body
@@ -983,12 +1256,12 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 int serr = scan_return_type(scan, getter_scope, &found_type);
                 if (serr != NO_ERROR) return serr;
 
-                if (found_type != TYPE_UNDEF) {
-                    SymTableData *s = symtable_search(&current_scope->symbols, getter_name);
-                    if (s && s->type == NODE_GETTER) {
-                        s->data.getter_data->return_type = found_type;
-                    }
+                if (found_type != TYPE_UNDEF && getter_symbol && getter_symbol->type == NODE_GETTER) {
+                    getter_symbol->data.getter_data->return_type = found_type;
                 }
+
+                // Make the getter body block use this scope directly
+                node->right->current_table = &getter_scope->symbols;
 
                 // Now analyze getter body with getter scope
                 int result = semantic_visit(node->right, getter_scope);
@@ -1012,24 +1285,37 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 const char *param_name = node->left->name;
                 DataType param_type = node->left->data_type;
 
-                // Check for existing SETTER with same name (only setter conflicts)
-                SymTableData *existing = lookup_symbol(current_scope, setter_name);
-                if (existing && existing->type == NODE_SETTER) {
-                    fprintf(stderr, "[SEMANTIC] Redefinition of setter '%s'.\n", setter_name);
-                    return SEM_ERROR_REDEFINED;
-                }
+                // Create setter key with #set suffix
+                char *setter_key = make_setter_key(setter_name);
+                if (!setter_key) return ERROR_INTERNAL;
 
-                // Create setter symbol - setters have 1 parameter
-                SymTableData *setter_symbol = make_setter(param_type, true);
-                if (!setter_symbol) {
-                    fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for setter '%s'.\n", setter_name);
-                    return ERROR_INTERNAL;
-                }
-
-                // Insert into current scope
-                if (!symtable_insert(&current_scope->symbols, setter_name, setter_symbol)) {
-                    fprintf(stderr, "[SEMANTIC] Failed to insert setter '%s' into symbol table.\n", setter_name);
-                    return ERROR_INTERNAL;
+                // If predeclared, reuse; otherwise create and insert
+                SymTableData *existing = symtable_search(&current_scope->symbols, setter_key);
+                SymTableData *setter_symbol = NULL;
+                if (existing) {
+                    if (existing->type != NODE_SETTER) {
+                        fprintf(stderr, "[SEMANTIC] Symbol '%s' exists and is not a setter.\n", setter_name);
+                        free(setter_key);
+                        return SEM_ERROR_REDEFINED;
+                    }
+                    setter_symbol = existing;
+                    if (setter_symbol->data.setter_data->param_type == TYPE_UNDEF && param_type != TYPE_UNDEF) {
+                        setter_symbol->data.setter_data->param_type = param_type;
+                    }
+                    free(setter_key);
+                } else {
+                    setter_symbol = make_setter(param_type, true);
+                    if (!setter_symbol) {
+                        fprintf(stderr, "[SEMANTIC] Failed to allocate symbol for setter '%s'.\n", setter_name);
+                        free(setter_key);
+                        return ERROR_INTERNAL;
+                    }
+                    if (!symtable_insert(&current_scope->symbols, setter_key, setter_symbol)) {
+                        fprintf(stderr, "[SEMANTIC] Failed to insert setter '%s' into symbol table.\n", setter_name);
+                        free(setter_key);
+                        return ERROR_INTERNAL;
+                    }
+                    free(setter_key);
                 }
 
                 // Create new scope for setter body
@@ -1046,6 +1332,9 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into setter scope.\n", param_name);
                     return ERROR_INTERNAL;
                 }
+
+                // Make the setter body block use this scope directly
+                node->right->current_table = &setter_scope->symbols;
 
                 // Analyze setter body with setter scope
                 return semantic_visit(node->right, setter_scope);
@@ -1112,7 +1401,15 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 // store the setter name in node->name. Otherwise, process normally.
                 if (equals->left && equals->left->type == AST_IDENTIFIER) {
                     const char *left_name = equals->left->name;
-                    SymTableData* sym = lookup_symbol(current_scope, left_name);
+                    
+                    // Try to find as setter with #set suffix
+                    char *setter_key = make_setter_key(left_name);
+                    SymTableData* sym = NULL;
+                    if (setter_key) {
+                        sym = lookup_symbol(current_scope, setter_key);
+                        free(setter_key);
+                    }
+                    
                     if (sym && sym->type == NODE_SETTER) {
                         // Prepare to transform: detach expression from equals
                         ASTNode* rhs_expr = equals->right;
@@ -1708,6 +2005,10 @@ int semantic_analyze(ASTNode *root) {
     // Preload built-in functions
     preload_builtins(global_scope);
     
+    // First pass: process definitions (functions, getters, setters, global vars)
+    int err = semantic_definition(root, global_scope);
+    if(err != NO_ERROR) return err;
+
     // Analyze AST
     int result = semantic_visit(root, global_scope);
 
