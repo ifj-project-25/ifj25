@@ -231,6 +231,32 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
                         free(getter_key);
                     }
                 }
+
+                if (!identifier && expr->data.identifier_name[0] == '_' && expr->data.identifier_name[1] == '_') {
+                    // search to program root
+                    Scope* global_scope = scope;
+                    while (global_scope && global_scope->parent) {
+                        global_scope = global_scope->parent;
+                    }
+                    
+                    
+                    // make global variable
+                    SymTableData* global_var = make_variable(TYPE_UNDEF, true, false); // defined=true, initialized=false
+                    if (!global_var) {
+                        fprintf(stderr, "[SEMANTIC] Failed to allocate global variable '%s'\n", expr->data.identifier_name);
+                        return ERROR_INTERNAL;
+                    }
+                    
+                    // insert into global scope
+                    if (!symtable_insert(&global_scope->symbols, expr->data.identifier_name, global_var)) {
+                        fprintf(stderr, "[SEMANTIC] Failed to insert global variable '%s'\n", expr->data.identifier_name);
+                        free(global_var);
+                        return ERROR_INTERNAL;
+                    }
+                    
+                    /*printf("[SEMANTIC] Automatically created global variable '%s'\n", expr->data.identifier_name);*/
+                    identifier = global_var;
+                }
                 
                 if (!identifier){
                     fprintf(stderr, "[SEMANTIC] Identifier '%s' not found in expression\n", expr->data.identifier_name);
