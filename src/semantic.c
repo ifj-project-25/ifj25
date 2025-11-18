@@ -1083,6 +1083,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 if (node->left) {
                     node->left->current_scope = current_scope;
                 }
+                int err = semantic_visit(node->left, current_scope);
+                if (err != NO_ERROR) return err;
                 
                 return semantic_visit(node->right, current_scope);
             } break;
@@ -1330,6 +1332,9 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 if (left_type == TYPE_UNDEF && right_type != TYPE_UNDEF) {
                     var_data->data.var_data->data_type = right_type;
                 }
+
+                int err = semantic_visit(node->left, current_scope);
+                if (err != NO_ERROR) return err;
 
                 return NO_ERROR;
             } break;
