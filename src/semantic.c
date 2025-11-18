@@ -866,7 +866,7 @@ int semantic_definition(ASTNode *node, Scope *current_scope){
                 actual->right->current_table = &func_scope->symbols;
             } 
             
-            printf("[SEMANTIC] Function definition '%s' processed successfully.\n", actual->name);
+            
         }
         else if (actual->type == AST_SETTER_DEF){
             
@@ -1005,9 +1005,9 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
      semantic_visit_count++;
      
-     printf("[SEMANTIC] Visiting node: %s, name: %s\n", 
+     /*printf("[SEMANTIC] Visiting node: %s, name: %s\n", 
            ast_node_type_to_string(node->type), 
-           node->name ? node->name : "(null)");
+           node->name ? node->name : "(null)");*/
     switch (node->type) {
         case AST_PROGRAM:   {
             node->current_scope = current_scope;
@@ -2017,7 +2017,7 @@ int semantic_analyze(ASTNode *root) {
     }
     
     // Debug: print all nodes
-    print_all_symbols(root);
+    //print_all_symbols(root);
 
     // Reset simple global state for main() detection
     main_zero_defined = false;
