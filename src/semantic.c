@@ -984,6 +984,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
            node->name ? node->name : "(null)");
     switch (node->type) {
         case AST_PROGRAM:   {
+            node->current_scope = current_scope;
                 return semantic_visit(node->left, current_scope);
             } break;
         case AST_MAIN_DEF: {
