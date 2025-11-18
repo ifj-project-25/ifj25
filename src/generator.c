@@ -11,50 +11,70 @@
 
 
 
-void print_convert_string(const char* input) {
-    // Convert string to IFJcode25 format
-    // Replace special chars with \XXX (3-digit decimal ASCII)
-    // Example: "hello\n" -> "hello\010"
-    // Spaces: \032, newlines: \010, etc.
-    for (int i = 0; i < strlen(input); i++)
+void print_convert_string(const char* input , FILE *output) {
+    // Convert string to IFJcode25 format (section 10.3)
+    // Escape sequences: \XXX (3-digit decimal ASCII)
+    // Must escape: ASCII <= 32, #(35), \(92)
+    for (int i = 0; input[i] != '\0'; i++)
     {
-        if ((input[i] > 65 && input[i] <= 90) || (input[i] >= 97 && input[i] <= 122))
+        unsigned char c = (unsigned char)input[i];
+        
+        // Check if escape sequence in source
+        if (input[i] == '\\' && input[i+1] != '\0')
         {
-            fprintf(stdout, "%c", input[i]);
-        }
-        if (input[i] == '\\')
-        {
-            i ++;
+            i++;
             switch (input[i])
             {
-                case 'n':
-                    fprintf(stdout, "\\010");
+                case 'n':  // newline
+                    fprintf(output, "\\010");
                     break;
-                case 't':
-                    fprintf(stdout, "\\009");
+                case 't':  // tab
+                    fprintf(output, "\\009");
                     break;
-                case 's':
-                    fprintf(stdout, "\\032");
+                case 's':  // space
+                    fprintf(output, "\\032");
                     break;
-                case '\\':
-                    fprintf(stdout, "\\092");
+                case '\\': // backslash
+                    fprintf(output, "\\092");
                     break;
-                case 'x':
-                    {
+                case '"':  // quote
+                    fprintf(output, "\\034");
+                    break;
+                case 'x':  // hex escape \xHH
+                    if (input[i+1] != '\0' && input[i+2] != '\0') {
                         char hex[3] = {input[i+1], input[i+2], '\0'};
-                        long decimal = strtol(hex, NULL, 16);  // 16 = base 16 (hex)
-                        fprintf(stdout, "\\%03ld", decimal);
-                        i +=2;
+                        long decimal = strtol(hex, NULL, 16);
+                        fprintf(output, "\\%03ld", decimal);
+                        i += 2;
+                    } else {
+                        fprintf(output, "\\%03d", (int)input[i]);
                     }
                     break;
                 default:
+                    // Unknown escape, output the backslash and character
+                    fprintf(output, "\\092");
+                    fprintf(output, "\\%03d", (unsigned char)input[i]);
                     break;
             }
         }
-        
-        
+        // Escape characters per IFJcode25 section 10.3
+        else if (c <= 32)  // Control chars and space
+        {
+            fprintf(output, "\\%03d", c);
+        }
+        else if (c == 35)  // # must be escaped
+        {
+            fprintf(output, "\\035");
+        }
+        else if (c == 92)  // \ must be escaped
+        {
+            fprintf(output, "\\092");
+        }
+        else  // Regular printable characters
+        {
+            fprintf(output, "%c", c);
+        }
     }
-    
 }
 
 // Code generation helper functions
@@ -178,6 +198,7 @@ int if_stmt(ASTNode *node, FILE *output) {
         if (node && node->type == AST_BLOCK) {
             block(node, output);
         }
+        fprintf(output, "LABEL $endif%d\n", if_id);
     }
     else {
         fprintf(output, "LABEL $else%d\n", if_id);
@@ -196,7 +217,7 @@ int while_loop(ASTNode *node, FILE *output) {
     
     // Jump out if false
     fprintf(output, "PUSHS bool@true\n");
-    fprintf(output, "JUMPIFEQS $endwhile%d\n", while_id);
+    fprintf(output, "JUMPIFNEQS $endwhile%d\n", while_id);
     node = node->right;
     // Generate loop body
     if (node && node->type == AST_BLOCK) {
@@ -274,13 +295,17 @@ int func_call(ASTNode *node, FILE *output) {
     } else if (strcmp(node->name, "Ifj.floor") == 0) {
         return floor_func(node, output);
     } else if (strcmp(node->name, "Ifj.str") == 0) {
-        return length_func(node, output);
+        return str_func(node, output);
     } else if (strcmp(node->name, "Ifj.substring") == 0) {
         return substring_func(node, output);
     } else if (strcmp(node->name, "Ifj.ord") == 0) {
         return ord_func(node, output);
     } else if (strcmp(node->name, "Ifj.chr") == 0) {
         return chr_func(node, output);
+    } else if (strcmp(node->name, "Ifj.strcmp") == 0) {
+        return strcmp_func(node, output);
+    } else if (strcmp(node->name, "Ifj.length") == 0) {
+        return length_func(node, output);
     }
     
     
@@ -440,15 +465,31 @@ int write_func(ASTNode *node, FILE *output) {
     
     if (arg && arg->type == AST_FUNC_ARG) {
         // Evaluate argument expression
+        int write_id = label_counter++;
         if (arg->right) {
             expression(arg->right, output);
         }
         fprintf(output, "CREATEFRAME\n");
         fprintf(output, "PUSHFRAME\n");
         fprintf(output, "DEFVAR LF@tmp\n");
-        // Pop and write to output
+        fprintf(output, "DEFVAR LF@tmp2\n");
+        // Pop and write to output    
         fprintf(output, "POPS LF@tmp\n");
+        //if is string we skip the ISINT
+        fprintf(output, "TYPE LF@tmp2 LF@tmp\n");
+        fprintf(output, "JUMPIFEQ $write_not_int%d LF@tmp2 string@string\n", write_id);
+        fprintf(output, "JUMPIFEQ $write_is_int%d LF@tmp2 string@int\n", write_id);
+
+
+        fprintf(output, "ISINT LF@tmp2 LF@tmp\n");
+        fprintf(output, "JUMPIFNEQ $write_not_int%d LF@tmp2 bool@true\n", write_id);
+        fprintf(output, "FLOAT2INT LF@tmp LF@tmp\n");
+        fprintf(output, "LABEL $write_is_int%d\n", write_id);
         fprintf(output, "WRITE LF@tmp\n");
+        fprintf(output, "JUMP $write_end%d\n", write_id);
+        fprintf(output, "LABEL $write_not_int%d\n", write_id);
+        fprintf(output, "WRITE LF@tmp\n");
+        fprintf(output, "LABEL $write_end%d\n", write_id);
         
         arg = arg->left;  // Next argument
     }
@@ -458,8 +499,14 @@ int write_func(ASTNode *node, FILE *output) {
 
 int str_func(ASTNode *node, FILE *output) {
     // Get argument
-    if (node->left && node->left->right) {
-        expression(node->left->right, output);
+    
+    ASTNode *arg = node->left;
+    
+    if (arg && arg->type == AST_FUNC_ARG) {
+        // Evaluate argument expression
+        if (arg->right) {
+            expression(arg->right, output);
+        }
     }
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
@@ -484,6 +531,8 @@ int read_num_func(ASTNode *node, FILE *output) {
 
     fprintf(output, "READ LF@tmp_read float\n");
     fprintf(output, "PUSHS LF@tmp_read\n");
+
+    fprintf(output, "POPFRAME\n");
     return 0;
 }
 
@@ -514,6 +563,7 @@ int substring_func(ASTNode *node, FILE *output) {
     fprintf(output, "DEFVAR LF@end_int\n");
     fprintf(output, "DEFVAR LF@start_type\n");
     fprintf(output, "DEFVAR LF@end_type\n");
+    fprintf(output, "DEFVAR LF@loop_cond\n");
 
     // Pop arguments (reverse order)
     fprintf(output, "POPS LF@end\n");
@@ -574,8 +624,8 @@ int substring_func(ASTNode *node, FILE *output) {
     
     // Loop: while idx < end
     fprintf(output, "LABEL $substr_loop%d\n", func_id);
-    fprintf(output, "LT LF@char LF@idx LF@end_int\n");
-    fprintf(output, "JUMPIFEQ $substr_done%d LF@char bool@false\n", func_id);
+    fprintf(output, "LT LF@loop_cond LF@idx LF@end_int\n");
+    fprintf(output, "JUMPIFEQ $substr_done%d LF@loop_cond bool@false\n", func_id);
     
     // Get character at index idx
     fprintf(output, "GETCHAR LF@char LF@str LF@idx\n");
@@ -605,16 +655,16 @@ int length_func(ASTNode *node, FILE *output) {
 
     // Note: Assuming this is string length, not str conversion
     // Get argument (string)
-
+    
+    if (node->left && node->left->right) {
+        expression(node->left->right, output);
+    }
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
 
     fprintf(output, "DEFVAR LF@tmp\n");
     fprintf(output, "DEFVAR LF@result\n");
     fprintf(output, "DEFVAR LF@type\n");
-    if (node->left && node->left->right) {
-        expression(node->left->right, output);
-    }
     label_counter++;
     fprintf(output, "POPS LF@tmp\n");
     //if not str then we convert to str
@@ -639,6 +689,8 @@ int read_str_func(ASTNode *node, FILE *output) {
     
     fprintf(output, "READ LF@tmp_read string\n");
     fprintf(output, "PUSHS LF@tmp_read\n");
+
+    fprintf(output, "POPFRAME\n");
     return 0;
 }
 
@@ -659,6 +711,7 @@ int floor_func(ASTNode *node, FILE *output) {
     fprintf(output, "FLOAT2INT LF@tmp_int LF@tmp\n");
     fprintf(output, "INT2FLOAT LF@tmp LF@tmp_int\n");
     fprintf(output, "PUSHS LF@tmp\n");
+    fprintf(output, "POPFRAME\n");
     
     return 0;
 }
@@ -667,7 +720,7 @@ int ord_func(ASTNode *node, FILE *output) {
     // Get character at index
     // Arguments: string, index
     ASTNode *arg = node->left;
-    
+    int ord_id = label_counter++;
     if (arg && arg->right) expression(arg->right, output);  // string
     arg = arg->left;
     if (arg && arg->right) expression(arg->right, output);  // index
@@ -677,12 +730,31 @@ int ord_func(ASTNode *node, FILE *output) {
     fprintf(output, "DEFVAR LF@str\n");
     fprintf(output, "DEFVAR LF@index\n");
     fprintf(output, "DEFVAR LF@result\n");
+    fprintf(output, "DEFVAR LF@type_str\n");
+    fprintf(output, "DEFVAR LF@type_index\n");
 
     fprintf(output, "POPS LF@index\n");
     fprintf(output, "POPS LF@str\n");
+    // check correct types
+    fprintf(output, "TYPE LF@type_str LF@str\n");
+    fprintf(output, "JUMPIFNEQ $ord_type_error%d LF@type_str string@string\n", ord_id);
+    fprintf(output, "TYPE LF@type_index LF@index\n");
+    fprintf(output, "JUMPIFNEQ $ord_type_error%d LF@type_index string@float\n", ord_id);
+
+    // converts index to int
+    fprintf(output, "ISINT LF@result LF@index\n");
+    fprintf(output, "JUMPIFNEQ $ord_type_error%d LF@result bool@true\n", ord_id);
+
+
+    fprintf(output, "FLOAT2INT LF@index LF@index\n");
     fprintf(output, "STRI2INT LF@result LF@str LF@index\n");
     fprintf(output, "PUSHS LF@result\n");
     
+    //error handling for out of range could be added here
+    fprintf(output, "JUMP $ord_end%d\n", ord_id);
+    fprintf(output, "LABEL $ord_type_error%d\n", ord_id);
+    fprintf(output, "EXIT int@26\n");
+    fprintf(output, "LABEL $ord_end%d\n", ord_id);
     fprintf(output, "POPFRAME\n");
     return 0;
 }
@@ -692,17 +764,35 @@ int chr_func(ASTNode *node, FILE *output) {
     if (node->left && node->left->right) {
         expression(node->left->right, output);
     }
-    
+    int chr_id = label_counter++;
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
 
     fprintf(output, "DEFVAR LF@ascii\n");
     fprintf(output, "DEFVAR LF@result\n");
+    fprintf(output, "DEFVAR LF@type\n");
 
     fprintf(output, "POPS LF@ascii\n");
+    
+    fprintf(output, "TYPE LF@type LF@ascii\n");
+    fprintf(output, "JUMPIFEQ $chr_type_error%d LF@type string@string\n", chr_id);
+    fprintf(output, "JUMPIFEQ $chr_is_int%d LF@type string@int\n", chr_id);
+
+    // It's a float - check if it's a whole number
+    fprintf(output, "ISINT LF@result LF@ascii\n");
+    fprintf(output, "JUMPIFNEQ $chr_type_error%d LF@result bool@true\n", chr_id);
+    fprintf(output, "FLOAT2INT LF@ascii LF@ascii\n");
+    
+    // It's already an int or we converted it
+    fprintf(output, "LABEL $chr_is_int%d\n", chr_id);
     fprintf(output, "INT2CHAR LF@result LF@ascii\n");
     fprintf(output, "PUSHS LF@result\n");
     
+    //error handling for out of range could be added here
+    fprintf(output, "JUMP $chr_end%d\n", chr_id);
+    fprintf(output, "LABEL $chr_type_error%d\n", chr_id);
+    fprintf(output, "EXIT int@26\n");
+    fprintf(output, "LABEL $chr_end%d\n", chr_id);
     fprintf(output, "POPFRAME\n");
     return 0;
 }
@@ -731,15 +821,15 @@ int strcmp_func(ASTNode *node, FILE *output) {
     fprintf(output, "GT LF@result LF@str1 LF@str2\n");
     fprintf(output, "JUMPIFEQ $strcmp_greater%d LF@result bool@true\n", label_counter);
     // Equal
-    fprintf(output, "MOVE LF@result float@0.0\n");
+    fprintf(output, "MOVE LF@result float@0x0p+0\n");
     fprintf(output, "JUMP $strcmp_end%d\n", label_counter);
     // Less than
     fprintf(output, "LABEL $strcmp_less%d\n", label_counter);
-    fprintf(output, "MOVE LF@result float@-1.0\n");
+    fprintf(output, "MOVE LF@result float@-0x1p+0\n");
     fprintf(output, "JUMP $strcmp_end%d\n", label_counter);
     // Greater than
     fprintf(output, "LABEL $strcmp_greater%d\n", label_counter);
-    fprintf(output, "MOVE LF@result float@1.0\n");
+    fprintf(output, "MOVE LF@result float@0x1p+0\n");
     // End
     fprintf(output, "LABEL $strcmp_end%d\n", label_counter);
 
@@ -761,7 +851,7 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
         case EXPR_STRING_LITERAL:
             // Push string literal to stack
             fprintf(output, "PUSHS string@");
-            print_convert_string(expr->data.string_literal);
+            print_convert_string(expr->data.string_literal, output);
             fprintf(output, "\n");
             break;
             
@@ -779,6 +869,55 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
             break;
             
         case EXPR_BINARY_OP:
+            // Special handling for IS operator - don't evaluate right operand (type literal)
+            // if (expr->data.binary.op == OP_IS) {
+            //     int is_id = label_counter++;
+                
+            //     // Evaluate only left operand
+            //     if (generate_expression_code(expr->data.binary.left, output) != 0) {
+            //         return -1;
+            //     }
+                
+            //     // Determine type string from right operand
+            //     const char* type_str = NULL;
+            //     if (expr->data.binary.right->type == EXPR_TYPE_LITERAL) {
+            //         // Type literal like Num or String
+            //         type_str = expr->data.binary.right->data.identifier_name;
+            //     } else if (expr->data.binary.right->type == EXPR_NULL_LITERAL) {
+            //         // Null literal
+            //         type_str = "nil";
+            //     } else {
+            //         fprintf(stderr, "[GENERATOR] IS operator requires type literal on right side\n");
+            //         return -1;
+            //     }
+                
+            //     // Map type names to IFJcode25 type strings
+            //     const char* ifj_type = NULL;
+            //     if (strcmp(type_str, "Num") == 0) {
+            //         ifj_type = "float";
+            //     } else if (strcmp(type_str, "String") == 0) {
+            //         ifj_type = "string";
+            //     } else if (strcmp(type_str, "nil") == 0 || strcmp(type_str, "Null") == 0) {
+            //         ifj_type = "nil";
+            //     } else {
+            //         fprintf(stderr, "[GENERATOR] Unknown type literal: %s\n", type_str);
+            //         return -1;
+            //     }
+                
+            //     fprintf(output, "CREATEFRAME\n");
+            //     fprintf(output, "PUSHFRAME\n");
+            //     fprintf(output, "DEFVAR LF@op1\n");
+            //     fprintf(output, "DEFVAR LF@type1\n");
+            //     fprintf(output, "POPS LF@op1\n");
+            //     fprintf(output, "TYPE LF@type1 LF@op1\n");
+            //     fprintf(output, "PUSHS LF@type1\n");
+            //     fprintf(output, "PUSHS string@%s\n", ifj_type);
+            //     fprintf(output, "EQS\n");
+            //     fprintf(output, "POPFRAME\n");
+            //     break;
+            // }
+            
+            // For all other binary operators, evaluate both operands
             // Recursively generate code for operands (postfix order)
             // First push left operand
             if (generate_expression_code(expr->data.binary.left, output) != 0) {
@@ -790,9 +929,18 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
             }
             
             // Apply operation (operands are on stack)
-            // Create temporary frame for type checking
             int op_id = label_counter++;
             
+            // Handle EQ/NEQ without frame (they work directly on stack)
+            if (expr->data.binary.op == OP_EQ || expr->data.binary.op == OP_NEQ) {
+                fprintf(output, "EQS\n");
+                if (expr->data.binary.op == OP_NEQ) {
+                    fprintf(output, "NOTS\n");
+                }
+                break;
+            }
+            
+            // Create temporary frame for type checking (all other operators)
             fprintf(output, "CREATEFRAME\n");
             fprintf(output, "PUSHFRAME\n");
             fprintf(output, "DEFVAR LF@op1\n");
@@ -1012,36 +1160,23 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
                     fprintf(output, "POPFRAME\n");
                     break;
                     
-                case OP_EQ:
-                case OP_NEQ:
-                    // Equality operators: can compare any types
-                    fprintf(output, "EQS\n");
-                    if (expr->data.binary.op == OP_NEQ) {
-                        fprintf(output, "NOTS\n");
-                    }
-                    break;
-                    
                 case OP_IS:
-                    // IS operator - type checking operator
-                    // Left: any expression, Right: type keyword (Num, String, or Null)
-                    fprintf(output, "POPS LF@op2\n");  // This is unused (type keyword)
-                    fprintf(output, "POPS LF@op1\n");  // The value to check
+                    fprintf(output, "CREATEFRAME\n");
+                    fprintf(output, "PUSHFRAME\n");
+                    fprintf(output, "DEFVAR LF@op1\n");
+                    fprintf(output, "DEFVAR LF@typeIn\n");
+                    fprintf(output, "DEFVAR LF@type1\n");
+                    fprintf(output, "POPS LF@typeIn\n");
+                    fprintf(output, "POPS LF@op1\n");  
                     fprintf(output, "TYPE LF@type1 LF@op1\n");
-                    fprintf(output, "TYPE LF@type2 LF@op2\n");
-
-                    fprintf(output, "JUMPIFEQ $is_correct_type_%d LF@type2 string@string\n", op_id);
-                    //the second operand is not 'string' so we cannot compare so we error
-                    fprintf(output, "EXIT int@26\n");
-
-                    //the second operand is  'strign' so we can compare
-                    fprintf(output, "LABEL $is_correct_type_%d\n", op_id);
-                    fprintf(output, "PUSHS LF@type1\n");
-                    fprintf(output, "PUSHS LF@op2\n");
-                    fprintf(output, "EQS\n");
-
+                    fprintf(output, "JUMPIFEQ $is_true_%d LF@typeIn LF@type1\n", op_id);
+                    fprintf(output, "PUSHS bool@false\n");
+                    fprintf(output, "JUMP $is_end_%d\n", op_id);
+                    fprintf(output, "LABEL $is_true_%d\n", op_id);
+                    fprintf(output, "PUSHS bool@true\n");
+                    fprintf(output, "LABEL $is_end_%d\n", op_id);
                     fprintf(output, "POPFRAME\n");
                     break;
-                    
                 default:
                     fprintf(stderr, "[GENERATOR] Unknown binary operator: %d\n", expr->data.binary.op);
                     return -1;
@@ -1055,6 +1190,20 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
             }
             break;
             
+        case EXPR_TYPE_LITERAL:
+            // Type literals (Num, String, Null)
+            if (strcmp(expr->data.identifier_name, "Num") == 0) {
+                fprintf(output, "PUSHS string@float\n");
+            } else if (strcmp(expr->data.identifier_name, "String") == 0) {
+                fprintf(output, "PUSHS string@string\n");
+            } else if (strcmp(expr->data.identifier_name, "Null") == 0) {
+                fprintf(output, "PUSHS string@nil\n");
+            } else {
+                fprintf(stderr, "[GENERATOR] Unknown type literal: %s\n", expr->data.identifier_name);
+                return -1;
+            }
+            break;         
+                        
         default:
             fprintf(stderr, "[GENERATOR] Unknown expression type: %d\n", expr->type);
             return -1;
@@ -1062,7 +1211,23 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
     
     return 0;
 }
+void def_global(SNode *sym, FILE *output) {
+    if (!sym) return;
+    if (sym->data->type != NODE_VAR) return;
+    // Global variables prefixed with __ to avoid name clashes
+    fprintf(output, "DEFVAR GF@%s\n", sym->key);
+    def_global(sym->left, output);
+    def_global(sym->right, output);
+    return;
 
+}
+
+int gen_globals(ASTNode *node, FILE *output){
+    SymTable *table = &node->current_scope->symbols;
+    SNode *current = table->root;
+    def_global(current, output);
+    return 0;
+}
 
 int expression(ASTNode *node, FILE *output) {
     if (!node) return -1;
@@ -1130,6 +1295,7 @@ int generate_code(ASTNode *root, FILE *output) {
     // 5. Traverse AST
     if (root->type == AST_PROGRAM) {
         // Process global variables (left child)
+        gen_globals(root->left, output);
         if (root->left) {
             next_step(root->left, output);
         }
