@@ -386,14 +386,14 @@ int count_arguments(ASTNode *arg_list) {
 int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_name) {
     int arg_count = count_arguments(node->left);
     
-    if (strcmp(func_name, "Ifj.read_str") == 0 || strcmp(func_name, "Ifj.read_num") == 0) {
+    /*if (strcmp(func_name, "Ifj.read_str") == 0 || strcmp(func_name, "Ifj.read_num") == 0) {
         if (arg_count != 0) {
             fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 0 arguments, got %d\n", 
                     func_name, arg_count);
             return SEM_ERROR_WRONG_PARAMS;
         }
     }
-    else if (strcmp(func_name, "Ifj.write") == 0 || strcmp(func_name, "Ifj.str") == 0) {
+    else*/ if (strcmp(func_name, "Ifj.write") == 0 || strcmp(func_name, "Ifj.str") == 0) {
         if (arg_count != 1) {
             fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 1 argument, got %d\n", 
                     func_name, arg_count);
@@ -1317,7 +1317,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 // Type compatibility check
                 if (right_type != TYPE_UNDEF && left_type != TYPE_UNDEF &&
-                    right_type != left_type) {
+                    right_type != left_type && expr_node->expr != NULL) {
                     fprintf(stderr,
                             "[SEMANTIC] Type mismatch in assignment to '%s': expected %d, got %d\n",
                             var_name, left_type, right_type);
