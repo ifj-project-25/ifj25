@@ -6,7 +6,7 @@ class Program {
         inp = 10
         Ifj.write(inp)
         {
-            inp = 2
+            inp = 1
             var inp
         }
     }

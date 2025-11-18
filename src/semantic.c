@@ -1078,7 +1078,6 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 }   
 
                 var_data->data.var_data->scope = current_scope;
-                node->left->current_scope = current_scope;
                 
                 // Set current_scope for the identifier node
                 if (node->left) {
@@ -1421,8 +1420,11 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                             func_name, argc);
                     return SEM_ERROR_UNDEFINED;
                 }
-
-                return check_user_function_call(node, current_scope, func_symbol);
+                int err =  check_user_function_call(node, current_scope, func_symbol);
+                if(err != NO_ERROR) return err;
+                err = semantic_visit(node->right, current_scope);
+                return err;
+                
             } break;
         /*case AST_FUNC_PARAM: {
                 // Parameters are already added in AST_FUNC_DEF, just check structure
@@ -1587,7 +1589,6 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     node->current_table = &block_scope->symbols;
                    
                 }
-
 
                 int err = semantic_visit(node->left, block_scope);
                 if (err != NO_ERROR) {
