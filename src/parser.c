@@ -532,26 +532,25 @@ static ASTNode* STML_LINE(ASTNode* function){
 
     return current_function;
 }
-static int STML_LIST(ASTNode* function){
+static int STML_LIST(ASTNode* block){
     if (!((token.type == TOKEN_RCURLY))){
-        ASTNode* current_statement = STML_LINE(function);
+        ASTNode* current_statement = STML_LINE(block);
         if (rc != NO_ERROR)return rc;
         
         // Link statements as siblings using 'right' pointer
-        if (function->left == NULL) {
+        if (block->left == NULL) {
             // First statement goes to left
-            function->left = current_statement;
+            block->left = current_statement;
         } else {
             // Subsequent statements chain via right
-            ASTNode* last = function->left;
+            ASTNode* last = block->left;
             while (last->right != NULL) {
                 last = last->right;
             }
             last->right = current_statement;
         }
 
-        // Recursively call with BLOCK (function), not the statement
-        rc = STML_LIST(function);
+        rc = STML_LIST(block);
         if (rc != NO_ERROR)return rc;
     }
     

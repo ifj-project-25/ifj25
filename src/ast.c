@@ -16,6 +16,13 @@ char *my_strdup(const char *s);
 
 
 // helper function to create a new AST node
+#include "ast.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+#define MAX_TREE_DEPTH 500  // Maximum tree depth to prevent buffer overflow
+
 ASTNode* create_ast_node(ASTNodeType type, const char* name) {
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     if (!node) return NULL;
@@ -86,6 +93,13 @@ static void print_ast_node(ASTNode* node, int depth, int is_last[], int is_right
     if (!node) {
         print_tree_indent(depth, is_last, is_right_child);
         printf("(null)\n");
+        return;
+    }
+    
+    // Safety check for depth
+    if (depth >= MAX_TREE_DEPTH - 1) {
+        print_tree_indent(depth, is_last, is_right_child);
+        printf("... (max depth reached)\n");
         return;
     }
     
@@ -240,7 +254,7 @@ static void print_expr_inline(ExprNode* expr, int depth, int is_last[]) {
 // Public function to print AST tree with visual connections
 void print_ast_tree(ASTNode* node) {
     printf("\n========== AST Tree Structure ==========\n");
-    int is_last[100] = {0}; // Track which levels are last children
+    int is_last[MAX_TREE_DEPTH] = {0}; // Track which levels are last children
     print_ast_node(node, 0, is_last, 0);
     printf("========================================\n\n");
 }
