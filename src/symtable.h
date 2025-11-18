@@ -12,7 +12,6 @@
 // ---------- Data types for IFJ25  ----------
 typedef struct Scope Scope;
 
-
 typedef enum {
     TYPE_UNDEF, // uninitialized
     TYPE_NULL,

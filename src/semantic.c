@@ -1079,6 +1079,11 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 var_data->data.var_data->scope = current_scope;
                 
+                // Set current_scope for the identifier node
+                if (node->left) {
+                    node->left->current_scope = current_scope;
+                }
+                
                 return semantic_visit(node->right, current_scope);
             } break;
 
@@ -1252,6 +1257,9 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         return ERROR_INTERNAL;
                     }
                     
+                    // Set scope for the global variable
+                    global_var->data.var_data->scope = global_scope;
+                    
                     // insert into global scope
                     if (!symtable_insert(&global_scope->symbols, var_name, global_var)) {
                         fprintf(stderr, "[SEMANTIC] Failed to insert global variable '%s'\n", var_name);
@@ -1261,6 +1269,11 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     
                     /*printf("[SEMANTIC] Automatically created global variable '%s'\n", var_name);*/
                     var_data = global_var;
+                }
+
+                // Set current_scope for the identifier node (left side of assignment)
+                if (node->left) {
+                    node->left->current_scope = var_data->data.var_data->scope;
                 }
 
                 if (!var_data) {
@@ -1324,7 +1337,6 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
         case AST_IDENTIFIER: {
                 // AST_IDENTIFIER - check if variable exists and is initialized
                 const char* var_name = node->name;
-                //node->current_scope = current_scope;
                 
                 if (!var_name) {
                     fprintf(stderr, "[SEMANTIC] Identifier has no name\n");
@@ -1332,7 +1344,6 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 }
                 
                 SymTableData* var_data = lookup_symbol(current_scope, var_name);
-                node->current_scope = var_data->data.var_data->scope;
                 
                 if (!var_data && var_name[0] == '_' && var_name[1] == '_') {
                     // search to program root
@@ -1370,6 +1381,9 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     fprintf(stderr, "[SEMANTIC] '%s' is not a variable\n", var_name);
                     return SEM_ERROR_OTHER;
                 }
+                
+                // Set current_scope for the identifier node
+                node->current_scope = var_data->data.var_data->scope;
                 
                 // Check if variable is initialized (if it's not a function parameter)
                 if (!var_data->data.var_data->initialized /*&& !var_data->data.var_data->is_param*/) {
