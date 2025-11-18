@@ -1078,13 +1078,13 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 }   
 
                 var_data->data.var_data->scope = current_scope;
+                node->left->current_scope = current_scope;
                 
                 // Set current_scope for the identifier node
                 if (node->left) {
                     node->left->current_scope = current_scope;
                 }
-                int err = semantic_visit(node->left, current_scope);
-                if (err != NO_ERROR) return err;
+                
                 
                 return semantic_visit(node->right, current_scope);
             } break;
