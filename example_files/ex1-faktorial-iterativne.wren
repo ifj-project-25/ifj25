@@ -3,5 +3,11 @@ class Program {
 
     static main(){
         var inp 
+        inp = 10
+        Ifj.write(inp)
+        {
+            inp = 2
+            var inp
+        }
     }
 }

@@ -10,6 +10,8 @@
 #include <stdbool.h>
 
 // ---------- Data types for IFJ25  ----------
+typedef struct Scope Scope;
+
 
 typedef enum {
     TYPE_UNDEF, // uninitialized
