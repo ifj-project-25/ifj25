@@ -28,6 +28,11 @@ Scope* init_scope();
 // Function to free a scope and its symbol table
 void free_scope(Scope* scope);
 
+// Function to free all semantic resources including AST and symbol tables
+
+void free_semantic_resources(ASTNode *root, Scope *global_scope);
+void free_scope(Scope* scope);
+
 //---------- Utility functions ----------
 
 // strdup replacement (not in C standard)
