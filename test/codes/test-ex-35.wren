@@ -5,7 +5,6 @@ class Program {
         var result
         result = is_even(4)
         Ifj.write("4 je parne: ")
-        Ifj.write(result ? "true" : "false")
         Ifj.write("\n")
     }
     

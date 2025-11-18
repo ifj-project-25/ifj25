@@ -12,11 +12,11 @@ class Program {
     
     // Statický getter
     static counter {
-        return _counter
+        return __counter
     }
     
     // Statický setter
     static counter = (value) {
-        _counter = value * 2  // Uloží dvojnásobnú hodnotu
+        __counter = value * 2  // Uloží dvojnásobnú hodnotu
     }
 }

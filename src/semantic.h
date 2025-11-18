@@ -60,6 +60,9 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
 // Check user function call
 int check_user_function_call(ASTNode *node, Scope *scope, SymTableData *func_symbol);
 
+// Collect function definitions into the global scope
+int collect_function_definitions(ASTNode *node, Scope *global_scope);
+
 //---------- Semantic analysis functions ----------
 
 /**
