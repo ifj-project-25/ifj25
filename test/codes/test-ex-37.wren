@@ -17,16 +17,15 @@ class Program {
         is_string = y is String
         is_null = z is Null
         
-        Ifj.write("x je Num: ")
-        Ifj.write(is_num ? "true" : "false")
+      
         Ifj.write("\n")
         
         Ifj.write("y je String: ")
-        Ifj.write(is_string ? "true" : "false")
+        
         Ifj.write("\n")
         
         Ifj.write("z je Null: ")
-        Ifj.write(is_null ? "true" : "false")
+    
         Ifj.write("\n")
     }
 }

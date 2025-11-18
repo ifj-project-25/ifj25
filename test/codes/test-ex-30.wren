@@ -13,6 +13,10 @@ while (i < n) {
 return s
 }
 
+static build(f, a) {
+    return a
+}
+
 static main() {
 var txt
 txt = build(6)

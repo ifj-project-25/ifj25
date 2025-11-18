@@ -1,9 +1,7 @@
 import "ifj25" for Ifj
 class Program {
 
-static counter {
-return __ctr
-}
+
 
 static counter = (v) {
 __ctr = v

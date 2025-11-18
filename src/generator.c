@@ -113,7 +113,7 @@ int expr_identifier (ExprNode *node, FILE *output) {
     else
     {
         
-        fprintf(output, "LF@%s$%d", node->data.identifier_name, get_scope_number_from_scope(node->data.current_scope));
+        fprintf(output, "LF@%s$%d", node->data.identifier_name, get_scope_number_from_scope(node->current_scope));
     } 
     
     return 0;
@@ -133,15 +133,16 @@ int var_decl (ASTNode *node, FILE *output) {
 
 int assign (ASTNode *node, FILE *output) {
     // assign->left = AST_EQUALS, assign->right = next statement
-    node = node->left; // AST_EQUALS
-    if(node->type != AST_EQUALS)
+    ASTNode *EQnode = node->left; // AST_EQUALS
+    if(EQnode->type != AST_EQUALS)
     {
         fprintf(stderr, "[GENERATOR] Expected equals in assignment.\n");
         return -1; // Error: invalid AST structure
     }
-    fprintf(output, "MOVE ");
-    identifier(node->left, output);
-    expression(node->right, output);
+
+    expression(EQnode->right, output);
+    fprintf(output, "POPS ");
+    identifier(EQnode->left, output);
     fprintf(output, "\n");
     if (node->right) {
         return next_step(node->right, output);
@@ -264,21 +265,21 @@ int func_call(ASTNode *node, FILE *output) {
     if (!node || !node->name) return -1;
     
     // Check if it's a built-in function
-    if (strcmp(node->name, "write") == 0) {
+    if (strcmp(node->name, "Ifj.write") == 0) {
         return write_func(node, output);
-    } else if (strcmp(node->name, "read_num") == 0) {
+    } else if (strcmp(node->name, "Ifj.read_num") == 0) {
         return read_num_func(node, output);
-    } else if (strcmp(node->name, "read_str") == 0) {
+    } else if (strcmp(node->name, "Ifj.read_str") == 0) {
         return read_str_func(node, output);
-    } else if (strcmp(node->name, "floor") == 0) {
+    } else if (strcmp(node->name, "Ifj.floor") == 0) {
         return floor_func(node, output);
-    } else if (strcmp(node->name, "str") == 0) {
+    } else if (strcmp(node->name, "Ifj.str") == 0) {
         return length_func(node, output);
-    } else if (strcmp(node->name, "substring") == 0) {
+    } else if (strcmp(node->name, "Ifj.substring") == 0) {
         return substring_func(node, output);
-    } else if (strcmp(node->name, "ord") == 0) {
+    } else if (strcmp(node->name, "Ifj.ord") == 0) {
         return ord_func(node, output);
-    } else if (strcmp(node->name, "chr") == 0) {
+    } else if (strcmp(node->name, "Ifj.chr") == 0) {
         return chr_func(node, output);
     }
     
@@ -436,14 +437,14 @@ int setter_call(ASTNode *node, FILE *output) {
 int write_func(ASTNode *node, FILE *output) {
     // node->left = argument chain
     ASTNode *arg = node->left;
-    fprintf(output, "CREATEFRAME\n");
-    fprintf(output, "PUSHFRAME\n");
-
-    while (arg && arg->type == AST_FUNC_ARG) {
+    
+    if (arg && arg->type == AST_FUNC_ARG) {
         // Evaluate argument expression
         if (arg->right) {
             expression(arg->right, output);
         }
+        fprintf(output, "CREATEFRAME\n");
+        fprintf(output, "PUSHFRAME\n");
         fprintf(output, "DEFVAR LF@tmp\n");
         // Pop and write to output
         fprintf(output, "POPS LF@tmp\n");

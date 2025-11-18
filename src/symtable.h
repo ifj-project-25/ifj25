@@ -10,6 +10,7 @@
 #include <stdbool.h>
 
 // ---------- Data types for IFJ25  ----------
+typedef struct Scope Scope;
 
 typedef enum {
     TYPE_UNDEF, // uninitialized
@@ -32,6 +33,7 @@ typedef struct VariableData {
     DataType data_type;
     bool defined;     // declared/defined
     bool initialized; // has a value assigned
+    Scope *scope;   // scope where the variable is defined
 } VariableData;
 
 // Parameter for functions

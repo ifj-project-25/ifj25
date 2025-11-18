@@ -41,7 +41,6 @@ typedef struct ExprNode {
         char* string_literal; // For EXPR_STRING_LITERAL
         char* identifier_name; // For EXPR_IDENTIFIER
         char* getter_name; // For EXPR_GETTER_CALL
-        Scope* current_scope; // For scope tracking
         struct 
         {
             BinaryOpType op;
