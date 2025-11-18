@@ -1272,10 +1272,6 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     var_data = global_var;
                 }
 
-                // Set current_scope for the identifier node (left side of assignment)
-                if (node->left) {
-                    node->left->current_scope = var_data->data.var_data->scope;
-                }
 
                 if (!var_data) {
                     fprintf(stderr, "[SEMANTIC] Undefined variable '%s' in assignment\n", var_name);
