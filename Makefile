@@ -71,5 +71,6 @@ test_parsem: $(SRCS)
 	@./test/test_parsem.sh
 clean:
 	rm -f $(TARGET) test_symtable test_semantic test_semantic_basic test_parsem
+	rm -f *.exe log.txt *.ifj25
 
 .PHONY: all clean 
