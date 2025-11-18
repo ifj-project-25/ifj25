@@ -208,7 +208,7 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
                     fprintf(stderr, "[SEMANTIC] Identifier '%s' not found in expression\n", expr->data.identifier_name);
                     return SEM_ERROR_UNDEFINED;
                 }
-                expr->current_scope = scope;
+                expr->current_scope = identifier->data.var_data->scope;
                 if (identifier->type == NODE_VAR) {
                     *out_type = identifier->data.var_data->data_type;
                     return NO_ERROR;
@@ -1075,7 +1075,10 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     fprintf(stderr, "[SEMANTIC] Failed to insert variable into symbol table: %s\n", name);
                     free(var_data);
                     return ERROR_INTERNAL;
-                }
+                }   
+
+                var_data->data.var_data->scope = current_scope;
+                
                 return semantic_visit(node->right, current_scope);
             } break;
 
@@ -1321,7 +1324,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
         case AST_IDENTIFIER: {
                 // AST_IDENTIFIER - check if variable exists and is initialized
                 const char* var_name = node->name;
-                node->current_scope = current_scope;
+                //node->current_scope = current_scope;
                 
                 if (!var_name) {
                     fprintf(stderr, "[SEMANTIC] Identifier has no name\n");
@@ -1329,6 +1332,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 }
                 
                 SymTableData* var_data = lookup_symbol(current_scope, var_name);
+                node->current_scope = var_data->data.var_data->scope;
                 
                 if (!var_data && var_name[0] == '_' && var_name[1] == '_') {
                     // search to program root
