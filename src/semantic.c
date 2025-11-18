@@ -881,6 +881,8 @@ int semantic_definition(ASTNode *node, Scope *current_scope){
                         fprintf(stderr, "[SEMANTIC] Failed to create parameter '%s'.\n", p->name);
                         return ERROR_INTERNAL;
                     }
+                    // Bind parameter's variable data to this function scope
+                    param_var->data.var_data->scope = func_scope;
                     if (!symtable_insert(&func_scope->symbols, p->name, param_var)) {
                         fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into function scope.\n", p->name);
                         free(param_var);
@@ -948,8 +950,15 @@ int semantic_definition(ASTNode *node, Scope *current_scope){
 
                 // Insert parameter into setter scope
                 SymTableData *param_var = make_variable(param_type, true, true);
-                if (!param_var || !symtable_insert(&setter_scope->symbols, param_name, param_var)) {
+                if (!param_var) {
+                    fprintf(stderr, "[SEMANTIC] Failed to create parameter '%s'.\n", param_name);
+                    return ERROR_INTERNAL;
+                }
+                // Bind parameter variable to this setter scope
+                param_var->data.var_data->scope = setter_scope;
+                if (!symtable_insert(&setter_scope->symbols, param_name, param_var)) {
                     fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into setter scope.\n", param_name);
+                    free(param_var);
                     return ERROR_INTERNAL;
                 }
 
@@ -1126,6 +1135,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         fprintf(stderr, "[SEMANTIC] Failed to create parameter '%s'.\n", p->name);
                         return ERROR_INTERNAL;
                     }
+                    // Bind parameter variable to this main scope
+                    param_var->data.var_data->scope = main_scope;
                     if (!symtable_insert(&main_scope->symbols, p->name, param_var)) {
                         fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into main scope.\n", p->name);
                         free(param_var);
@@ -1231,6 +1242,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         fprintf(stderr, "[SEMANTIC] Failed to create parameter '%s'.\n", p->name);
                         return ERROR_INTERNAL;
                     }
+                    // Bind parameter variable to this function scope
+                    param_var->data.var_data->scope = func_scope;
                     if (!symtable_insert(&func_scope->symbols, p->name, param_var)) {
                         fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into function scope.\n", p->name);
                         free(param_var);
@@ -1380,8 +1393,15 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 // Insert parameter into setter scope
                 SymTableData *param_var = make_variable(param_type, true, true);
-                if (!param_var || !symtable_insert(&setter_scope->symbols, param_name, param_var)) {
+                if (!param_var) {
+                    fprintf(stderr, "[SEMANTIC] Failed to create parameter '%s'.\n", param_name);
+                    return ERROR_INTERNAL;
+                }
+                // Bind parameter variable to this setter scope
+                param_var->data.var_data->scope = setter_scope;
+                if (!symtable_insert(&setter_scope->symbols, param_name, param_var)) {
                     fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into setter scope.\n", param_name);
+                    free(param_var);
                     return ERROR_INTERNAL;
                 }
 
@@ -1427,6 +1447,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 
                 
                 return semantic_visit(node->right, current_scope);
+                
             } break;
 
         case AST_ASSIGN: {
@@ -1750,6 +1771,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 return semantic_visit(node->right, current_scope);
             } break;
             case AST_FUNC_CALL: {
+                
                 const char *func_name = node->name;
                 int argc = count_arguments(node->left);
 
@@ -1766,6 +1788,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     return SEM_ERROR_UNDEFINED;
                 }
                 int err =  check_user_function_call(node, current_scope, func_symbol);
+                
                 if(err != NO_ERROR) return err;
                 err = semantic_visit(node->right, current_scope);
                 return err;
@@ -1806,6 +1829,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         fprintf(stderr, "[SEMANTIC] Parameter '%s' already declared\n", param_name);
                         return SEM_ERROR_REDEFINED;
                     }
+                    // Ensure the AST identifier for the parameter is aware of its scope
+                    node->right->current_scope = current_scope;
                 } 
                 else if (node->right->type == AST_EXPRESSION) {
                     int err = semantic_visit(node->right, current_scope);
@@ -1881,7 +1906,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     return_type = node->left->data_type;
                 }
                 // If neither expr nor function call, it's a void return (TYPE_NULL)
-                
+                int err = semantic_visit(node->left, current_scope);
+                    if (err != NO_ERROR) return err;
                 // Store return type for function return type checking
                 node->data_type = return_type;
                 
@@ -1946,6 +1972,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
             } break;
 
         case AST_EXPRESSION: {
+            
             DataType expr_type = TYPE_UNDEF;
             
                 if (node->expr) {
