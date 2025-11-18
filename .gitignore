@@ -6,3 +6,4 @@ test_semantic_basic
 generator.md
 output.ifj25
 *.wren
+log.txt

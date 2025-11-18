@@ -113,7 +113,7 @@ int getter_call (ASTNode *node, FILE *output);
 int expr_getter_call(char* name, FILE *output);
 int setter_call (ASTNode *node, FILE *output);
 int block (ASTNode *node, FILE *output);
-int gen_globals(ASTNode *node, FILE *output);
+int gen_globals(ASTNode *node, Scope *scope, FILE *output);
 
 //definitions ast types
 int main_def (ASTNode *node, FILE *output);

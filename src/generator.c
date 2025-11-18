@@ -132,8 +132,16 @@ int expr_identifier (ExprNode *node, FILE *output) {
     }
     else
     {
-        
-        fprintf(output, "LF@%s$%d", node->data.identifier_name, get_scope_number_from_scope(node->current_scope));
+        int scope_num = get_scope_number_from_scope(node->current_scope);
+        if (scope_num == 0 && node->current_scope == NULL) {
+            // Scope not set - this is a bug, but try to recover
+            // Use the identifier's scope from var_data if available
+            fprintf(stderr, "[GENERATOR WARNING] Scope not set for identifier '%s', using fallback\n", node->data.identifier_name);
+            // For now, just use LF@ without scope suffix as fallback
+            fprintf(output, "LF@%s", node->data.identifier_name);
+        } else {
+            fprintf(output, "LF@%s$%d", node->data.identifier_name, scope_num);
+        }
     } 
     
     return 0;
@@ -344,11 +352,15 @@ int func_call(ASTNode *node, FILE *output) {
 int return_stmt(ASTNode *node, FILE *output) {
     if (!node) return -1;
     
-    // Evaluate return expression
+    // Evaluate return expression (result on stack)
     if (node->left) {
         expression(node->left, output);
-    } 
+    } else {
+        // No return value - push nil
+        fprintf(output, "PUSHS nil@nil\n");
+    }
     
+    // Return value is already on stack
     fprintf(output, "POPFRAME\n");
     fprintf(output, "RETURN\n");
     
@@ -499,6 +511,8 @@ int write_func(ASTNode *node, FILE *output) {
 
 int str_func(ASTNode *node, FILE *output) {
     // Get argument
+    static int str_label_counter = 0;
+    int label_id = str_label_counter++;
     
     ASTNode *arg = node->left;
     
@@ -512,11 +526,44 @@ int str_func(ASTNode *node, FILE *output) {
     fprintf(output, "PUSHFRAME\n");
 
     fprintf(output, "DEFVAR LF@tmp\n");
+    fprintf(output, "DEFVAR LF@type\n");
     fprintf(output, "DEFVAR LF@result\n");
 
     fprintf(output, "POPS LF@tmp\n");
-    // Convert to string
+    fprintf(output, "TYPE LF@type LF@tmp\n");
+    
+    // Check if already a string
+    fprintf(output, "JUMPIFEQ $str_is_string%d LF@type string@string\n", label_id);
+    
+    // Check if it's nil
+    fprintf(output, "JUMPIFEQ $str_is_nil%d LF@type string@nil\n", label_id);
+    
+    // Check if it's bool
+    fprintf(output, "JUMPIFEQ $str_is_bool%d LF@type string@bool\n", label_id);
+    
+    // Otherwise it's a number (float or int) - convert to string
     fprintf(output, "FLOAT2STR LF@result LF@tmp\n");
+    fprintf(output, "JUMP $str_end%d\n", label_id);
+    
+    // Handle string - just pass through
+    fprintf(output, "LABEL $str_is_string%d\n", label_id);
+    fprintf(output, "MOVE LF@result LF@tmp\n");
+    fprintf(output, "JUMP $str_end%d\n", label_id);
+    
+    // Handle nil - convert to "nil"
+    fprintf(output, "LABEL $str_is_nil%d\n", label_id);
+    fprintf(output, "MOVE LF@result string@nil\n");
+    fprintf(output, "JUMP $str_end%d\n", label_id);
+    
+    // Handle bool - convert to "true" or "false"
+    fprintf(output, "LABEL $str_is_bool%d\n", label_id);
+    fprintf(output, "JUMPIFEQ $str_bool_true%d LF@tmp bool@true\n", label_id);
+    fprintf(output, "MOVE LF@result string@false\n");
+    fprintf(output, "JUMP $str_end%d\n", label_id);
+    fprintf(output, "LABEL $str_bool_true%d\n", label_id);
+    fprintf(output, "MOVE LF@result string@true\n");
+    
+    fprintf(output, "LABEL $str_end%d\n", label_id);
     fprintf(output, "PUSHS LF@result\n");
     
     fprintf(output, "POPFRAME\n");
@@ -1222,8 +1269,9 @@ void def_global(SNode *sym, FILE *output) {
 
 }
 
-int gen_globals(ASTNode *node, FILE *output){
-    SymTable *table = &node->current_scope->symbols;
+int gen_globals(ASTNode *node, Scope *scope, FILE *output){
+    if (!scope) return 0;
+    SymTable *table = &scope->symbols;
     SNode *current = table->root;
     def_global(current, output);
     return 0;
@@ -1295,7 +1343,7 @@ int generate_code(ASTNode *root, FILE *output) {
     // 5. Traverse AST
     if (root->type == AST_PROGRAM) {
         // Process global variables (left child)
-        gen_globals(root->left, output);
+        gen_globals(root->left, root->current_scope, output);
         if (root->left) {
             next_step(root->left, output);
         }
