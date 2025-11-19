@@ -70,15 +70,21 @@ test_parsem: $(SRCS)
 clean:
 	rm -f $(TARGET) test_symtable test_semantic test_semantic_basic test_parsem
 	rm -f *.exe log.txt *.ifj25
-	rm -f xklusaa00.zip
 
 .PHONY: all clean 
 
-ZIP_NAME = xklusaa00
+ZIP_NAME = xklusaa00 
 zip:
 	zip -j $(ZIP_NAME).zip \
-		src/*.c \
-		src/*.h \
-		rozdeleni \
-		dokumentace.pdf \
-		Makefile
+		src/main.c \
+		src/parser.c src/parser.h \
+		src/scanner.c src/scanner.h \
+		src/symtable.c src/symtable.h \
+		src/expr_precedence_parser.c src/expr_precedence_parser.h \
+		src/expr_precedence_stack.c src/expr_precedence_stack.h \
+		src/generator.c src/generator.h \
+		src/ast.c src/ast.h \
+		src/expr_ast.c src/expr_ast.h \
+		src/semantic.c src/semantic.h \
+		src/dynamic_string.c src/dynamic_string.h \
+		Makefile \
