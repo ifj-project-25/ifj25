@@ -112,8 +112,13 @@ int identifier (ASTNode *node, FILE *output) {
     }
     else
     {
-        
-        fprintf(output, "LF@%s$%d", node->name, get_scope_number(node));
+        int scope_num = get_scope_number(node);
+        if (!node->current_scope)
+        {
+            fprintf(stderr, "[GENERATOR DEBUG] identifier '%s': current_scope=%p, scope_number=%d\n", 
+                node->name, (void*)node->current_scope, scope_num);
+        }
+        fprintf(output, "LF@%s$%d", node->name, scope_num);
     } 
     
     return 0;
