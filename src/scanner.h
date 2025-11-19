@@ -63,7 +63,7 @@ typedef enum {
     TOKEN_RCURLY, // }
     TOKEN_DOT,    // .
     TOKEN_COMMA,  // ,
-    TOKEN_DOLLAR // $ bottom-of-stack marker for operator stack
+    TOKEN_DOLLAR    // $
 } TokenType;
 
 typedef enum {
@@ -101,7 +101,6 @@ typedef struct Token {
 void set_source_file(FILE *f);
 
 void print_token_types();
- 
 
 int get_token(Token *token);
 
