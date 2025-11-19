@@ -103,6 +103,5 @@ ASTNode* create_ast_node(ASTNodeType type, const char* name);   // Create a new 
 
 void free_ast_tree(ASTNode* node);                          // Free the entire AST tree recursively
 
-void print_ast_tree(ASTNode* node);                         // Print the AST tree with visual connections
 
 #endif //AST_H

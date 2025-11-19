@@ -136,75 +136,6 @@ static const char prec_table[15][15] = {
 /* $ */    {'<', '<','<','<','<','<','T','<','<','<','<','<','<','<',' '}
 };
 
-// Debug helper: print stack contents
-static void print_stack(ExprPstack* stack) {
-    printf("=== STACK (top to bottom) ===\n");
-    ExprPstackNode* current = stack->top;
-    int depth = 0;
-    while (current && depth < 10) {
-        printf("  [%d] ", depth);
-        if (current->type == SYM_TERM) {
-            printf("TERM sym=%d ", current->sym);
-            switch (current->token.type) {
-                case TOKEN_IDENTIFIER:
-                    printf("ID(%s)", current->token.value.string ? current->token.value.string->str : "?");
-                    break;
-                case TOKEN_INTEGER:
-                    printf("INT(%d)", current->token.value.integer);
-                    break;
-                case TOKEN_DOUBLE:
-                    printf("DBL(%.2f)", current->token.value.decimal);
-                    break;
-                case TOKEN_STRING:
-                    printf("STR(\"%s\")", current->token.value.string ? current->token.value.string->str : "?");
-                    break;
-                case TOKEN_PLUS: printf("+"); break;
-                case TOKEN_MINUS: printf("-"); break;
-                case TOKEN_MULTIPLY: printf("*"); break;
-                case TOKEN_DIVIDE: printf("/"); break;
-                case TOKEN_DOLLAR: printf("$"); break;
-                case TOKEN_LPAREN: printf("("); break;
-                case TOKEN_RPAREN: printf(")"); break;
-                default:
-                    printf("tok=%d", current->token.type);
-                    break;
-            }
-        } else if (current->type == SYM_NONTERM) {
-            printf("NONTERM sym=%d ", current->sym);
-            if (current->node) {
-                switch (current->node->type) {
-                    case EXPR_NUM_LITERAL:
-                        printf("E(%.2f)", current->node->data.num_literal);
-                        break;
-                    case EXPR_IDENTIFIER:
-                        printf("E(%s)", current->node->data.identifier_name);
-                        break;
-                    case EXPR_BINARY_OP:
-                        printf("E(binop)");
-                        break;
-                    case EXPR_STRING_LITERAL:
-                        printf("E(\"%s\")", current->node->data.string_literal);
-                        break;
-                    case EXPR_NULL_LITERAL:
-                        printf("E(NULL)");
-                        break;
-                    default:
-                        printf("E(?)");
-                        break;
-                }
-            } else {
-                printf("E(NULL)");
-            }
-        } else {
-            printf("UNKNOWN type=%d", current->type);
-        }
-        printf("\n");
-        current = current->next;
-        depth++;
-    }
-    if (current) printf("  ... (more)\n");
-    printf("=============================\n");
-}
 
 //Rules:
 // TERM -> E
@@ -268,7 +199,6 @@ int reduce_expr_op_expr(ExprPstack* stack){
 }
 
 int reduce(ExprPstack* stack){
-    print_stack(stack);
     if(expr_Pstack_is_empty(stack)){
         return SYNTAX_ERROR;
     }
@@ -365,7 +295,6 @@ ASTNode* main_precedence_parser(Token* token, int* rc) {
         }
         Sym stack_sym = scan ? token_to_sym(&scan->token) : PS_DOLLAR;
         Sym current_sym = token_to_sym(token);
-        print_stack(&stack);
         if (prec_table[stack_sym][current_sym] == '<'){
             expr_Pstack_push_term(&stack, token, current_sym);
             get_token(token);

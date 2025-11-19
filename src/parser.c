@@ -15,62 +15,13 @@
 
 static void next_token(Token *token);
 static void token_control(TokenType expected_type, const void *expected_value);
-// Debug helpers
-static const char *token_type_name(TokenType t) {//debug
-    switch (t) {
-        case TOKEN_UNDEFINED: return "UNDEFINED";
-        case TOKEN_EOF: return "EOF";
-        case TOKEN_EOL: return "EOL";
-        case TOKEN_GLOBAL_VAR: return "GLOBAL_VAR";
-        case TOKEN_IDENTIFIER: return "IDENTIFIER";
-        case TOKEN_KEYWORD: return "KEYWORD";
-        case TOKEN_INTEGER: return "INTEGER";
-        case TOKEN_DOUBLE: return "DOUBLE";
-        case TOKEN_STRING: return "STRING";
-        case TOKEN_PLUS: return "PLUS";
-        case TOKEN_MINUS: return "MINUS";
-        case TOKEN_MULTIPLY: return "MULTIPLY";
-        case TOKEN_DIVIDE: return "DIVIDE";
-        case TOKEN_EQUAL: return "EQUAL";
-        case TOKEN_NEQUAL: return "NEQUAL";
-        case TOKEN_LESSER: return "LESSER";
-        case TOKEN_GREATER: return "GREATER";
-        case TOKEN_LESSER_EQUAL: return "LESSER_EQUAL";
-        case TOKEN_GREATER_EQUAL: return "GREATER_EQUAL";
-        case TOKEN_NOT: return "NOT";
-        case TOKEN_LOGIC_EQUAL: return "LOGIC_EQUAL";
-        case TOKEN_LPAREN: return "LPAREN";
-        case TOKEN_RPAREN: return "RPAREN";
-        case TOKEN_LCURLY: return "LCURLY";
-        case TOKEN_RCURLY: return "RCURLY";
-        case TOKEN_DOT: return "DOT";
-        case TOKEN_COMMA: return "COMMA";
-        default: return "UNKNOWN";
-    }
-}
-
-void debug_print_token(const char *prefix, const Token *t) {//debug
-    if (!t) return;
-    const char *name = token_type_name(t->type);
-    if (t->type == TOKEN_IDENTIFIER || t->type == TOKEN_STRING || t->type == TOKEN_GLOBAL_VAR) {
-        printf("%s %s (%s)\n", prefix, name, t->value.string ? t->value.string->str : "(null)");
-    } else if (t->type == TOKEN_KEYWORD) {
-        printf("%s %s (kw=%d)\n", prefix, name, t->value.keyword);
-    } else if (t->type == TOKEN_INTEGER) {
-        printf("%s %s (int=%d)\n", prefix, name, t->value.integer);
-    } else if (t->type == TOKEN_DOUBLE) {
-        printf("%s %s (dbl=%f)\n", prefix, name, t->value.decimal);
-    } else {
-        printf("%s %s\n", prefix, name);
-    }
-}
 
 static ASTNode* IF();
 static ASTNode* WHILE();
 static ASTNode* VAR();
-static ASTNode* STML(ASTNode* function);
-static ASTNode* STML_LINE(ASTNode* function);
-static int STML_LIST(ASTNode* function);
+static ASTNode* STML();
+static ASTNode* STML_LINE();
+static int STML_LIST(ASTNode* current_function);
 static int eol(void);
 static ASTNode* BLOCK();
 ASTNode* PARAMETER_TAIL(ASTNode* node);
@@ -111,8 +62,6 @@ static void next_token(Token *token){
 static void token_control(TokenType expected_type, const void *expected_value){
     if (rc != NO_ERROR) return;  
     if(token.type != expected_type){
-        printf("token_control mismatch: expected=%s(%d) got=%s(%d)\n", token_type_name(expected_type), expected_type, token_type_name(token.type), token.type);//debug
-        debug_print_token("  current", &token);//debug
         rc = SYNTAX_ERROR;
 
         return ;
@@ -165,7 +114,6 @@ static ASTNode* EXPRESSION( ){
     int error_code = NO_ERROR;
     ASTNode* expressionTree = main_precedence_parser( &token, &error_code);
     if (expressionTree == NULL || error_code != NO_ERROR){
-        printf("Error: Failed to parse expression\n");
         rc = SYNTAX_ERROR;
         return NULL;
     }
@@ -373,7 +321,7 @@ static ASTNode* IFJ(){
     return node;
 }
 
-static ASTNode* STML(ASTNode* function){
+static ASTNode* STML(){
     ASTNode* statement = NULL;
     
     switch (token.type)
@@ -522,9 +470,9 @@ static ASTNode* STML(ASTNode* function){
     }
     return statement;
 }
-static ASTNode* STML_LINE(ASTNode* function){
+static ASTNode* STML_LINE(){
 
-    ASTNode* current_function = STML(function);
+    ASTNode* current_function = STML();
     if (rc != NO_ERROR)return NULL;
     
     eol();
@@ -534,7 +482,7 @@ static ASTNode* STML_LINE(ASTNode* function){
 }
 static int STML_LIST(ASTNode* block){
     if (!((token.type == TOKEN_RCURLY))){
-        ASTNode* current_statement = STML_LINE(block);
+        ASTNode* current_statement = STML_LINE();
         if (rc != NO_ERROR)return rc;
         
         // Link statements as siblings using 'right' pointer
