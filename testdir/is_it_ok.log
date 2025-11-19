@@ -1,0 +1,31 @@
+Archive:  xklusaa00.zip
+  inflating: ast.c                   
+  inflating: dynamic_string.c        
+  inflating: expr_ast.c              
+  inflating: expr_parser.c           
+  inflating: expr_precedence_parser.c  
+  inflating: expr_precedence_stack.c  
+  inflating: expr_stack.c            
+  inflating: generator.c             
+  inflating: main.c                  
+  inflating: parser.c                
+  inflating: scanner.c               
+  inflating: semantic.c              
+  inflating: symtable.c              
+  inflating: ast.h                   
+  inflating: dynamic_string.h        
+  inflating: error.h                 
+  inflating: expr_ast.h              
+  inflating: expr_parser.h           
+  inflating: expr_precedence_parser.h  
+  inflating: expr_precedence_stack.h  
+  inflating: expr_stack.h            
+  inflating: generator.h             
+  inflating: parser.h                
+  inflating: scanner.h               
+  inflating: semantic.h              
+  inflating: symtable.h              
+  inflating: rozdeleni               
+ extracting: dokumentace.pdf         
+  inflating: Makefile                
+make: *** No rule to make target 'src/main.c', needed by 'main'.  Stop.
