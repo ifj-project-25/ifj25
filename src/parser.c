@@ -16,7 +16,7 @@
 static void next_token(Token *token);
 static void token_control(TokenType expected_type, const void *expected_value);
 // Debug helpers
-static const char *token_type_name(TokenType t) {//debug
+/* static const char *token_type_name(TokenType t) {//debug
     switch (t) {
         case TOKEN_UNDEFINED: return "UNDEFINED";
         case TOKEN_EOF: return "EOF";
@@ -48,22 +48,22 @@ static const char *token_type_name(TokenType t) {//debug
         default: return "UNKNOWN";
     }
 }
-
-void debug_print_token(const char *prefix, const Token *t) {//debug
+ */
+/* void //debug_print_token(const char *prefix, const Token *t) {//debug
     if (!t) return;
     const char *name = token_type_name(t->type);
     if (t->type == TOKEN_IDENTIFIER || t->type == TOKEN_STRING || t->type == TOKEN_GLOBAL_VAR) {
-        printf("%s %s (%s)\n", prefix, name, t->value.string ? t->value.string->str : "(null)");
+        //printf("%s %s (%s)\n", prefix, name, t->value.string ? t->value.string->str : "(null)");
     } else if (t->type == TOKEN_KEYWORD) {
-        printf("%s %s (kw=%d)\n", prefix, name, t->value.keyword);
+        //printf("%s %s (kw=%d)\n", prefix, name, t->value.keyword);
     } else if (t->type == TOKEN_INTEGER) {
-        printf("%s %s (int=%d)\n", prefix, name, t->value.integer);
+        //printf("%s %s (int=%d)\n", prefix, name, t->value.integer);
     } else if (t->type == TOKEN_DOUBLE) {
-        printf("%s %s (dbl=%f)\n", prefix, name, t->value.decimal);
+        //printf("%s %s (dbl=%f)\n", prefix, name, t->value.decimal);
     } else {
-        printf("%s %s\n", prefix, name);
+        //printf("%s %s\n", prefix, name);
     }
-}
+} */
 
 static ASTNode* IF();
 static ASTNode* WHILE();
@@ -111,8 +111,8 @@ static void next_token(Token *token){
 static void token_control(TokenType expected_type, const void *expected_value){
     if (rc != NO_ERROR) return;  
     if(token.type != expected_type){
-        printf("token_control mismatch: expected=%s(%d) got=%s(%d)\n", token_type_name(expected_type), expected_type, token_type_name(token.type), token.type);//debug
-        debug_print_token("  current", &token);//debug
+        //printf("token_control mismatch: expected=%s(%d) got=%s(%d)\n", token_type_name(expected_type), expected_type, token_type_name(token.type), token.type);//debug
+        //debug_print_token("  current", &token);//debug
         rc = SYNTAX_ERROR;
 
         return ;
@@ -165,7 +165,7 @@ static ASTNode* EXPRESSION( ){
     int error_code = NO_ERROR;
     ASTNode* expressionTree = main_precedence_parser( &token, &error_code);
     if (expressionTree == NULL || error_code != NO_ERROR){
-        printf("Error: Failed to parse expression\n");
+        //printf("Error: Failed to parse expression\n");
         rc = SYNTAX_ERROR;
         return NULL;
     }

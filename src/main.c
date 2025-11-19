@@ -18,7 +18,7 @@
 
 
 
-static void symtable_dump_node(SNode *node, int depth) {
+/* static void symtable_dump_node(SNode *node, int depth) {
     if (!node) return;
     symtable_dump_node(node->right, depth + 1);
     for (int i = 0; i < depth; ++i) fputs("  ", stdout);
@@ -58,7 +58,7 @@ static void expr_ast_dump_node(const ExprNode *node, int depth) {
 
 void expr_ast_dump(const ExprNode *root) {
     expr_ast_dump_node(root, 0);
-}
+} */
 
 int main() {
 
@@ -70,30 +70,30 @@ int main() {
     
     int error_code = parser(PROGRAM);
 
-    if (PROGRAM) {
+    /* if (PROGRAM) {
         print_ast_tree(PROGRAM);
-    } 
+    }  */
     if (error_code != NO_ERROR) {
-        fprintf(stderr, "Error during parsing: %d\n", error_code);
+        //fprintf(stderr, "Error during parsing: %d\n", error_code);
         return error_code;
     }
     else{
-        // FILE *fileOut;
-        // fileOut = stdout;
         FILE *fileOut;
+        fileOut = stdout;
+        /* FILE *fileOut;
         fileOut = fopen("output.ifj25", "w");
         if (fileOut == NULL) {
             perror("Failed to open output file");
             return ERROR_INTERNAL;
-        }
+        } */
         error_code = semantic_analyze(PROGRAM);
         if (error_code != NO_ERROR) {
-            fprintf(stderr, "Error during semantic analysis: %d\n", error_code);
+            //fprintf(stderr, "Error during semantic analysis: %d\n", error_code);
             return error_code;
         }
         error_code = generate_code(PROGRAM, fileOut);
         if (error_code != NO_ERROR) {
-            fprintf(stderr, "Error during code generation: %d\n", error_code);
+            //fprintf(stderr, "Error during code generation: %d\n", error_code);
             return error_code;
         }
         fclose(source_file);

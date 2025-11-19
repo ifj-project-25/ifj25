@@ -130,7 +130,7 @@ void free_expr_node(ExprNode* node){
     }
     free(node);
 }
-
+/* 
 // Helper to get operator string
 static const char* get_op_string(BinaryOpType op) {
     switch (op) {
@@ -185,3 +185,4 @@ void print_expr_ast(ExprNode* node, int indent) {
             break;
     }
 }
+ */

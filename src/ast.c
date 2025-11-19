@@ -38,7 +38,6 @@ ASTNode* create_ast_node(ASTNodeType type, const char* name) {
     return node;
 }
 
-// helper function to free AST tree
 void free_ast_tree(ASTNode* node) {
     if (!node) return;
     
@@ -50,7 +49,7 @@ void free_ast_tree(ASTNode* node) {
     free(node);
 }
 
-// Helper to get node type name as string
+/* // Helper to get node type name as string
 static const char* get_node_type_name(ASTNodeType type) {
     switch (type) {
         case AST_PROGRAM: return "PROGRAM";
@@ -259,3 +258,4 @@ void print_ast_tree(ASTNode* node) {
     print_ast_node(node, 0, is_last, 0);
     printf("========================================\n\n");
 }
+ */
