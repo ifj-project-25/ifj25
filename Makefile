@@ -1,7 +1,7 @@
 # author: xcernoj00,xmikusm00,xmalikm00
 
 CC = gcc
-CFLAGS = -g -std=c11 -Wall  
+CFLAGS = -g -std=c11 -Wall 
 
 TARGET = main
 
@@ -10,8 +10,6 @@ SRCS =  src/main.c \
         src/dynamic_string.c \
         src/parser.c \
         src/symtable.c \
-        src/expr_parser.c \
-        src/expr_stack.c \
         src/expr_ast.c \
         src/ast.c \
 		src/semantic.c \
@@ -74,3 +72,19 @@ clean:
 	rm -f *.exe log.txt *.ifj25
 
 .PHONY: all clean 
+
+ZIP_NAME = xklusaa00 
+zip:
+	zip -j $(ZIP_NAME).zip \
+		src/main.c \
+		src/parser.c src/parser.h \
+		src/scanner.c src/scanner.h \
+		src/symtable.c src/symtable.h \
+		src/expr_precedence_parser.c src/expr_precedence_parser.h \
+		src/expr_precedence_stack.c src/expr_precedence_stack.h \
+		src/generator.c src/generator.h \
+		src/ast.c src/ast.h \
+		src/expr_ast.c src/expr_ast.h \
+		src/semantic.c src/semantic.h \
+		src/dynamic_string.c src/dynamic_string.h \
+		Makefile \
