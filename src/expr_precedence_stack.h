@@ -7,7 +7,6 @@
 #define EXPR_PARSER_PRECEDENCE_H
 #include "scanner.h"
 #include "symtable.h"
-#include "expr_stack.h"
 #include "expr_ast.h"
 
 typedef enum {

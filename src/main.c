@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include "parser.h"
 #include "symtable.h"
-#include "expr_parser.h"
 #include "expr_precedence_parser.h"
 #include "expr_ast.h"
 #include "ast.h"
@@ -96,6 +95,7 @@ int main() {
             //fprintf(stderr, "Error during code generation: %d\n", error_code);
             return error_code;
         }
+        
         fclose(source_file);
         fclose(fileOut);
     }

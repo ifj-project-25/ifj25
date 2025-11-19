@@ -9,7 +9,6 @@
 #include "scanner.h"
 #include "error.h"
 #include "symtable.h"
-#include "expr_parser.h"
 #include "expr_precedence_parser.h"
 #include "ast.h"
 
