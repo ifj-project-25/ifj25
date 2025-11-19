@@ -618,52 +618,38 @@ int str_func(ASTNode *node, FILE *output) {
     fprintf(output, "POPS LF@tmp\n");
     fprintf(output, "TYPE LF@type LF@tmp\n");
     
-    // Check if already a string
-    fprintf(output, "JUMPIFEQ $str_is_string%d LF@type string@string\n", label_id);
-    
-    // Check if it's nil
-    fprintf(output, "JUMPIFEQ $str_is_nil%d LF@type string@nil\n", label_id);
-    
-    // Check if it's bool
-    fprintf(output, "JUMPIFEQ $str_is_bool%d LF@type string@bool\n", label_id);
-    
-    // Check if it's int
-    fprintf(output, "JUMPIFEQ $str_is_int%d LF@type string@int\n", label_id);
-    
     // Check if it's float
     fprintf(output, "JUMPIFEQ $str_is_float%d LF@type string@float\n", label_id);
-
-    // Fallback: treat anything else as nil
-    fprintf(output, "MOVE LF@result string@nil\n");
-    fprintf(output, "JUMP $str_end%d\n", label_id);
     
-    // int -> string
-    fprintf(output, "LABEL $str_is_int%d\n", label_id);
-    fprintf(output, "INT2STR LF@result LF@tmp\n");
+    // fprintf(output, "JUMP $str_print%d\n", label_id);
+    // Check if it's int
+    fprintf(output, "JUMPIFEQ $str_int%d LF@type string@int\n", label_id);
+
+    // Check if already a string
+    fprintf(output, "JUMPIFEQ $str_str%d LF@type string@string\n", label_id);
+
+    //Else nothing
+    fprintf(output, "MOVE LF@result nil@nil\n");
     fprintf(output, "JUMP $str_end%d\n", label_id);
 
-    // float -> string
     fprintf(output, "LABEL $str_is_float%d\n", label_id);
+    fprintf(output, "ISINT LF@type LF@tmp\n");
+    fprintf(output, "JUMPIFNEQ $str_not_int%d LF@type bool@true\n", label_id);
+    fprintf(output, "FLOAT2INT LF@tmp LF@tmp\n");
+    fprintf(output, "LABEL $str_int%d\n", label_id);
+    fprintf(output, "INT2STR LF@result LF@tmp\n");
+
+    fprintf(output, "JUMP $str_end%d\n", label_id);
+
+
+    fprintf(output, "LABEL $str_not_int%d\n", label_id);
     fprintf(output, "FLOAT2STR LF@result LF@tmp\n");
     fprintf(output, "JUMP $str_end%d\n", label_id);
-    
-    // Handle string - just pass through
-    fprintf(output, "LABEL $str_is_string%d\n", label_id);
+
+    fprintf(output, "LABEL $str_str%d\n", label_id);
     fprintf(output, "MOVE LF@result LF@tmp\n");
-    fprintf(output, "JUMP $str_end%d\n", label_id);
     
-    // Handle nil - convert to "nil"
-    fprintf(output, "LABEL $str_is_nil%d\n", label_id);
-    fprintf(output, "MOVE LF@result string@nil\n");
-    fprintf(output, "JUMP $str_end%d\n", label_id);
     
-    // Handle bool - convert to "true" or "false"
-    fprintf(output, "LABEL $str_is_bool%d\n", label_id);
-    fprintf(output, "JUMPIFEQ $str_bool_true%d LF@tmp bool@true\n", label_id);
-    fprintf(output, "MOVE LF@result string@false\n");
-    fprintf(output, "JUMP $str_end%d\n", label_id);
-    fprintf(output, "LABEL $str_bool_true%d\n", label_id);
-    fprintf(output, "MOVE LF@result string@true\n");
     
     fprintf(output, "LABEL $str_end%d\n", label_id);
     fprintf(output, "PUSHS LF@result\n");
@@ -675,7 +661,7 @@ int str_func(ASTNode *node, FILE *output) {
 int read_num_func(ASTNode *node, FILE *output) {
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
-
+    
     fprintf(output, "DEFVAR LF@tmp_read\n");
 
     fprintf(output, "READ LF@tmp_read float\n");
@@ -1280,6 +1266,7 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
                     fprintf(output, "LABEL $div_by_zero_%d\n", op_id);
                     fprintf(output, "PUSHS nil@nil\n");  // division by zero returns nil
                     fprintf(output, "POPFRAME\n");
+                    fprintf(output, "JUMP $div_end_%d\n", op_id);
                     fprintf(output, "LABEL $div_type_error_%d\n", op_id);
                     fprintf(output, "EXIT int@26\n");  // Type error
                     fprintf(output, "LABEL $div_end_%d\n", op_id);
