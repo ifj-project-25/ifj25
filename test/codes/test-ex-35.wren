@@ -10,7 +10,7 @@ class Program {
     
     static is_even(n) {
         if (n == 0) {
-            return true
+            return 1
         } else {
             var odd_result
             odd_result = is_odd(n - 1)
@@ -20,7 +20,7 @@ class Program {
     
     static is_odd(n) {
         if (n == 0) {
-            return false
+            return 0
         } else {
             var even_result
             even_result = is_even(n - 1)
