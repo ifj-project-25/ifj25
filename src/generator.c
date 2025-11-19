@@ -547,6 +547,17 @@ int str_func(ASTNode *node, FILE *output) {
     fprintf(output, "JUMPIFEQ $str_is_bool%d LF@type string@bool\n", label_id);
     
     // Otherwise it's a number (float or int) - convert to string
+    //Check if int
+    fprintf(output, "ISINT LF@type LF@tmp\n");
+    fprintf(output, "JUMPIFNEQ $str_is_not_int%d LF@type bool@true\n", label_id);
+
+    fprintf(output, "FLOAT2INT LF@tmp LF@tmp\n");
+    fprintf(output, "INT2STR LF@result LF@tmp\n");
+
+    fprintf(output, "JUMP $str_end%d\n", label_id);
+
+    fprintf(output, "LABEL $str_is_not_int%d\n", label_id);
+
     fprintf(output, "FLOAT2STR LF@result LF@tmp\n");
     fprintf(output, "JUMP $str_end%d\n", label_id);
     
