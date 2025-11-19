@@ -193,7 +193,8 @@ int if_stmt(ASTNode *node, FILE *output) {
     if (expression(node->left, output) != 0) return -1;
     
     // Pop condition and jump if false
-    fprintf(output, "PUSHS bool@false\n");
+    // Treat nil as falsey
+    fprintf(output, "PUSHS nil@nil\n");
     fprintf(output, "JUMPIFEQS $else%d\n", if_id);
     
     // Generate 'then' block
@@ -229,8 +230,9 @@ int while_loop(ASTNode *node, FILE *output) {
     if (expression(node->left, output) != 0) return -1;
     
     // Jump out if false
-    fprintf(output, "PUSHS bool@true\n");
-    fprintf(output, "JUMPIFNEQS $endwhile%d\n", while_id);
+    // Treat nil as falsey
+    fprintf(output, "PUSHS nil@nil\n");
+    fprintf(output, "JUMPIFEQS $endwhile%d\n", while_id);
     node = node->right;
     // Generate loop body
     if (node && node->type == AST_BLOCK) {
@@ -546,18 +548,23 @@ int str_func(ASTNode *node, FILE *output) {
     // Check if it's bool
     fprintf(output, "JUMPIFEQ $str_is_bool%d LF@type string@bool\n", label_id);
     
-    // Otherwise it's a number (float or int) - convert to string
-    //Check if int
-    fprintf(output, "ISINT LF@type LF@tmp\n");
-    fprintf(output, "JUMPIFNEQ $str_is_not_int%d LF@type bool@true\n", label_id);
+    // Check if it's int
+    fprintf(output, "JUMPIFEQ $str_is_int%d LF@type string@int\n", label_id);
+    
+    // Check if it's float
+    fprintf(output, "JUMPIFEQ $str_is_float%d LF@type string@float\n", label_id);
 
-    fprintf(output, "FLOAT2INT LF@tmp LF@tmp\n");
+    // Fallback: treat anything else as nil
+    fprintf(output, "MOVE LF@result string@nil\n");
+    fprintf(output, "JUMP $str_end%d\n", label_id);
+    
+    // int -> string
+    fprintf(output, "LABEL $str_is_int%d\n", label_id);
     fprintf(output, "INT2STR LF@result LF@tmp\n");
-
     fprintf(output, "JUMP $str_end%d\n", label_id);
 
-    fprintf(output, "LABEL $str_is_not_int%d\n", label_id);
-
+    // float -> string
+    fprintf(output, "LABEL $str_is_float%d\n", label_id);
     fprintf(output, "FLOAT2STR LF@result LF@tmp\n");
     fprintf(output, "JUMP $str_end%d\n", label_id);
     
@@ -1158,19 +1165,27 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
                     fprintf(output, "TYPE LF@type1 LF@op1\n");
                     fprintf(output, "TYPE LF@type2 LF@op2\n");
                     
-                    // Check for bool type
+                    // Reject bool operands
                     fprintf(output, "JUMPIFEQ $div_type_error_%d LF@type1 string@bool\n", op_id);
                     fprintf(output, "JUMPIFEQ $div_type_error_%d LF@type2 string@bool\n", op_id);
                     
-                    fprintf(output, "JUMPIFEQ $div_check2_%d LF@type1 string@float\n", op_id);
-                    fprintf(output, "LABEL $div_type_error_%d\n", op_id);
-                    fprintf(output, "EXIT int@26\n");  // Type error
-                    fprintf(output, "LABEL $div_check2_%d\n", op_id);
-                    fprintf(output, "JUMPIFEQ $div_check_zero_%d LF@type2 string@float\n", op_id);
-                    fprintf(output, "EXIT int@26\n");  // Type error
+                    // Normalize lhs: if int -> float
+                    fprintf(output, "JUMPIFNEQ $div_lhs_not_int_%d LF@type1 string@int\n", op_id);
+                    fprintf(output, "INT2FLOAT LF@op1 LF@op1\n");
+                    fprintf(output, "MOVE LF@type1 string@float\n");
+                    fprintf(output, "LABEL $div_lhs_not_int_%d\n", op_id);
+                    // Must be float now
+                    fprintf(output, "JUMPIFNEQ $div_type_error_%d LF@type1 string@float\n", op_id);
+                    
+                    // Normalize rhs: if int -> float
+                    fprintf(output, "JUMPIFNEQ $div_rhs_not_int_%d LF@type2 string@int\n", op_id);
+                    fprintf(output, "INT2FLOAT LF@op2 LF@op2\n");
+                    fprintf(output, "MOVE LF@type2 string@float\n");
+                    fprintf(output, "LABEL $div_rhs_not_int_%d\n", op_id);
+                    // Must be float now
+                    fprintf(output, "JUMPIFNEQ $div_type_error_%d LF@type2 string@float\n", op_id);
                     
                     // Check for division by zero
-                    fprintf(output, "LABEL $div_check_zero_%d\n", op_id);
                     fprintf(output, "PUSHS LF@op2\n");
                     fprintf(output, "PUSHS float@0x0p+0\n");
                     fprintf(output, "EQS\n");
@@ -1184,7 +1199,10 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
                     fprintf(output, "JUMP $div_end_%d\n", op_id);
                     
                     fprintf(output, "LABEL $div_by_zero_%d\n", op_id);
-                    fprintf(output, "EXIT int@26\n");  // Division by zero error
+                    fprintf(output, "PUSHS nil@nil\n");  // division by zero returns nil
+                    fprintf(output, "POPFRAME\n");
+                    fprintf(output, "LABEL $div_type_error_%d\n", op_id);
+                    fprintf(output, "EXIT int@26\n");  // Type error
                     fprintf(output, "LABEL $div_end_%d\n", op_id);
                     break;
                     
@@ -1248,7 +1266,7 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
             
         case EXPR_GETTER_CALL:
             // Generate code for getter call
-            if (expr_getter_call(expr->data.identifier_name, output) != 0) {
+            if (expr_getter_call(expr->data.getter_name, output) != 0) {
                 return -1;
             }
             break;
@@ -1276,13 +1294,15 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
 }
 void def_global(SNode *sym, FILE *output) {
     if (!sym) return;
-    if (sym->data->type != NODE_VAR) return;
-    // Global variables prefixed with __ to avoid name clashes
-    fprintf(output, "DEFVAR GF@%s\n", sym->key);
+    // Traverse entire tree so we don't miss variables under non-variable nodes
     def_global(sym->left, output);
+    if (sym->data && sym->data->type == NODE_VAR) {
+        // Global variables prefixed with __ to avoid name clashes
+        fprintf(output, "DEFVAR GF@%s\n", sym->key);
+        // Initialize globals to nil to avoid uninitialized access in getters/setters
+        fprintf(output, "MOVE GF@%s nil@nil\n", sym->key);
+    }
     def_global(sym->right, output);
-    return;
-
 }
 
 int gen_globals(ASTNode *node, Scope *scope, FILE *output){
@@ -1346,20 +1366,21 @@ int generate_code(ASTNode *root, FILE *output) {
     
     // 1. Write IFJcode25 header
     fprintf(output, ".IFJcode25\n");
-    
-    // 2. Define built-in function labels
+
+    // 2. Define global variables before jumping over function bodies
+    if (root->current_scope) {
+        gen_globals(root->left, root->current_scope, output);
+    }
+
+    // 3. Define built-in function labels
     fprintf(output, "JUMP $$main\n");
     
-    // 3. Generate built-in functions (write, read_num, etc.)
+    // 4. Generate built-in functions (write, read_num, etc.)
     generate_builtin_functions(output);
-    
-    // 4. Generate main label
-
     
     // 5. Traverse AST
     if (root->type == AST_PROGRAM) {
         // Process global variables (left child)
-        gen_globals(root->left, root->current_scope, output);
         if (root->left) {
             next_step(root->left, output);
         }

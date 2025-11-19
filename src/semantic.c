@@ -182,8 +182,8 @@ void preload_builtins(Scope *global_scope) {
     snprintf(keybuf, sizeof(keybuf), "Ifj.str#1");
     symtable_insert(&global_scope->symbols, keybuf, str);
 
-    // 6. Ifj.length(s: String) -> Num
-    Param *length_param = make_param("s", TYPE_STRING);
+    // 6. Ifj.length(s: String|undef) -> Num
+    Param *length_param = make_param("s", TYPE_UNDEF);
     SymTableData *length = make_function(1, length_param, true, TYPE_NUM);
     snprintf(keybuf, sizeof(keybuf), "Ifj.length#1");
     symtable_insert(&global_scope->symbols, keybuf, length);
@@ -321,7 +321,12 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
                     *out_type = identifier->data.var_data->data_type;
                     return NO_ERROR;
                 } else if (identifier->type == NODE_GETTER) {
-                    expr->current_scope = scope; // getter resolution lives in this scope chain
+                    // Mutate identifier expr into a getter-call expr so codegen
+                    // emits a getter call instead of a plain variable read.
+                    char *name_copy = expr->data.identifier_name;
+                    expr->type = EXPR_GETTER_CALL;
+                    expr->data.getter_name = name_copy;
+                    expr->current_scope = scope;
                     *out_type = identifier->data.getter_data->return_type;
                     return NO_ERROR;
                 } else {
@@ -2171,6 +2176,9 @@ int semantic_analyze(ASTNode *root) {
         fprintf(stderr, "[SEMANTIC] Program must define 'main' as a function with 0 parameters\n");
         return SEM_ERROR_OTHER;
     }
+
+    // Propagate the global scope to the AST root so codegen can emit globals
+    root->current_scope = global_scope;
 
     return NO_ERROR;
 }
