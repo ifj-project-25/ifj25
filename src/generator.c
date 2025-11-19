@@ -81,8 +81,6 @@ static void remember_var_def(const char *name, int scope_num) {
     var_defs_head = n;
 }
 
-
-
 void print_convert_string(const char* input , FILE *output) {
     // Convert string to IFJcode25 format (section 10.3)
     // Escape sequences: \XXX (3-digit decimal ASCII)
