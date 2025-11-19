@@ -34,6 +34,7 @@ ASTNode* create_ast_node(ASTNodeType type, const char* name) {
     node->expr = NULL;
     node->data_type = TYPE_UNDEF;
     node->current_table = NULL;
+    node->current_scope = NULL;
     return node;
 }
 

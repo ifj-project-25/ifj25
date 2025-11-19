@@ -13,6 +13,29 @@
 
 int semantic_visit_count = 0;
 
+// Ensure every identifier expression carries the scope it resolves in.
+static void annotate_expr_scopes(ExprNode *expr, Scope *scope) {
+    if (!expr) return;
+
+    switch (expr->type) {
+        case EXPR_IDENTIFIER: {
+            if (!expr->current_scope) {
+                SymTableData *data = lookup_symbol(scope, expr->data.identifier_name);
+                if (data && data->type == NODE_VAR && data->data.var_data) {
+                    expr->current_scope = data->data.var_data->scope ? data->data.var_data->scope : scope;
+                }
+            }
+            break;
+        }
+        case EXPR_BINARY_OP: 
+            annotate_expr_scopes(expr->data.binary.left, scope);
+            annotate_expr_scopes(expr->data.binary.right, scope);
+            break;
+        default:
+            break;
+    }
+}
+
 // Helper functions to create getter/setter keys in symtable
 static char* make_getter_key(const char *name) {
     size_t len = strlen(name) + 5; // "#get" + '\0'
@@ -271,6 +294,8 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
                         fprintf(stderr, "[SEMANTIC] Failed to allocate global variable '%s'\n", expr->data.identifier_name);
                         return ERROR_INTERNAL;
                     }
+                    // Bind the new implicit global to the program root scope
+                    global_var->data.var_data->scope = global_scope;
                     
                     // insert into global scope
                     if (!symtable_insert(&global_scope->symbols, expr->data.identifier_name, global_var)) {
@@ -289,9 +314,14 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
                 }
                 if (identifier->type == NODE_VAR) {
                     expr->current_scope = identifier->data.var_data->scope;
+                    if (!expr->current_scope) {
+                        // Fallback: use the lookup scope if var_data is missing it
+                        expr->current_scope = scope;
+                    }
                     *out_type = identifier->data.var_data->data_type;
                     return NO_ERROR;
                 } else if (identifier->type == NODE_GETTER) {
+                    expr->current_scope = scope; // getter resolution lives in this scope chain
                     *out_type = identifier->data.getter_data->return_type;
                     return NO_ERROR;
                 } else {
@@ -890,6 +920,16 @@ int semantic_definition(ASTNode *node, Scope *current_scope){
                     }
                 }
 
+                // Mark AST parameter identifiers with their scope so the generator
+                // can emit the correct frame suffix.
+                param_actual = actual->left;
+                while (param_actual && param_actual->type == AST_FUNC_ARG) {
+                    if (param_actual->right && param_actual->right->type == AST_IDENTIFIER) {
+                        param_actual->right->current_scope = func_scope;
+                    }
+                    param_actual = param_actual->left;
+                }
+
                 actual->right->current_table = &func_scope->symbols;
             } 
             
@@ -960,6 +1000,11 @@ int semantic_definition(ASTNode *node, Scope *current_scope){
                     fprintf(stderr, "[SEMANTIC] Failed to insert parameter '%s' into setter scope.\n", param_name);
                     free(param_var);
                     return ERROR_INTERNAL;
+                }
+
+                // Annotate setter parameter identifier with its scope for codegen
+                if (actual->left && actual->left->type == AST_IDENTIFIER) {
+                    actual->left->current_scope = setter_scope;
                 }
 
             actual->right->current_table = &setter_scope->symbols;
@@ -1144,6 +1189,15 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     }
                 }
 
+                // Mark AST parameter identifiers with their scope for codegen
+                param_node = node->left;
+                while (param_node && param_node->type == AST_FUNC_ARG) {
+                    if (param_node->right && param_node->right->type == AST_IDENTIFIER) {
+                        param_node->right->current_scope = main_scope;
+                    }
+                    param_node = param_node->left;
+                }
+
                 // Analyze main function body with main scope
                 int result = semantic_visit(node->right, main_scope);
                 
@@ -1249,6 +1303,15 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         free(param_var);
                         return ERROR_INTERNAL;
                     }
+                }
+
+                // Annotate AST parameter identifiers with their scope for codegen
+                param_node = node->left;
+                while (param_node && param_node->type == AST_FUNC_ARG) {
+                    if (param_node->right && param_node->right->type == AST_IDENTIFIER) {
+                        param_node->right->current_scope = func_scope;
+                    }
+                    param_node = param_node->left;
                 }
 
                 node->right->current_table = &func_scope->symbols;
@@ -1404,6 +1467,9 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     free(param_var);
                     return ERROR_INTERNAL;
                 }
+
+                // Annotate AST parameter identifier with its scope for codegen
+                node->left->current_scope = setter_scope;
 
                 // Make the setter body block use this scope directly
                 node->right->current_table = &setter_scope->symbols;
@@ -1576,6 +1642,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 if (node->left->expr) {
                     int ierr = infer_expr_node_type(node->left->expr, current_scope, &right_type);
                     if (ierr != NO_ERROR) return ierr;
+                    annotate_expr_scopes(node->left->expr, current_scope);
                 } else if (node->left->left && node->left->left->type == AST_FUNC_CALL) {
                     int err = semantic_visit(node->left->left, current_scope);
                     if (err != NO_ERROR) return err;
@@ -1667,6 +1734,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     // Expression contains an internal expression tree (from expr_ast)
                     int ierr = infer_expr_node_type(expr_node->expr, current_scope, &right_type);
                     if (ierr != NO_ERROR) return ierr;
+                    annotate_expr_scopes(expr_node->expr, current_scope);
                 } 
                 else if (expr_node->left && expr_node->left->type == AST_FUNC_CALL) {
                     // Expression is just a function call (e.g., a = Ifj.read_num())
@@ -1729,6 +1797,9 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         fprintf(stderr, "[SEMANTIC] Failed to allocate global variable '%s'\n", var_name);
                         return ERROR_INTERNAL;
                     }
+                    
+                    // Set scope for the newly created global variable
+                    global_var->data.var_data->scope = global_scope;
                     
                     // insert into global scope
                     if (!symtable_insert(&global_scope->symbols, var_name, global_var)) {
@@ -1899,6 +1970,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                     // NEW SYSTEM: Use expr for expressions
                     int ierr = infer_expr_node_type(node->expr, current_scope, &return_type);
                     if (ierr != NO_ERROR) return ierr;
+                    annotate_expr_scopes(node->expr, current_scope);
                 } else if (node->left && node->left->type == AST_FUNC_CALL) {
                     // FUNCTION CALL: Process it first to get its return type
                     int err = semantic_visit(node->left, current_scope);
@@ -2001,6 +2073,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 int ierr = infer_expr_node_type(node->expr, current_scope, &expr_type);
                 if (ierr != NO_ERROR) return ierr;
                 node->data_type = expr_type;
+                annotate_expr_scopes(node->expr, current_scope);
 
                 // Check if expression type inference failed
             /* if (expr_type == TYPE_UNDEF) {

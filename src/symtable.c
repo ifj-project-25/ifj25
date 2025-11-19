@@ -223,6 +223,7 @@ SymTableData *make_variable(DataType type, bool defined, bool initialized) {
     d->data.var_data->data_type = type;
     d->data.var_data->defined = defined;
     d->data.var_data->initialized = initialized;
+    d->data.var_data->scope = NULL; // scope is assigned by semantic analysis
     return d;
 }
 
