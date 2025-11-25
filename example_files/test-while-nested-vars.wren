@@ -1,0 +1,158 @@
+import "ifj25" for Ifj
+
+class Program {
+    static main() {
+        Ifj.write("=== Testing Variable Definitions in While Loops ===\n")
+        
+        // Test 1: Simple variable definition inside while loop
+        Ifj.write("Test 1: Variable definition inside while loop\n")
+        var i
+        i = 0
+        while (i < 3) {
+            var loopVar
+            loopVar = i * 10
+            Ifj.write("Loop iteration ")
+            Ifj.write(Ifj.str(i))
+            Ifj.write(", loopVar = ")
+            Ifj.write(Ifj.str(loopVar))
+            Ifj.write("\n")
+            i = i + 1
+        }
+        
+        // Test 2: Multiple variable definitions inside while loop
+        Ifj.write("\nTest 2: Multiple variables in while loop\n")
+        var counter
+        counter = 0
+        while (counter < 2) {
+            var x
+            var y
+            var sum
+            x = counter + 1
+            y = counter + 2
+            sum = x + y
+            Ifj.write("counter = ")
+            Ifj.write(Ifj.str(counter))
+            Ifj.write(", x = ")
+            Ifj.write(Ifj.str(x))
+            Ifj.write(", y = ")
+            Ifj.write(Ifj.str(y))
+            Ifj.write(", sum = ")
+            Ifj.write(Ifj.str(sum))
+            Ifj.write("\n")
+            counter = counter + 1
+        }
+        
+        // Test 3: Nested while loops with variable definitions
+        Ifj.write("\nTest 3: Nested while loops with variables\n")
+        var outer
+        outer = 0
+        while (outer < 2) {
+            var outerVar
+            outerVar = outer * 100
+            Ifj.write("Outer loop ")
+            Ifj.write(Ifj.str(outer))
+            Ifj.write(", outerVar = ")
+            Ifj.write(Ifj.str(outerVar))
+            Ifj.write("\n")
+            
+            var inner
+            inner = 0
+            while (inner < 2) {
+                var innerVar
+                innerVar = inner * 10
+                var combined
+                combined = outerVar + innerVar
+                Ifj.write("  Inner loop ")
+                Ifj.write(Ifj.str(inner))
+                Ifj.write(", innerVar = ")
+                Ifj.write(Ifj.str(innerVar))
+                Ifj.write(", combined = ")
+                Ifj.write(Ifj.str(combined))
+                Ifj.write("\n")
+                inner = inner + 1
+            }
+            outer = outer + 1
+        }
+        
+        // Test 4: Variable shadowing across loop iterations
+        Ifj.write("\nTest 4: Variable redefinition in each iteration\n")
+        var j
+        j = 0
+        while (j < 3) {
+            var temp
+            temp = j * 5
+            var result
+            result = temp + 100
+            Ifj.write("Iteration ")
+            Ifj.write(Ifj.str(j))
+            Ifj.write(": temp = ")
+            Ifj.write(Ifj.str(temp))
+            Ifj.write(", result = ")
+            Ifj.write(Ifj.str(result))
+            Ifj.write("\n")
+            j = j + 1
+        }
+        
+        // Test 5: Triple nested loops with variables
+        Ifj.write("\nTest 5: Triple nested loops with variables\n")
+        var a
+        a = 0
+        while (a < 2) {
+            var aVar
+            aVar = a * 1000
+            
+            var b
+            b = 0
+            while (b < 2) {
+                var bVar
+                bVar = b * 100
+                
+                var c
+                c = 0
+                while (c < 2) {
+                    var cVar
+                    cVar = c * 10
+                    var total
+                    total = aVar + bVar + cVar
+                    Ifj.write("a=")
+                    Ifj.write(Ifj.str(a))
+                    Ifj.write(" b=")
+                    Ifj.write(Ifj.str(b))
+                    Ifj.write(" c=")
+                    Ifj.write(Ifj.str(c))
+                    Ifj.write(" total=")
+                    Ifj.write(Ifj.str(total))
+                    Ifj.write("\n")
+                    c = c + 1
+                }
+                b = b + 1
+            }
+            a = a + 1
+        }
+        
+        // Test 6: Variable definitions with expressions
+        Ifj.write("\nTest 6: Complex expressions in loop variables\n")
+        var k
+        k = 1
+        while (k <= 3) {
+            var squared
+            squared = k * k
+            var doubled
+            doubled = k + k
+            var combined
+            combined = squared + doubled
+            Ifj.write("k = ")
+            Ifj.write(Ifj.str(k))
+            Ifj.write(": squared = ")
+            Ifj.write(Ifj.str(squared))
+            Ifj.write(", doubled = ")
+            Ifj.write(Ifj.str(doubled))
+            Ifj.write(", combined = ")
+            Ifj.write(Ifj.str(combined))
+            Ifj.write("\n")
+            k = k + 1
+        }
+        
+        Ifj.write("\n=== All tests completed ===\n")
+    }
+}

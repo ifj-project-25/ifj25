@@ -5,7 +5,7 @@ test_semantic
 test_semantic_basic
 generator.md
 output.ifj25
-*.wren
+*.ifj25
 log.txt
 *.zip
 ./testdir/
