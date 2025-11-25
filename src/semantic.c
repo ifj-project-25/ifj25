@@ -1333,7 +1333,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
         case AST_GETTER_DEF: {
                 if (!node->right) return ERROR_INTERNAL;
-
+                func_node = node;
                 // Get getter name
                 const char *getter_name = node->name;
                 if (!getter_name) return ERROR_INTERNAL;
@@ -1402,7 +1402,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
         case AST_SETTER_DEF: {
                 if (!node->right) return ERROR_INTERNAL;
-
+                func_node = node;
                 // Get setter name
                 const char *setter_name = node->name;
                 if (!setter_name) return ERROR_INTERNAL;
