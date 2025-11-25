@@ -235,7 +235,7 @@ int var_decl (ASTNode *node, FILE *output) {
     }
 
     if (node->right) {
-        return next_step(node->right, output);
+        return 0;
     }
     return 0;
 }
@@ -268,10 +268,30 @@ int if_stmt(ASTNode *node, FILE *output) {
     // Evaluate condition
     if (expression(node->left, output) != 0) return -1;
     
-    // Pop condition and jump if false
-    // Treat nil as falsey
-    fprintf(output, "PUSHS nil@nil\n");
+    // Use temporary frame to check condition truthiness
+    // This avoids polluting the current frame (might be inside operator evaluation)
+    fprintf(output, "CREATEFRAME\n");
+    fprintf(output, "PUSHFRAME\n");
+    fprintf(output, "DEFVAR LF@__if_cond\n");
+    fprintf(output, "DEFVAR LF@__if_type\n");
+    fprintf(output, "POPS LF@__if_cond\n");
+    
+    // Check if nil (falsy) - TYPE-safe comparison
+    fprintf(output, "TYPE LF@__if_type LF@__if_cond\n");
+    fprintf(output, "PUSHS LF@__if_type\n");
+    fprintf(output, "PUSHS string@nil\n");
     fprintf(output, "JUMPIFEQS $else%d\n", if_id);
+    
+    // Check if bool and false (falsy)
+    fprintf(output, "PUSHS LF@__if_type\n");
+    fprintf(output, "PUSHS string@bool\n");
+    fprintf(output, "JUMPIFNEQS $then%d\n", if_id);  // If not bool, it's truthy
+    // It's a bool, check if it's false
+    fprintf(output, "PUSHS LF@__if_cond\n");
+    fprintf(output, "PUSHS bool@false\n");
+    fprintf(output, "JUMPIFEQS $else%d\n", if_id);
+    fprintf(output, "LABEL $then%d\n", if_id);
+    fprintf(output, "POPFRAME\n");
     
     // Generate 'then' block
     if (node->right && node->right->type == AST_BLOCK) {
@@ -284,6 +304,7 @@ int if_stmt(ASTNode *node, FILE *output) {
     if (node && node->type == AST_ELSE) {
         fprintf(output, "JUMP $endif%d\n", if_id);
         fprintf(output, "LABEL $else%d\n", if_id);
+        fprintf(output, "POPFRAME\n");  // Pop condition frame when entering else
         node = node->right; // Move to next node
         if (node && node->type == AST_BLOCK) {
             block(node, output);
@@ -291,7 +312,9 @@ int if_stmt(ASTNode *node, FILE *output) {
         fprintf(output, "LABEL $endif%d\n", if_id);
     }
     else {
+        // No else block - just pop the condition frame and continue
         fprintf(output, "LABEL $else%d\n", if_id);
+        fprintf(output, "POPFRAME\n");  // Pop condition frame
     }
     next_step(node->right, output);
     return 0;
@@ -306,8 +329,7 @@ int while_loop(ASTNode *node, FILE *output) {
     if (expression(node->left, output) != 0) return -1;
     
     // Jump out if false
-    // Treat nil as falsey
-    fprintf(output, "PUSHS nil@nil\n");
+    fprintf(output, "PUSHS bool@false\n");
     fprintf(output, "JUMPIFEQS $endwhile%d\n", while_id);
     node = node->right;
     // Generate loop body
@@ -343,6 +365,8 @@ int func_def(ASTNode *node, FILE *output) {
     // Create new frame
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
+
+    vars_def(node->var_next, output);  // Variable definitions
     
     // Handle parameters (node->left = AST_FUNC_ARG chain)
     int param_count = 0;
@@ -463,6 +487,7 @@ int getter_def(ASTNode *node, FILE *output) {
     // Create new frame
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
+    vars_def(node->var_next, output);  // Variable definitions
     
     // Generate function body
     if (node->right && node->right->type == AST_BLOCK) {
@@ -493,6 +518,9 @@ int setter_def(ASTNode *node, FILE *output) {
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
     
+    vars_def(node->var_next, output);  // Variable definitions
+    
+    // Define condition temp variables for if statements
     // Handle parameter (node->left = identifier)
     fprintf(output, "DEFVAR ");
     identifier(node->left, output);
@@ -577,8 +605,12 @@ int write_func(ASTNode *node, FILE *output) {
         fprintf(output, "TYPE LF@tmp2 LF@tmp\n");
         fprintf(output, "JUMPIFEQ $write_not_int%d LF@tmp2 string@string\n", write_id);
         fprintf(output, "JUMPIFEQ $write_is_int%d LF@tmp2 string@int\n", write_id);
-
-
+        fprintf(output, "JUMPIFEQ $write_is_float%d LF@tmp2 string@float\n", write_id);
+        // For nil, bool, or other types, just write directly
+        fprintf(output, "JUMP $write_not_int%d\n", write_id);
+        
+        // Handle float: check if it's an integer value
+        fprintf(output, "LABEL $write_is_float%d\n", write_id);
         fprintf(output, "ISINT LF@tmp2 LF@tmp\n");
         fprintf(output, "JUMPIFNEQ $write_not_int%d LF@tmp2 bool@true\n", write_id);
         fprintf(output, "FLOAT2INT LF@tmp LF@tmp\n");
@@ -1075,6 +1107,26 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
                 break;
             }
             
+            // Handle IS operator with its own frame management
+            if (expr->data.binary.op == OP_IS) {
+                fprintf(output, "CREATEFRAME\n");
+                fprintf(output, "PUSHFRAME\n");
+                fprintf(output, "DEFVAR LF@op1\n");
+                fprintf(output, "DEFVAR LF@typeIn\n");
+                fprintf(output, "DEFVAR LF@type1\n");
+                fprintf(output, "POPS LF@typeIn\n");
+                fprintf(output, "POPS LF@op1\n");  
+                fprintf(output, "TYPE LF@type1 LF@op1\n");
+                fprintf(output, "JUMPIFEQ $is_true_%d LF@typeIn LF@type1\n", op_id);
+                fprintf(output, "PUSHS bool@false\n");
+                fprintf(output, "JUMP $is_end_%d\n", op_id);
+                fprintf(output, "LABEL $is_true_%d\n", op_id);
+                fprintf(output, "PUSHS bool@true\n");
+                fprintf(output, "LABEL $is_end_%d\n", op_id);
+                fprintf(output, "POPFRAME\n");
+                break;
+            }
+            
             // Create temporary frame for type checking (all other operators)
             fprintf(output, "CREATEFRAME\n");
             fprintf(output, "PUSHFRAME\n");
@@ -1307,23 +1359,6 @@ int generate_expression_code(ExprNode *expr, FILE *output) {
                     fprintf(output, "POPFRAME\n");
                     break;
                     
-                case OP_IS:
-                    fprintf(output, "CREATEFRAME\n");
-                    fprintf(output, "PUSHFRAME\n");
-                    fprintf(output, "DEFVAR LF@op1\n");
-                    fprintf(output, "DEFVAR LF@typeIn\n");
-                    fprintf(output, "DEFVAR LF@type1\n");
-                    fprintf(output, "POPS LF@typeIn\n");
-                    fprintf(output, "POPS LF@op1\n");  
-                    fprintf(output, "TYPE LF@type1 LF@op1\n");
-                    fprintf(output, "JUMPIFEQ $is_true_%d LF@typeIn LF@type1\n", op_id);
-                    fprintf(output, "PUSHS bool@false\n");
-                    fprintf(output, "JUMP $is_end_%d\n", op_id);
-                    fprintf(output, "LABEL $is_true_%d\n", op_id);
-                    fprintf(output, "PUSHS bool@true\n");
-                    fprintf(output, "LABEL $is_end_%d\n", op_id);
-                    fprintf(output, "POPFRAME\n");
-                    break;
                 default:
                     fprintf(stderr, "[GENERATOR] Unknown binary operator: %d\n", expr->data.binary.op);
                     return -1;
@@ -1417,6 +1452,8 @@ int main_def(ASTNode *node, FILE *output) {
     fprintf(output, "LABEL $$main\n");
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
+    vars_def(node->var_next, output);  // Variable definitions
+    
     // Main body is in the block (right child)
     if (node->right && node->right->type == AST_BLOCK) {
         block(node->right, output);
@@ -1431,6 +1468,19 @@ int main_def(ASTNode *node, FILE *output) {
     return 0;
 }
 
+//Generate variables definitions
+int vars_def(ASTNode *node, FILE *output) {
+    if (!node) return -1;
+    while(node){
+        var_decl(node, output);
+        node = node->var_next;
+    }
+
+    return 0;
+}
+
+
+
 // Code generation function
 int generate_code(ASTNode *root, FILE *output) {
     if (!root || !output) return -1;
@@ -1443,15 +1493,17 @@ int generate_code(ASTNode *root, FILE *output) {
     // 2. Define global variables before jumping over function bodies
     if (root->current_scope) {
         gen_globals(root->left, root->current_scope, output);
-    }
+    }   
 
-    // 3. Define built-in function labels
+    
+
+    // 4. Define built-in function labels
     fprintf(output, "JUMP $$main\n");
     
-    // 4. Generate built-in functions (write, read_num, etc.)
+    // 5. Generate built-in functions (write, read_num, etc.)
     generate_builtin_functions(output);
     
-    // 5. Traverse AST
+    // 6. Traverse AST
     if (root->type == AST_PROGRAM) {
         ASTNode *top = root->left ? root->left : root->right;
         if (top) {
@@ -1459,7 +1511,7 @@ int generate_code(ASTNode *root, FILE *output) {
         }
     }
     
-    // 6. Exit program
+    // 7. Exit program
     fprintf(output, "CLEARS\n");
     fprintf(output, "EXIT int@0\n");
     
@@ -1473,7 +1525,9 @@ int next_step(ASTNode *node, FILE *output) {
     
     switch(node->type) {
         case AST_VAR_DECL:
-            return var_decl(node, output);
+            // Variable already defined by vars_def at function start
+            // Just continue to next statement
+            return next_step(node->right, output);
         case AST_ASSIGN:
             return assign(node, output);
         case AST_FUNC_DEF:

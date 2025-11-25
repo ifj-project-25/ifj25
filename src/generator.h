@@ -86,6 +86,11 @@ int ord_func(ASTNode *node, FILE *output);
 int chr_func(ASTNode *node, FILE *output);
 
 
+/**
+ * @brief Generates code for variable definitions.
+ * @param node AST node representing the variable definitions.
+ */
+int vars_def(ASTNode *node, FILE *output);
 
 
 
@@ -98,14 +103,6 @@ int var_decl (ASTNode *node, FILE *output);
 
 //assignments ast types
 int assign (ASTNode *node, FILE *output);
-
-
-/**
- * TODO 
- * how do difirentiate between static unicorn / static unicorn=(val) / static unicorn()
- * make variables not from LF but used in a function be known as GF variables
- */
-
 
 //funkcion ast types
 int funkc_call (ASTNode *node, FILE *output);
@@ -128,7 +125,6 @@ int return_stmt (ASTNode *node, FILE *output);
 
 //expressions ast types
 int expression (ASTNode *node, FILE *output);
-//todo Mato has to check and fix/add/remove that
 
 
 /**

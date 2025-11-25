@@ -1,0 +1,25 @@
+.IFJcode25
+JUMP $$main
+
+LABEL $$main
+CREATEFRAME
+PUSHFRAME
+
+# Test JUMPIFEQS behavior
+PUSHS int@1
+PUSHS int@2
+JUMPIFEQS $skip
+WRITE string@Not\032equal,\032continuing\010
+LABEL $skip
+
+# Try to push another value
+PUSHS int@3
+DEFVAR LF@x
+POPS LF@x
+WRITE string@Got:\032
+WRITE LF@x
+WRITE string@\010
+
+POPFRAME
+CLEARS
+EXIT int@0

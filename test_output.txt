@@ -1,0 +1,1241 @@
+.IFJcode25
+JUMP $$main
+
+LABEL $$main
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@str4$2
+DEFVAR LF@sub1$2
+DEFVAR LF@sub2$2
+DEFVAR LF@sub3$2
+DEFVAR LF@sub4$2
+DEFVAR LF@sub5$2
+DEFVAR LF@sub6$2
+DEFVAR LF@sub7$2
+DEFVAR LF@sub8$2
+PUSHS string@===\032Testing\032Ifj.substring\032===\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int0 LF@tmp2 string@string
+JUMPIFEQ $write_is_int0 LF@tmp2 string@int
+JUMPIFEQ $write_is_float0 LF@tmp2 string@float
+JUMP $write_not_int0
+LABEL $write_is_float0
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int0 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int0
+WRITE LF@tmp
+JUMP $write_end0
+LABEL $write_not_int0
+WRITE LF@tmp
+LABEL $write_end0
+POPFRAME
+PUSHS string@hello\032world
+POPS LF@str4$2
+PUSHS LF@str4$2
+PUSHS float@0x0p+0
+PUSHS float@0x1.4p+2
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@str
+DEFVAR LF@start
+DEFVAR LF@end
+DEFVAR LF@len
+DEFVAR LF@result
+DEFVAR LF@idx
+DEFVAR LF@char
+DEFVAR LF@start_int
+DEFVAR LF@end_int
+DEFVAR LF@start_type
+DEFVAR LF@end_type
+DEFVAR LF@loop_cond
+POPS LF@end
+POPS LF@start
+POPS LF@str
+TYPE LF@start_type LF@start
+TYPE LF@end_type LF@end
+JUMPIFEQ $substr_type_error1 LF@start_type string@string
+JUMPIFEQ $substr_type_error1 LF@end_type string@string
+ISINT LF@result LF@start
+JUMPIFEQ $substr_type_error1 LF@result bool@false
+ISINT LF@result LF@end
+JUMPIFEQ $substr_type_error1 LF@result bool@false
+FLOAT2INT LF@start_int LF@start
+FLOAT2INT LF@end_int LF@end
+JUMP $substr_validations1
+LABEL $substr_type_error1
+EXIT int@6
+LABEL $substr_validations1
+STRLEN LF@len LF@str
+LT LF@result LF@start_int int@0
+JUMPIFEQ $substr_return_null1 LF@result bool@true
+LT LF@result LF@end_int int@0
+JUMPIFEQ $substr_return_null1 LF@result bool@true
+GT LF@result LF@start_int LF@end_int
+JUMPIFEQ $substr_return_null1 LF@result bool@true
+GT LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null1 LF@result bool@true
+EQ LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null1 LF@result bool@true
+GT LF@result LF@end_int LF@len
+JUMPIFEQ $substr_return_null1 LF@result bool@true
+MOVE LF@result string@
+MOVE LF@idx LF@start_int
+LABEL $substr_loop1
+LT LF@loop_cond LF@idx LF@end_int
+JUMPIFEQ $substr_done1 LF@loop_cond bool@false
+GETCHAR LF@char LF@str LF@idx
+CONCAT LF@result LF@result LF@char
+ADD LF@idx LF@idx int@1
+JUMP $substr_loop1
+LABEL $substr_done1
+PUSHS LF@result
+JUMP $substr_end1
+LABEL $substr_return_null1
+PUSHS nil@nil
+LABEL $substr_end1
+POPFRAME
+POPS LF@sub1$2
+PUSHS string@substring(0,\0325):\032
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int2 LF@tmp2 string@string
+JUMPIFEQ $write_is_int2 LF@tmp2 string@int
+JUMPIFEQ $write_is_float2 LF@tmp2 string@float
+JUMP $write_not_int2
+LABEL $write_is_float2
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int2 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int2
+WRITE LF@tmp
+JUMP $write_end2
+LABEL $write_not_int2
+WRITE LF@tmp
+LABEL $write_end2
+POPFRAME
+PUSHS LF@sub1$2
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int3 LF@tmp2 string@string
+JUMPIFEQ $write_is_int3 LF@tmp2 string@int
+JUMPIFEQ $write_is_float3 LF@tmp2 string@float
+JUMP $write_not_int3
+LABEL $write_is_float3
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int3 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int3
+WRITE LF@tmp
+JUMP $write_end3
+LABEL $write_not_int3
+WRITE LF@tmp
+LABEL $write_end3
+POPFRAME
+PUSHS string@\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int4 LF@tmp2 string@string
+JUMPIFEQ $write_is_int4 LF@tmp2 string@int
+JUMPIFEQ $write_is_float4 LF@tmp2 string@float
+JUMP $write_not_int4
+LABEL $write_is_float4
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int4 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int4
+WRITE LF@tmp
+JUMP $write_end4
+LABEL $write_not_int4
+WRITE LF@tmp
+LABEL $write_end4
+POPFRAME
+PUSHS LF@str4$2
+PUSHS float@0x1.8p+2
+PUSHS float@0x1.6p+3
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@str
+DEFVAR LF@start
+DEFVAR LF@end
+DEFVAR LF@len
+DEFVAR LF@result
+DEFVAR LF@idx
+DEFVAR LF@char
+DEFVAR LF@start_int
+DEFVAR LF@end_int
+DEFVAR LF@start_type
+DEFVAR LF@end_type
+DEFVAR LF@loop_cond
+POPS LF@end
+POPS LF@start
+POPS LF@str
+TYPE LF@start_type LF@start
+TYPE LF@end_type LF@end
+JUMPIFEQ $substr_type_error5 LF@start_type string@string
+JUMPIFEQ $substr_type_error5 LF@end_type string@string
+ISINT LF@result LF@start
+JUMPIFEQ $substr_type_error5 LF@result bool@false
+ISINT LF@result LF@end
+JUMPIFEQ $substr_type_error5 LF@result bool@false
+FLOAT2INT LF@start_int LF@start
+FLOAT2INT LF@end_int LF@end
+JUMP $substr_validations5
+LABEL $substr_type_error5
+EXIT int@6
+LABEL $substr_validations5
+STRLEN LF@len LF@str
+LT LF@result LF@start_int int@0
+JUMPIFEQ $substr_return_null5 LF@result bool@true
+LT LF@result LF@end_int int@0
+JUMPIFEQ $substr_return_null5 LF@result bool@true
+GT LF@result LF@start_int LF@end_int
+JUMPIFEQ $substr_return_null5 LF@result bool@true
+GT LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null5 LF@result bool@true
+EQ LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null5 LF@result bool@true
+GT LF@result LF@end_int LF@len
+JUMPIFEQ $substr_return_null5 LF@result bool@true
+MOVE LF@result string@
+MOVE LF@idx LF@start_int
+LABEL $substr_loop5
+LT LF@loop_cond LF@idx LF@end_int
+JUMPIFEQ $substr_done5 LF@loop_cond bool@false
+GETCHAR LF@char LF@str LF@idx
+CONCAT LF@result LF@result LF@char
+ADD LF@idx LF@idx int@1
+JUMP $substr_loop5
+LABEL $substr_done5
+PUSHS LF@result
+JUMP $substr_end5
+LABEL $substr_return_null5
+PUSHS nil@nil
+LABEL $substr_end5
+POPFRAME
+POPS LF@sub2$2
+PUSHS string@substring(6,\03211):\032
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int6 LF@tmp2 string@string
+JUMPIFEQ $write_is_int6 LF@tmp2 string@int
+JUMPIFEQ $write_is_float6 LF@tmp2 string@float
+JUMP $write_not_int6
+LABEL $write_is_float6
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int6 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int6
+WRITE LF@tmp
+JUMP $write_end6
+LABEL $write_not_int6
+WRITE LF@tmp
+LABEL $write_end6
+POPFRAME
+PUSHS LF@sub2$2
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int7 LF@tmp2 string@string
+JUMPIFEQ $write_is_int7 LF@tmp2 string@int
+JUMPIFEQ $write_is_float7 LF@tmp2 string@float
+JUMP $write_not_int7
+LABEL $write_is_float7
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int7 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int7
+WRITE LF@tmp
+JUMP $write_end7
+LABEL $write_not_int7
+WRITE LF@tmp
+LABEL $write_end7
+POPFRAME
+PUSHS string@\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int8 LF@tmp2 string@string
+JUMPIFEQ $write_is_int8 LF@tmp2 string@int
+JUMPIFEQ $write_is_float8 LF@tmp2 string@float
+JUMP $write_not_int8
+LABEL $write_is_float8
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int8 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int8
+WRITE LF@tmp
+JUMP $write_end8
+LABEL $write_not_int8
+WRITE LF@tmp
+LABEL $write_end8
+POPFRAME
+PUSHS LF@str4$2
+PUSHS float@0x0p+0
+PUSHS float@0x0p+0
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@str
+DEFVAR LF@start
+DEFVAR LF@end
+DEFVAR LF@len
+DEFVAR LF@result
+DEFVAR LF@idx
+DEFVAR LF@char
+DEFVAR LF@start_int
+DEFVAR LF@end_int
+DEFVAR LF@start_type
+DEFVAR LF@end_type
+DEFVAR LF@loop_cond
+POPS LF@end
+POPS LF@start
+POPS LF@str
+TYPE LF@start_type LF@start
+TYPE LF@end_type LF@end
+JUMPIFEQ $substr_type_error9 LF@start_type string@string
+JUMPIFEQ $substr_type_error9 LF@end_type string@string
+ISINT LF@result LF@start
+JUMPIFEQ $substr_type_error9 LF@result bool@false
+ISINT LF@result LF@end
+JUMPIFEQ $substr_type_error9 LF@result bool@false
+FLOAT2INT LF@start_int LF@start
+FLOAT2INT LF@end_int LF@end
+JUMP $substr_validations9
+LABEL $substr_type_error9
+EXIT int@6
+LABEL $substr_validations9
+STRLEN LF@len LF@str
+LT LF@result LF@start_int int@0
+JUMPIFEQ $substr_return_null9 LF@result bool@true
+LT LF@result LF@end_int int@0
+JUMPIFEQ $substr_return_null9 LF@result bool@true
+GT LF@result LF@start_int LF@end_int
+JUMPIFEQ $substr_return_null9 LF@result bool@true
+GT LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null9 LF@result bool@true
+EQ LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null9 LF@result bool@true
+GT LF@result LF@end_int LF@len
+JUMPIFEQ $substr_return_null9 LF@result bool@true
+MOVE LF@result string@
+MOVE LF@idx LF@start_int
+LABEL $substr_loop9
+LT LF@loop_cond LF@idx LF@end_int
+JUMPIFEQ $substr_done9 LF@loop_cond bool@false
+GETCHAR LF@char LF@str LF@idx
+CONCAT LF@result LF@result LF@char
+ADD LF@idx LF@idx int@1
+JUMP $substr_loop9
+LABEL $substr_done9
+PUSHS LF@result
+JUMP $substr_end9
+LABEL $substr_return_null9
+PUSHS nil@nil
+LABEL $substr_end9
+POPFRAME
+POPS LF@sub3$2
+PUSHS string@substring(0,\0320)\032empty:\032
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int10 LF@tmp2 string@string
+JUMPIFEQ $write_is_int10 LF@tmp2 string@int
+JUMPIFEQ $write_is_float10 LF@tmp2 string@float
+JUMP $write_not_int10
+LABEL $write_is_float10
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int10 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int10
+WRITE LF@tmp
+JUMP $write_end10
+LABEL $write_not_int10
+WRITE LF@tmp
+LABEL $write_end10
+POPFRAME
+PUSHS LF@sub3$2
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int11 LF@tmp2 string@string
+JUMPIFEQ $write_is_int11 LF@tmp2 string@int
+JUMPIFEQ $write_is_float11 LF@tmp2 string@float
+JUMP $write_not_int11
+LABEL $write_is_float11
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int11 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int11
+WRITE LF@tmp
+JUMP $write_end11
+LABEL $write_not_int11
+WRITE LF@tmp
+LABEL $write_end11
+POPFRAME
+PUSHS string@\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int12 LF@tmp2 string@string
+JUMPIFEQ $write_is_int12 LF@tmp2 string@int
+JUMPIFEQ $write_is_float12 LF@tmp2 string@float
+JUMP $write_not_int12
+LABEL $write_is_float12
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int12 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int12
+WRITE LF@tmp
+JUMP $write_end12
+LABEL $write_not_int12
+WRITE LF@tmp
+LABEL $write_end12
+POPFRAME
+PUSHS string@Testing\032null\032returns:\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int13 LF@tmp2 string@string
+JUMPIFEQ $write_is_int13 LF@tmp2 string@int
+JUMPIFEQ $write_is_float13 LF@tmp2 string@float
+JUMP $write_not_int13
+LABEL $write_is_float13
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int13 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int13
+WRITE LF@tmp
+JUMP $write_end13
+LABEL $write_not_int13
+WRITE LF@tmp
+LABEL $write_end13
+POPFRAME
+PUSHS LF@str4$2
+PUSHS float@-0x1p+0
+PUSHS float@0x1.4p+2
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@str
+DEFVAR LF@start
+DEFVAR LF@end
+DEFVAR LF@len
+DEFVAR LF@result
+DEFVAR LF@idx
+DEFVAR LF@char
+DEFVAR LF@start_int
+DEFVAR LF@end_int
+DEFVAR LF@start_type
+DEFVAR LF@end_type
+DEFVAR LF@loop_cond
+POPS LF@end
+POPS LF@start
+POPS LF@str
+TYPE LF@start_type LF@start
+TYPE LF@end_type LF@end
+JUMPIFEQ $substr_type_error14 LF@start_type string@string
+JUMPIFEQ $substr_type_error14 LF@end_type string@string
+ISINT LF@result LF@start
+JUMPIFEQ $substr_type_error14 LF@result bool@false
+ISINT LF@result LF@end
+JUMPIFEQ $substr_type_error14 LF@result bool@false
+FLOAT2INT LF@start_int LF@start
+FLOAT2INT LF@end_int LF@end
+JUMP $substr_validations14
+LABEL $substr_type_error14
+EXIT int@6
+LABEL $substr_validations14
+STRLEN LF@len LF@str
+LT LF@result LF@start_int int@0
+JUMPIFEQ $substr_return_null14 LF@result bool@true
+LT LF@result LF@end_int int@0
+JUMPIFEQ $substr_return_null14 LF@result bool@true
+GT LF@result LF@start_int LF@end_int
+JUMPIFEQ $substr_return_null14 LF@result bool@true
+GT LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null14 LF@result bool@true
+EQ LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null14 LF@result bool@true
+GT LF@result LF@end_int LF@len
+JUMPIFEQ $substr_return_null14 LF@result bool@true
+MOVE LF@result string@
+MOVE LF@idx LF@start_int
+LABEL $substr_loop14
+LT LF@loop_cond LF@idx LF@end_int
+JUMPIFEQ $substr_done14 LF@loop_cond bool@false
+GETCHAR LF@char LF@str LF@idx
+CONCAT LF@result LF@result LF@char
+ADD LF@idx LF@idx int@1
+JUMP $substr_loop14
+LABEL $substr_done14
+PUSHS LF@result
+JUMP $substr_end14
+LABEL $substr_return_null14
+PUSHS nil@nil
+LABEL $substr_end14
+POPFRAME
+POPS LF@sub4$2
+PUSHS LF@sub4$2
+PUSHS string@nil
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@op2
+DEFVAR LF@type1
+DEFVAR LF@type2
+DEFVAR LF@result
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@typeIn
+DEFVAR LF@type1
+POPS LF@typeIn
+POPS LF@op1
+TYPE LF@type1 LF@op1
+JUMPIFEQ $is_true_16 LF@typeIn LF@type1
+PUSHS bool@false
+JUMP $is_end_16
+LABEL $is_true_16
+PUSHS bool@true
+LABEL $is_end_16
+POPFRAME
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@__if_cond
+DEFVAR LF@__if_type
+POPS LF@__if_cond
+TYPE LF@__if_type LF@__if_cond
+PUSHS LF@__if_type
+PUSHS string@nil
+JUMPIFEQS $else15
+PUSHS LF@__if_type
+PUSHS string@bool
+JUMPIFNEQS $then15
+PUSHS LF@__if_cond
+PUSHS bool@false
+JUMPIFEQS $else15
+LABEL $then15
+POPFRAME
+PUSHS string@substring(-1,\0325):\032null\032OK\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int17 LF@tmp2 string@string
+JUMPIFEQ $write_is_int17 LF@tmp2 string@int
+JUMPIFEQ $write_is_float17 LF@tmp2 string@float
+JUMP $write_not_int17
+LABEL $write_is_float17
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int17 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int17
+WRITE LF@tmp
+JUMP $write_end17
+LABEL $write_not_int17
+WRITE LF@tmp
+LABEL $write_end17
+POPFRAME
+JUMP $endif15
+LABEL $else15
+POPFRAME
+PUSHS string@ERROR\032sub4\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int18 LF@tmp2 string@string
+JUMPIFEQ $write_is_int18 LF@tmp2 string@int
+JUMPIFEQ $write_is_float18 LF@tmp2 string@float
+JUMP $write_not_int18
+LABEL $write_is_float18
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int18 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int18
+WRITE LF@tmp
+JUMP $write_end18
+LABEL $write_not_int18
+WRITE LF@tmp
+LABEL $write_end18
+POPFRAME
+LABEL $endif15
+PUSHS LF@str4$2
+PUSHS float@0x0p+0
+PUSHS float@-0x1p+0
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@str
+DEFVAR LF@start
+DEFVAR LF@end
+DEFVAR LF@len
+DEFVAR LF@result
+DEFVAR LF@idx
+DEFVAR LF@char
+DEFVAR LF@start_int
+DEFVAR LF@end_int
+DEFVAR LF@start_type
+DEFVAR LF@end_type
+DEFVAR LF@loop_cond
+POPS LF@end
+POPS LF@start
+POPS LF@str
+TYPE LF@start_type LF@start
+TYPE LF@end_type LF@end
+JUMPIFEQ $substr_type_error19 LF@start_type string@string
+JUMPIFEQ $substr_type_error19 LF@end_type string@string
+ISINT LF@result LF@start
+JUMPIFEQ $substr_type_error19 LF@result bool@false
+ISINT LF@result LF@end
+JUMPIFEQ $substr_type_error19 LF@result bool@false
+FLOAT2INT LF@start_int LF@start
+FLOAT2INT LF@end_int LF@end
+JUMP $substr_validations19
+LABEL $substr_type_error19
+EXIT int@6
+LABEL $substr_validations19
+STRLEN LF@len LF@str
+LT LF@result LF@start_int int@0
+JUMPIFEQ $substr_return_null19 LF@result bool@true
+LT LF@result LF@end_int int@0
+JUMPIFEQ $substr_return_null19 LF@result bool@true
+GT LF@result LF@start_int LF@end_int
+JUMPIFEQ $substr_return_null19 LF@result bool@true
+GT LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null19 LF@result bool@true
+EQ LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null19 LF@result bool@true
+GT LF@result LF@end_int LF@len
+JUMPIFEQ $substr_return_null19 LF@result bool@true
+MOVE LF@result string@
+MOVE LF@idx LF@start_int
+LABEL $substr_loop19
+LT LF@loop_cond LF@idx LF@end_int
+JUMPIFEQ $substr_done19 LF@loop_cond bool@false
+GETCHAR LF@char LF@str LF@idx
+CONCAT LF@result LF@result LF@char
+ADD LF@idx LF@idx int@1
+JUMP $substr_loop19
+LABEL $substr_done19
+PUSHS LF@result
+JUMP $substr_end19
+LABEL $substr_return_null19
+PUSHS nil@nil
+LABEL $substr_end19
+POPFRAME
+POPS LF@sub5$2
+PUSHS LF@sub5$2
+PUSHS string@nil
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@op2
+DEFVAR LF@type1
+DEFVAR LF@type2
+DEFVAR LF@result
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@typeIn
+DEFVAR LF@type1
+POPS LF@typeIn
+POPS LF@op1
+TYPE LF@type1 LF@op1
+JUMPIFEQ $is_true_21 LF@typeIn LF@type1
+PUSHS bool@false
+JUMP $is_end_21
+LABEL $is_true_21
+PUSHS bool@true
+LABEL $is_end_21
+POPFRAME
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@__if_cond
+DEFVAR LF@__if_type
+POPS LF@__if_cond
+TYPE LF@__if_type LF@__if_cond
+PUSHS LF@__if_type
+PUSHS string@nil
+JUMPIFEQS $else20
+PUSHS LF@__if_type
+PUSHS string@bool
+JUMPIFNEQS $then20
+PUSHS LF@__if_cond
+PUSHS bool@false
+JUMPIFEQS $else20
+LABEL $then20
+POPFRAME
+PUSHS string@substring(0,\032-1):\032null\032OK\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int22 LF@tmp2 string@string
+JUMPIFEQ $write_is_int22 LF@tmp2 string@int
+JUMPIFEQ $write_is_float22 LF@tmp2 string@float
+JUMP $write_not_int22
+LABEL $write_is_float22
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int22 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int22
+WRITE LF@tmp
+JUMP $write_end22
+LABEL $write_not_int22
+WRITE LF@tmp
+LABEL $write_end22
+POPFRAME
+JUMP $endif20
+LABEL $else20
+POPFRAME
+PUSHS string@ERROR\032sub5\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int23 LF@tmp2 string@string
+JUMPIFEQ $write_is_int23 LF@tmp2 string@int
+JUMPIFEQ $write_is_float23 LF@tmp2 string@float
+JUMP $write_not_int23
+LABEL $write_is_float23
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int23 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int23
+WRITE LF@tmp
+JUMP $write_end23
+LABEL $write_not_int23
+WRITE LF@tmp
+LABEL $write_end23
+POPFRAME
+LABEL $endif20
+PUSHS LF@str4$2
+PUSHS float@0x1.4p+2
+PUSHS float@0x1.8p+1
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@str
+DEFVAR LF@start
+DEFVAR LF@end
+DEFVAR LF@len
+DEFVAR LF@result
+DEFVAR LF@idx
+DEFVAR LF@char
+DEFVAR LF@start_int
+DEFVAR LF@end_int
+DEFVAR LF@start_type
+DEFVAR LF@end_type
+DEFVAR LF@loop_cond
+POPS LF@end
+POPS LF@start
+POPS LF@str
+TYPE LF@start_type LF@start
+TYPE LF@end_type LF@end
+JUMPIFEQ $substr_type_error24 LF@start_type string@string
+JUMPIFEQ $substr_type_error24 LF@end_type string@string
+ISINT LF@result LF@start
+JUMPIFEQ $substr_type_error24 LF@result bool@false
+ISINT LF@result LF@end
+JUMPIFEQ $substr_type_error24 LF@result bool@false
+FLOAT2INT LF@start_int LF@start
+FLOAT2INT LF@end_int LF@end
+JUMP $substr_validations24
+LABEL $substr_type_error24
+EXIT int@6
+LABEL $substr_validations24
+STRLEN LF@len LF@str
+LT LF@result LF@start_int int@0
+JUMPIFEQ $substr_return_null24 LF@result bool@true
+LT LF@result LF@end_int int@0
+JUMPIFEQ $substr_return_null24 LF@result bool@true
+GT LF@result LF@start_int LF@end_int
+JUMPIFEQ $substr_return_null24 LF@result bool@true
+GT LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null24 LF@result bool@true
+EQ LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null24 LF@result bool@true
+GT LF@result LF@end_int LF@len
+JUMPIFEQ $substr_return_null24 LF@result bool@true
+MOVE LF@result string@
+MOVE LF@idx LF@start_int
+LABEL $substr_loop24
+LT LF@loop_cond LF@idx LF@end_int
+JUMPIFEQ $substr_done24 LF@loop_cond bool@false
+GETCHAR LF@char LF@str LF@idx
+CONCAT LF@result LF@result LF@char
+ADD LF@idx LF@idx int@1
+JUMP $substr_loop24
+LABEL $substr_done24
+PUSHS LF@result
+JUMP $substr_end24
+LABEL $substr_return_null24
+PUSHS nil@nil
+LABEL $substr_end24
+POPFRAME
+POPS LF@sub6$2
+PUSHS LF@sub6$2
+PUSHS string@nil
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@op2
+DEFVAR LF@type1
+DEFVAR LF@type2
+DEFVAR LF@result
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@typeIn
+DEFVAR LF@type1
+POPS LF@typeIn
+POPS LF@op1
+TYPE LF@type1 LF@op1
+JUMPIFEQ $is_true_26 LF@typeIn LF@type1
+PUSHS bool@false
+JUMP $is_end_26
+LABEL $is_true_26
+PUSHS bool@true
+LABEL $is_end_26
+POPFRAME
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@__if_cond
+DEFVAR LF@__if_type
+POPS LF@__if_cond
+TYPE LF@__if_type LF@__if_cond
+PUSHS LF@__if_type
+PUSHS string@nil
+JUMPIFEQS $else25
+PUSHS LF@__if_type
+PUSHS string@bool
+JUMPIFNEQS $then25
+PUSHS LF@__if_cond
+PUSHS bool@false
+JUMPIFEQS $else25
+LABEL $then25
+POPFRAME
+PUSHS string@substring(5,\0323):\032null\032OK\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int27 LF@tmp2 string@string
+JUMPIFEQ $write_is_int27 LF@tmp2 string@int
+JUMPIFEQ $write_is_float27 LF@tmp2 string@float
+JUMP $write_not_int27
+LABEL $write_is_float27
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int27 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int27
+WRITE LF@tmp
+JUMP $write_end27
+LABEL $write_not_int27
+WRITE LF@tmp
+LABEL $write_end27
+POPFRAME
+JUMP $endif25
+LABEL $else25
+POPFRAME
+PUSHS string@ERROR\032sub6\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int28 LF@tmp2 string@string
+JUMPIFEQ $write_is_int28 LF@tmp2 string@int
+JUMPIFEQ $write_is_float28 LF@tmp2 string@float
+JUMP $write_not_int28
+LABEL $write_is_float28
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int28 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int28
+WRITE LF@tmp
+JUMP $write_end28
+LABEL $write_not_int28
+WRITE LF@tmp
+LABEL $write_end28
+POPFRAME
+LABEL $endif25
+PUSHS LF@str4$2
+PUSHS float@0x1.4p+4
+PUSHS float@0x1.9p+4
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@str
+DEFVAR LF@start
+DEFVAR LF@end
+DEFVAR LF@len
+DEFVAR LF@result
+DEFVAR LF@idx
+DEFVAR LF@char
+DEFVAR LF@start_int
+DEFVAR LF@end_int
+DEFVAR LF@start_type
+DEFVAR LF@end_type
+DEFVAR LF@loop_cond
+POPS LF@end
+POPS LF@start
+POPS LF@str
+TYPE LF@start_type LF@start
+TYPE LF@end_type LF@end
+JUMPIFEQ $substr_type_error29 LF@start_type string@string
+JUMPIFEQ $substr_type_error29 LF@end_type string@string
+ISINT LF@result LF@start
+JUMPIFEQ $substr_type_error29 LF@result bool@false
+ISINT LF@result LF@end
+JUMPIFEQ $substr_type_error29 LF@result bool@false
+FLOAT2INT LF@start_int LF@start
+FLOAT2INT LF@end_int LF@end
+JUMP $substr_validations29
+LABEL $substr_type_error29
+EXIT int@6
+LABEL $substr_validations29
+STRLEN LF@len LF@str
+LT LF@result LF@start_int int@0
+JUMPIFEQ $substr_return_null29 LF@result bool@true
+LT LF@result LF@end_int int@0
+JUMPIFEQ $substr_return_null29 LF@result bool@true
+GT LF@result LF@start_int LF@end_int
+JUMPIFEQ $substr_return_null29 LF@result bool@true
+GT LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null29 LF@result bool@true
+EQ LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null29 LF@result bool@true
+GT LF@result LF@end_int LF@len
+JUMPIFEQ $substr_return_null29 LF@result bool@true
+MOVE LF@result string@
+MOVE LF@idx LF@start_int
+LABEL $substr_loop29
+LT LF@loop_cond LF@idx LF@end_int
+JUMPIFEQ $substr_done29 LF@loop_cond bool@false
+GETCHAR LF@char LF@str LF@idx
+CONCAT LF@result LF@result LF@char
+ADD LF@idx LF@idx int@1
+JUMP $substr_loop29
+LABEL $substr_done29
+PUSHS LF@result
+JUMP $substr_end29
+LABEL $substr_return_null29
+PUSHS nil@nil
+LABEL $substr_end29
+POPFRAME
+POPS LF@sub7$2
+PUSHS LF@sub7$2
+PUSHS string@nil
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@op2
+DEFVAR LF@type1
+DEFVAR LF@type2
+DEFVAR LF@result
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@typeIn
+DEFVAR LF@type1
+POPS LF@typeIn
+POPS LF@op1
+TYPE LF@type1 LF@op1
+JUMPIFEQ $is_true_31 LF@typeIn LF@type1
+PUSHS bool@false
+JUMP $is_end_31
+LABEL $is_true_31
+PUSHS bool@true
+LABEL $is_end_31
+POPFRAME
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@__if_cond
+DEFVAR LF@__if_type
+POPS LF@__if_cond
+TYPE LF@__if_type LF@__if_cond
+PUSHS LF@__if_type
+PUSHS string@nil
+JUMPIFEQS $else30
+PUSHS LF@__if_type
+PUSHS string@bool
+JUMPIFNEQS $then30
+PUSHS LF@__if_cond
+PUSHS bool@false
+JUMPIFEQS $else30
+LABEL $then30
+POPFRAME
+PUSHS string@substring(20,\03225):\032null\032OK\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int32 LF@tmp2 string@string
+JUMPIFEQ $write_is_int32 LF@tmp2 string@int
+JUMPIFEQ $write_is_float32 LF@tmp2 string@float
+JUMP $write_not_int32
+LABEL $write_is_float32
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int32 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int32
+WRITE LF@tmp
+JUMP $write_end32
+LABEL $write_not_int32
+WRITE LF@tmp
+LABEL $write_end32
+POPFRAME
+JUMP $endif30
+LABEL $else30
+POPFRAME
+PUSHS string@ERROR\032sub7\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int33 LF@tmp2 string@string
+JUMPIFEQ $write_is_int33 LF@tmp2 string@int
+JUMPIFEQ $write_is_float33 LF@tmp2 string@float
+JUMP $write_not_int33
+LABEL $write_is_float33
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int33 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int33
+WRITE LF@tmp
+JUMP $write_end33
+LABEL $write_not_int33
+WRITE LF@tmp
+LABEL $write_end33
+POPFRAME
+LABEL $endif30
+PUSHS LF@str4$2
+PUSHS float@0x0p+0
+PUSHS float@0x1.4p+4
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@str
+DEFVAR LF@start
+DEFVAR LF@end
+DEFVAR LF@len
+DEFVAR LF@result
+DEFVAR LF@idx
+DEFVAR LF@char
+DEFVAR LF@start_int
+DEFVAR LF@end_int
+DEFVAR LF@start_type
+DEFVAR LF@end_type
+DEFVAR LF@loop_cond
+POPS LF@end
+POPS LF@start
+POPS LF@str
+TYPE LF@start_type LF@start
+TYPE LF@end_type LF@end
+JUMPIFEQ $substr_type_error34 LF@start_type string@string
+JUMPIFEQ $substr_type_error34 LF@end_type string@string
+ISINT LF@result LF@start
+JUMPIFEQ $substr_type_error34 LF@result bool@false
+ISINT LF@result LF@end
+JUMPIFEQ $substr_type_error34 LF@result bool@false
+FLOAT2INT LF@start_int LF@start
+FLOAT2INT LF@end_int LF@end
+JUMP $substr_validations34
+LABEL $substr_type_error34
+EXIT int@6
+LABEL $substr_validations34
+STRLEN LF@len LF@str
+LT LF@result LF@start_int int@0
+JUMPIFEQ $substr_return_null34 LF@result bool@true
+LT LF@result LF@end_int int@0
+JUMPIFEQ $substr_return_null34 LF@result bool@true
+GT LF@result LF@start_int LF@end_int
+JUMPIFEQ $substr_return_null34 LF@result bool@true
+GT LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null34 LF@result bool@true
+EQ LF@result LF@start_int LF@len
+JUMPIFEQ $substr_return_null34 LF@result bool@true
+GT LF@result LF@end_int LF@len
+JUMPIFEQ $substr_return_null34 LF@result bool@true
+MOVE LF@result string@
+MOVE LF@idx LF@start_int
+LABEL $substr_loop34
+LT LF@loop_cond LF@idx LF@end_int
+JUMPIFEQ $substr_done34 LF@loop_cond bool@false
+GETCHAR LF@char LF@str LF@idx
+CONCAT LF@result LF@result LF@char
+ADD LF@idx LF@idx int@1
+JUMP $substr_loop34
+LABEL $substr_done34
+PUSHS LF@result
+JUMP $substr_end34
+LABEL $substr_return_null34
+PUSHS nil@nil
+LABEL $substr_end34
+POPFRAME
+POPS LF@sub8$2
+PUSHS LF@sub8$2
+PUSHS string@nil
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@op2
+DEFVAR LF@type1
+DEFVAR LF@type2
+DEFVAR LF@result
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@op1
+DEFVAR LF@typeIn
+DEFVAR LF@type1
+POPS LF@typeIn
+POPS LF@op1
+TYPE LF@type1 LF@op1
+JUMPIFEQ $is_true_36 LF@typeIn LF@type1
+PUSHS bool@false
+JUMP $is_end_36
+LABEL $is_true_36
+PUSHS bool@true
+LABEL $is_end_36
+POPFRAME
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@__if_cond
+DEFVAR LF@__if_type
+POPS LF@__if_cond
+TYPE LF@__if_type LF@__if_cond
+PUSHS LF@__if_type
+PUSHS string@nil
+JUMPIFEQS $else35
+PUSHS LF@__if_type
+PUSHS string@bool
+JUMPIFNEQS $then35
+PUSHS LF@__if_cond
+PUSHS bool@false
+JUMPIFEQS $else35
+LABEL $then35
+POPFRAME
+PUSHS string@substring(0,\03220):\032null\032OK\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int37 LF@tmp2 string@string
+JUMPIFEQ $write_is_int37 LF@tmp2 string@int
+JUMPIFEQ $write_is_float37 LF@tmp2 string@float
+JUMP $write_not_int37
+LABEL $write_is_float37
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int37 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int37
+WRITE LF@tmp
+JUMP $write_end37
+LABEL $write_not_int37
+WRITE LF@tmp
+LABEL $write_end37
+POPFRAME
+JUMP $endif35
+LABEL $else35
+POPFRAME
+PUSHS string@ERROR\032sub8\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int38 LF@tmp2 string@string
+JUMPIFEQ $write_is_int38 LF@tmp2 string@int
+JUMPIFEQ $write_is_float38 LF@tmp2 string@float
+JUMP $write_not_int38
+LABEL $write_is_float38
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int38 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int38
+WRITE LF@tmp
+JUMP $write_end38
+LABEL $write_not_int38
+WRITE LF@tmp
+LABEL $write_end38
+POPFRAME
+LABEL $endif35
+PUSHS string@Test\032completed\010
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@tmp2
+POPS LF@tmp
+TYPE LF@tmp2 LF@tmp
+JUMPIFEQ $write_not_int39 LF@tmp2 string@string
+JUMPIFEQ $write_is_int39 LF@tmp2 string@int
+JUMPIFEQ $write_is_float39 LF@tmp2 string@float
+JUMP $write_not_int39
+LABEL $write_is_float39
+ISINT LF@tmp2 LF@tmp
+JUMPIFNEQ $write_not_int39 LF@tmp2 bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $write_is_int39
+WRITE LF@tmp
+JUMP $write_end39
+LABEL $write_not_int39
+WRITE LF@tmp
+LABEL $write_end39
+POPFRAME
+POPFRAME
+CLEARS
+EXIT int@0

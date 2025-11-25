@@ -1,0 +1,74 @@
+.IFJcode25
+DEFVAR GF@__counter
+MOVE GF@__counter nil@nil
+JUMP $$main
+
+LABEL $getter_counter
+CREATEFRAME
+PUSHFRAME
+WRITE string@Getter\032start\010
+PUSHS GF@__counter
+WRITE string@After\032push\010
+DEFVAR LF@tmp
+POPS LF@tmp
+WRITE string@After\032pop,\032tmp=
+WRITE LF@tmp
+WRITE string@\010
+PUSHS LF@tmp
+PUSHS nil@nil
+WRITE string@Before\032cmp1\010
+JUMPIFEQS $else
+WRITE string@After\032cmp1\010
+PUSHS LF@tmp
+PUSHS bool@false
+WRITE string@Before\032cmp2\010
+JUMPIFEQS $else
+WRITE string@After\032cmp2,\032returning\032__counter\010
+PUSHS GF@__counter
+WRITE string@After\032push\032GF\010
+POPFRAME
+RETURN
+LABEL $else
+WRITE string@Else\032branch\010
+PUSHS float@0x0p+0
+POPFRAME
+RETURN
+
+LABEL $setter_counter
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@val
+POPS LF@val
+PUSHS LF@val
+POPS GF@__counter
+PUSHS nil@nil
+POPFRAME
+RETURN
+
+LABEL $$main
+CREATEFRAME
+PUSHFRAME
+
+WRITE string@===\032Call\0321\032===\010
+CALL $getter_counter
+DEFVAR LF@v1
+POPS LF@v1
+WRITE string@v1=
+WRITE LF@v1
+WRITE string@\010
+
+WRITE string@===\032Set\032===\010
+PUSHS float@0x1.4p+3
+CALL $setter_counter
+
+WRITE string@===\032Call\0322\032===\010
+CALL $getter_counter
+DEFVAR LF@v2
+POPS LF@v2
+WRITE string@v2=
+WRITE LF@v2
+WRITE string@\010
+
+POPFRAME
+CLEARS
+EXIT int@0

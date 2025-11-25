@@ -1,0 +1,27 @@
+.IFJcode25
+JUMP $$main
+
+LABEL $$main
+CREATEFRAME
+PUSHFRAME
+
+# Test INT2STR
+DEFVAR LF@test_int
+DEFVAR LF@result
+MOVE LF@test_int int@42
+INT2STR LF@result LF@test_int
+WRITE string@INT2STR:\032
+WRITE LF@result
+WRITE string@\010
+
+# Test FLOAT2STR
+DEFVAR LF@test_float
+MOVE LF@test_float float@0x1.5p+2
+FLOAT2STR LF@result LF@test_float
+WRITE string@FLOAT2STR:\032
+WRITE LF@result
+WRITE string@\010
+
+POPFRAME
+CLEARS
+EXIT int@0

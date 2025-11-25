@@ -1,0 +1,20 @@
+.IFJcode25
+JUMP $$main
+
+LABEL $$main
+CREATEFRAME
+PUSHFRAME
+
+PUSHS float@0x1.4p+3
+PUSHS bool@false
+WRITE string@Before\032cmp\010
+JUMPIFEQS $equal
+WRITE string@Not\032equal\010
+JUMP $end
+LABEL $equal
+WRITE string@Equal\010
+LABEL $end
+
+POPFRAME
+CLEARS
+EXIT int@0

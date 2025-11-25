@@ -1,0 +1,62 @@
+.IFJcode25
+JUMP $$main
+
+LABEL $$main
+CREATEFRAME
+PUSHFRAME
+
+# Simulate the str function with a float
+DEFVAR LF@val1
+DEFVAR LF@val1_str
+MOVE LF@val1 float@0x0p+0
+
+# Call str (inline)
+PUSHS LF@val1
+CREATEFRAME
+PUSHFRAME
+DEFVAR LF@tmp
+DEFVAR LF@type
+DEFVAR LF@result
+POPS LF@tmp
+TYPE LF@type LF@tmp
+WRITE string@Type:\032
+WRITE LF@type
+WRITE string@\010
+
+JUMPIFEQ $str_is_float LF@type string@float
+JUMPIFEQ $str_int LF@type string@int
+JUMPIFEQ $str_str LF@type string@string
+MOVE LF@result nil@nil
+JUMP $str_end
+LABEL $str_is_float
+ISINT LF@type LF@tmp
+JUMPIFNEQ $str_not_int LF@type bool@true
+FLOAT2INT LF@tmp LF@tmp
+LABEL $str_int
+INT2STR LF@result LF@tmp
+JUMP $str_end
+LABEL $str_not_int
+FLOAT2STR LF@result LF@tmp
+JUMP $str_end
+LABEL $str_str
+MOVE LF@result LF@tmp
+LABEL $str_end
+PUSHS LF@result
+POPFRAME
+POPS LF@val1_str
+
+# Check type of result
+DEFVAR LF@result_type
+TYPE LF@result_type LF@val1_str
+WRITE string@Result\032type:\032
+WRITE LF@result_type
+WRITE string@\010
+
+# Try to write it
+WRITE string@Value:\032
+WRITE LF@val1_str
+WRITE string@\010
+
+POPFRAME
+CLEARS
+EXIT int@0
