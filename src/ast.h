@@ -90,6 +90,7 @@ typedef struct ASTNode {
     /*int int_val;
     double float_val;
     char *string_val;*/
+    struct ASTNode* var_next; // for variable declarations list
 
     SymTable *current_table; // current symbol table for the block
     Scope *current_scope;      // current scope for semantic analysis

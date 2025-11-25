@@ -13,6 +13,8 @@
 
 int semantic_visit_count = 0;
 
+ASTNode *root_node; // Global root node for AST
+
 // Ensure every identifier expression carries the scope it resolves in.
 static void annotate_expr_scopes(ExprNode *expr, Scope *scope) {
     if (!expr) return;
@@ -764,6 +766,13 @@ int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_na
     return NO_ERROR;
 }
 
+void add_node_to_program_node(ASTNode *node){
+    ASTNode *tmp = root_node;
+    while(tmp->var_next != NULL){
+        tmp = tmp->var_next;
+    }
+    tmp->var_next = node;
+}
 
 // Check user function call
 int check_user_function_call(ASTNode *node, Scope *scope, SymTableData *func_symbol) {
@@ -1498,6 +1507,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
                 var_data->data.var_data->scope = current_scope;
                 
+                add_node_to_program_node(node); //adds vardecl to program's var decl list
                 // Set current_scope for the identifier node
                 if (node->left) {
                     node->left->current_scope = current_scope;
@@ -2127,6 +2137,7 @@ int semantic_analyze(ASTNode *root) {
         return ERROR_INTERNAL;
     }
     
+    root_node = root;
     // Debug: print all nodes
     //print_all_symbols(root);
 
