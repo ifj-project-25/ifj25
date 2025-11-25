@@ -912,12 +912,29 @@ int ord_func(ASTNode *node, FILE *output) {
     fprintf(output, "ISINT LF@result LF@index\n");
     fprintf(output, "JUMPIFNEQ $ord_type_error%d LF@result bool@true\n", ord_id);
 
-
     fprintf(output, "FLOAT2INT LF@index LF@index\n");
+    
+    // Validate index bounds: must be >= 0 and < length(str)
+    fprintf(output, "DEFVAR LF@len\n");
+    fprintf(output, "STRLEN LF@len LF@str\n");
+    
+    // Check if index < 0
+    fprintf(output, "LT LF@result LF@index int@0\n");
+    fprintf(output, "JUMPIFEQ $ord_invalid%d LF@result bool@true\n", ord_id);
+    
+    // Check if index >= length
+    fprintf(output, "LT LF@result LF@index LF@len\n");
+    fprintf(output, "JUMPIFEQ $ord_valid%d LF@result bool@true\n", ord_id);
+    
+    // Index out of bounds - return 0
+    fprintf(output, "LABEL $ord_invalid%d\n", ord_id);
+    fprintf(output, "PUSHS int@0\n");
+    fprintf(output, "JUMP $ord_end%d\n", ord_id);
+    
+    // Index is valid - get character
+    fprintf(output, "LABEL $ord_valid%d\n", ord_id);
     fprintf(output, "STRI2INT LF@result LF@str LF@index\n");
     fprintf(output, "PUSHS LF@result\n");
-    
-    //error handling for out of range could be added here
     fprintf(output, "JUMP $ord_end%d\n", ord_id);
     fprintf(output, "LABEL $ord_type_error%d\n", ord_id);
     fprintf(output, "EXIT int@26\n");

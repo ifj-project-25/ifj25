@@ -92,8 +92,12 @@ ExprNode* reduce_term_to_node(ExprPstack* stack){
             break;  
             
         case TOKEN_KEYWORD:
-            if (stack->top->token.value.keyword == KEYWORD_NULL_C ||
-                stack->top->token.value.keyword == KEYWORD_NULL_L) {
+            if (stack->top->token.value.keyword == KEYWORD_NULL_L) {
+                // Lowercase 'null' is a null literal value
+                node = create_null_literal_node();
+            }
+            else if (stack->top->token.value.keyword == KEYWORD_NULL_C) {
+                // Uppercase 'Null' is a type (for 'is' operator)
                 node = create_type_node("Null");
             }
             else if (stack->top->token.value.keyword == KEYWORD_NUM) {
