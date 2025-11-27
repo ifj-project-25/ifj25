@@ -959,6 +959,10 @@ static int CLASS(ASTNode *PROGRAM) {
 }
 static int PROLOG() { // CORRECT
 
+    skip_eol();
+    if (rc != NO_ERROR)
+        return rc;
+
     expected_keyword = KEYWORD_IMPORT;
     (token_control(TOKEN_KEYWORD, &expected_keyword));
     if (rc != NO_ERROR)
@@ -967,6 +971,11 @@ static int PROLOG() { // CORRECT
     next_token(&token);
     if (rc != NO_ERROR)
         return rc;
+
+    skip_eol();
+    if (rc != NO_ERROR)
+        return rc;
+
     token_control(TOKEN_STRING, "ifj25");
     if (rc != NO_ERROR)
         return rc;
@@ -981,6 +990,11 @@ static int PROLOG() { // CORRECT
     next_token(&token);
     if (rc != NO_ERROR)
         return rc;
+
+    skip_eol();
+    if (rc != NO_ERROR)
+        return rc;
+
     expected_keyword = KEYWORD_IFJ;
     (token_control(TOKEN_KEYWORD, &expected_keyword));
     if (rc != NO_ERROR)
@@ -1014,7 +1028,7 @@ int parser(ASTNode *PROGRAM) {
     if (rc != NO_ERROR)
         return rc;
 
-    rc = CLASS(PROGRAM);
+    CLASS(PROGRAM);
     if (rc != NO_ERROR)
         return rc;
     return rc;
