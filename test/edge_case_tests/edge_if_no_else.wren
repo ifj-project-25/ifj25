@@ -1,0 +1,9 @@
+import "ifj25" for Ifj
+class Program {
+static main() {
+var x
+x = 5
+if (x == 5) {
+}
+}
+}
