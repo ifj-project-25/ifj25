@@ -407,8 +407,9 @@ static ASTNode *STML(ASTNode *function) {
                 rc = ERROR_INTERNAL;
                 return NULL;
             }
-            if (token.type == TOKEN_EOL) {
-
+            if (token.type == TOKEN_EOL || token.type == TOKEN_RCURLY) {
+                rc = SYNTAX_ERROR;
+                return NULL;
             } else {
                 statement->left = EXPRESSION();
                 if (rc != NO_ERROR)
