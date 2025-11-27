@@ -1,7 +1,7 @@
 # author: xcernoj00,xmikusm00,xmalikm00
 
 CC = gcc
-CFLAGS = -g -std=c11 -Wall 
+CFLAGS = -g -std=c11 -Wall -Wextra -Werror
 
 TARGET = main
 

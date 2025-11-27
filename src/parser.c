@@ -25,10 +25,10 @@ static void token_control(TokenType expected_type, const void *expected_value);
 static ASTNode *IF();
 static ASTNode *WHILE();
 static ASTNode *VAR();
-static ASTNode *STML(ASTNode *function);
-static ASTNode *STML_LINE(ASTNode *function);
+static ASTNode *STML();
+static ASTNode *STML_LINE();
 static int STML_LIST(ASTNode *function);
-static int eol(void);
+static int eol();
 static ASTNode *BLOCK();
 ASTNode *PARAMETER_TAIL(ASTNode *node);
 ASTNode *PARAMETER_LIST();
@@ -45,10 +45,11 @@ int rc = NO_ERROR;
 int token_output = NO_ERROR;
 
 /**
- * @brief Skips EOL tokens.
+ * @brief Skips EOL tokens and sets the global token variable to the next
+ * non-EOL token.
  * @return int Error code.
  */
-static int skip_eol(void) {
+static int skip_eol() {
     while (token.type == TOKEN_EOL) {
         next_token(&token);
         if (rc != NO_ERROR)
@@ -70,6 +71,13 @@ static void next_token(Token *token) {
     }
 }
 
+/**
+ * @brief Function to control if the current token matches the expected
+ * type and value.
+ * @param expected_type The expected TokenType.
+ * @param expected_value Pointer to the expected value (for keywords,
+ * identifiers, strings).
+ */
 static void token_control(TokenType expected_type, const void *expected_value) {
     if (rc != NO_ERROR)
         return;
@@ -105,6 +113,11 @@ static void token_control(TokenType expected_type, const void *expected_value) {
         return;
     }
 }
+/**
+ * @brief Function to parse a function call, creating an AST node for it.
+ * @param id_node The AST node representing the function identifier.
+ * @return ASTNode* The AST node representing the function call.
+ */
 static ASTNode *FUNC_CALL(ASTNode *id_node) {
     next_token(&token);
     if (rc != NO_ERROR)
@@ -127,6 +140,13 @@ static ASTNode *FUNC_CALL(ASTNode *id_node) {
         return NULL;
     return call_node;
 }
+
+/**
+ * @brief Function parses an expression using the precedence parser and performs
+ * additional handling for function calls (parsing argument list and wrapping
+ * the resulting subtree).
+ * @return ASTNode* The AST node representing the expression.
+ */
 static ASTNode *EXPRESSION() {
     int error_code = NO_ERROR;
     ASTNode *expressionTree = main_precedence_parser(&token, &error_code);
@@ -159,6 +179,11 @@ static ASTNode *EXPRESSION() {
 
     return expressionTree;
 }
+
+/**
+ * @brief Function to parse an if statement, creating an AST node for it.
+ * @return ASTNode* The AST node representing the if statement.
+ */
 static ASTNode *IF() {
     ASTNode *node = create_ast_node(AST_IF, NULL);
     if (node == NULL) {
@@ -225,6 +250,10 @@ static ASTNode *IF() {
         return NULL;
     }
 
+    /**
+     * @brief Funcion to parse an else statement, creating an AST node for it.
+     * @return ASTNode* The AST node representing the else statement.
+     */
     ASTNode *else_node = create_ast_node(AST_ELSE, NULL);
     if (node == NULL) {
         rc = ERROR_INTERNAL;
@@ -248,6 +277,10 @@ static ASTNode *IF() {
 
     return node;
 }
+/**
+ * @brief Function to parse a while loop, creating an AST node for it.
+ * @return ASTNode* The AST node representing the while loop.
+ */
 static ASTNode *WHILE() {
     ASTNode *while_node = create_ast_node(AST_WHILE, NULL);
     if (while_node == NULL) {
@@ -287,7 +320,11 @@ static ASTNode *WHILE() {
         return NULL;
     return while_node;
 }
-
+/**
+ * @brief Function to parse a variable declaration, creating an AST node for
+ * it.
+ * @return ASTNode* The AST node representing the variable declaration.
+ */
 static ASTNode *VAR() {
     ASTNode *var_node = create_ast_node(AST_VAR_DECL, NULL);
     if (var_node == NULL) {
@@ -309,57 +346,13 @@ static ASTNode *VAR() {
 
     return var_node;
 }
-static ASTNode *IFJ() {
-    // Expect to be called when current token is DOT (STML consumed KEYWORD_IFJ
-    // and advanced)
-    token_control(TOKEN_DOT, NULL);
-    if (rc != NO_ERROR)
-        return NULL;
-
-    // Move to method identifier
-    next_token(&token);
-    if (rc != NO_ERROR)
-        return NULL;
-
-    // Method name identifier
-    token_control(TOKEN_IDENTIFIER, NULL);
-    if (rc != NO_ERROR)
-        return NULL;
-
-    // Create call node with method name (e.g., write)
-    ASTNode *node = create_ast_node(AST_FUNC_CALL, token.value.string->str);
-    if (node == NULL) {
-        rc = ERROR_INTERNAL;
-        return NULL;
-    }
-
-    // Expect '('
-    next_token(&token);
-    if (rc != NO_ERROR)
-        return NULL;
-    token_control(TOKEN_LPAREN, NULL);
-    if (rc != NO_ERROR)
-        return NULL;
-
-    // Move to first argument or RPAREN
-    next_token(&token);
-    if (rc != NO_ERROR)
-        return NULL;
-
-    // Parse argument list
-    node->left = PARAMETER_LIST();
-    if (rc != NO_ERROR)
-        return NULL;
-
-    // Expect ')'
-    token_control(TOKEN_RPAREN, NULL);
-    if (rc != NO_ERROR)
-        return NULL;
-
-    return node;
-}
-
-static ASTNode *STML(ASTNode *function) {
+/**
+ * @brief Function to parse a statement or list of statements and create AST
+ * nodes for them.
+ * @return ASTNode* The AST node representing the statement or list of
+ * statements.
+ */
+static ASTNode *STML() {
     ASTNode *statement = NULL;
 
     switch (token.type) {
@@ -415,20 +408,6 @@ static ASTNode *STML(ASTNode *function) {
                 if (rc != NO_ERROR)
                     return NULL;
             }
-            break;
-        case KEYWORD_IFJ:
-            next_token(&token);
-            if (rc != NO_ERROR)
-                return NULL;
-
-            statement = IFJ();
-            if (rc != NO_ERROR)
-                return NULL;
-
-            // Advance past ')', next should be EOL or other separator
-            next_token(&token);
-            if (rc != NO_ERROR)
-                return NULL;
             break;
 
         default:
@@ -502,22 +481,10 @@ static ASTNode *STML(ASTNode *function) {
             next_token(&token);
             if (rc != NO_ERROR)
                 return NULL;
-            if (token.type == TOKEN_KEYWORD &&
-                token.value.keyword == KEYWORD_IFJ) {
-                next_token(&token);
-                if (rc != NO_ERROR)
-                    return NULL;
-                assign_node->left->right = IFJ();
-                if (rc != NO_ERROR)
-                    return NULL;
-                next_token(&token);
-                if (rc != NO_ERROR)
-                    return NULL;
-            } else {
-                assign_node->left->right = EXPRESSION();
-                if (rc != NO_ERROR)
-                    return NULL;
-            }
+
+            assign_node->left->right = EXPRESSION();
+            if (rc != NO_ERROR)
+                return NULL;
             break;
         }
 
@@ -531,9 +498,13 @@ static ASTNode *STML(ASTNode *function) {
     }
     return statement;
 }
-static ASTNode *STML_LINE(ASTNode *function) {
+/**
+ * @brief Function to parse a single statement line, ensuring it ends with EOL.
+ * @return ASTNode* The AST node representing the statement line.
+ */
+static ASTNode *STML_LINE() {
 
-    ASTNode *current_function = STML(function);
+    ASTNode *current_function = STML();
     if (rc != NO_ERROR)
         return NULL;
 
@@ -543,9 +514,16 @@ static ASTNode *STML_LINE(ASTNode *function) {
 
     return current_function;
 }
+
+/**
+ * @brief Function to parse a list of statements within a block, linking them
+ * as siblings in the AST.
+ * @param block The AST node representing the current block context.
+ * @return int Error code.
+ */
 static int STML_LIST(ASTNode *block) {
     if (!((token.type == TOKEN_RCURLY))) {
-        ASTNode *current_statement = STML_LINE(block);
+        ASTNode *current_statement = STML_LINE();
         if (rc != NO_ERROR)
             return rc;
 
@@ -570,13 +548,21 @@ static int STML_LIST(ASTNode *block) {
     return NO_ERROR;
 }
 
+/**
+ * @brief Function to ensure the current token is EOL and skip subsequent EOLs.
+ * @return int Error code.
+ */
 static int eol() {
 
     token_control(TOKEN_EOL, NULL);
     skip_eol();
     return rc;
 }
-
+/**
+ * @brief Function to parse a block of code enclosed in curly braces,
+ * creating an AST node for it.
+ * @return ASTNode* The AST node representing the block.
+ */
 static ASTNode *BLOCK() {
     ASTNode *block = create_ast_node(AST_BLOCK, NULL);
     if (block == NULL) {
