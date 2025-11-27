@@ -69,12 +69,17 @@ test_semantic_basic: $(TEST_SEMANTIC_BASIC_SRCS)
 test_parsem: $(SRCS)
 	$(CC) $(CFLAGS) -Isrc -o main $^
 	@./test/test_parsem.sh
+
+test_complet: $(TARGET)
+	@chmod +x test/test_complet.sh
+	@./test/test_complet.sh $(FILE)
+
 clean:
 	rm -f $(TARGET) test_symtable test_semantic test_semantic_basic test_parsem
 	rm -f *.exe log.txt *.ifj25
 	rm -f $(ZIP_NAME).zip
 
-.PHONY: all clean zip 
+.PHONY: all clean zip test_complet 
 
 ZIP_NAME = xklusaa00
 zip:

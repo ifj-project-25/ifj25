@@ -1,0 +1,4 @@
+- Operand stack is empty
+- Label does not exist!
+- Symbol has not been initilized!
+
