@@ -13,6 +13,10 @@
 #include "expr_ast.h"
 #include <stdio.h>
 
+//---------- Global variables ----------
+extern bool in_main;
+
+
 //---------- Function declarations ----------
 
 //---------- Helper functions ----------

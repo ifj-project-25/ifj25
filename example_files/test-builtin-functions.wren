@@ -8,19 +8,25 @@ class Program {
         str1 = "hello"
         var len1
         len1 = Ifj.length(str1)
-        Ifj.write("length of 'hello': ", len1, "\n")
+        Ifj.write("length of 'hello': ")
+        Ifj.write(len1)
+        Ifj.write("\n")
         
         var str2
         str2 = ""
         var len2
         len2 = Ifj.length(str2)
-        Ifj.write("length of empty string: ", len2, "\n")
+        Ifj.write("length of empty string: ")
+        Ifj.write(len2)
+        Ifj.write("\n")
         
         var str3
         str3 = "IFJ project 2025"
         var len3
         len3 = Ifj.length(str3)
-        Ifj.write("length of 'IFJ project 2025': ", len3, "\n\n")
+        Ifj.write("length of 'IFJ project 2025': ")
+        Ifj.write(len3)
+        Ifj.write("\n\n")
         
         // Test Ifj.substring(s : String, i : Num, j : Num) → String | Null
         Ifj.write("=== Testing Ifj.substring ===\n")
@@ -28,15 +34,21 @@ class Program {
         str4 = "hello world"
         var sub1
         sub1 = Ifj.substring(str4, 0, 5)
-        Ifj.write("substring(0, 5) of 'hello world': '", sub1, "'\n")
+        Ifj.write("substring(0, 5) of 'hello world': '")
+        Ifj.write(sub1)
+        Ifj.write("'\n")
         
         var sub2
         sub2 = Ifj.substring(str4, 6, 11)
-        Ifj.write("substring(6, 11) of 'hello world': '", sub2, "'\n")
+        Ifj.write("substring(6, 11) of 'hello world': '")
+        Ifj.write(sub2)
+        Ifj.write("'\n")
         
         var sub3
         sub3 = Ifj.substring(str4, 0, 0)
-        Ifj.write("substring(0, 0) should be empty: '", sub3, "'\n")
+        Ifj.write("substring(0, 0) should be empty: '")
+        Ifj.write(sub3)
+        Ifj.write("'\n")
         
         // Test null returns
         Ifj.write("Testing null returns:\n")
@@ -84,15 +96,21 @@ class Program {
         Ifj.write("=== Testing Ifj.strcmp ===\n")
         var cmp1
         cmp1 = Ifj.strcmp("abc", "xyz")
-        Ifj.write("strcmp('abc', 'xyz'): ", cmp1, " (should be -1)\n")
+        Ifj.write("strcmp('abc', 'xyz'): ")
+        Ifj.write(cmp1)
+        Ifj.write(" (should be -1)\n")
         
         var cmp2
         cmp2 = Ifj.strcmp("hello", "hello")
-        Ifj.write("strcmp('hello', 'hello'): ", cmp2, " (should be 0)\n")
+        Ifj.write("strcmp('hello', 'hello'): ")
+        Ifj.write(cmp2)
+        Ifj.write(" (should be 0)\n")
         
         var cmp3
         cmp3 = Ifj.strcmp("zebra", "apple")
-        Ifj.write("strcmp('zebra', 'apple'): ", cmp3, " (should be 1)\n\n")
+        Ifj.write("strcmp('zebra', 'apple'): ")
+        Ifj.write(cmp3)
+        Ifj.write(" (should be 1)\n\n")
         
         // Test Ifj.ord(s : String, i : Num) → Num
         Ifj.write("=== Testing Ifj.ord ===\n")
@@ -100,41 +118,59 @@ class Program {
         str5 = "ABC"
         var ord1
         ord1 = Ifj.ord(str5, 0)
-        Ifj.write("ord('ABC', 0): ", ord1, " (should be 65 for 'A')\n")
+        Ifj.write("ord('ABC', 0): ")
+        Ifj.write(ord1)
+        Ifj.write(" (should be 65 for 'A')\n")
         
         var ord2
         ord2 = Ifj.ord(str5, 1)
-        Ifj.write("ord('ABC', 1): ", ord2, " (should be 66 for 'B')\n")
+        Ifj.write("ord('ABC', 1): ")
+        Ifj.write(ord2)
+        Ifj.write(" (should be 66 for 'B')\n")
         
         var ord3
         ord3 = Ifj.ord(str5, 2)
-        Ifj.write("ord('ABC', 2): ", ord3, " (should be 67 for 'C')\n")
+        Ifj.write("ord('ABC', 2): ")
+        Ifj.write(ord3)
+        Ifj.write(" (should be 67 for 'C')\n")
         
         var ord4
         ord4 = Ifj.ord("", 0)
-        Ifj.write("ord('', 0): ", ord4, " (should be 0 for empty string)\n")
+        Ifj.write("ord('', 0): ")
+        Ifj.write(ord4)
+        Ifj.write(" (should be 0 for empty string)\n")
         
         var ord5
         ord5 = Ifj.ord(str5, 10)
-        Ifj.write("ord('ABC', 10): ", ord5, " (should be 0 for out of bounds)\n\n")
+        Ifj.write("ord('ABC', 10): ")
+        Ifj.write(ord5)
+        Ifj.write(" (should be 0 for out of bounds)\n\n")
         
         // Test Ifj.chr(i : Num) → String
         Ifj.write("=== Testing Ifj.chr ===\n")
         var chr1
         chr1 = Ifj.chr(65)
-        Ifj.write("chr(65): '", chr1, "' (should be 'A')\n")
+        Ifj.write("chr(65): '")
+        Ifj.write(chr1)
+        Ifj.write("' (should be 'A')\n")
         
         var chr2
         chr2 = Ifj.chr(97)
-        Ifj.write("chr(97): '", chr2, "' (should be 'a')\n")
+        Ifj.write("chr(97): '")
+        Ifj.write(chr2)
+        Ifj.write("' (should be 'a')\n")
         
         var chr3
         chr3 = Ifj.chr(48)
-        Ifj.write("chr(48): '", chr3, "' (should be '0')\n")
+        Ifj.write("chr(48): '")
+        Ifj.write(chr3)
+        Ifj.write("' (should be '0')\n")
         
         var chr4
         chr4 = Ifj.chr(32)
-        Ifj.write("chr(32): '", chr4, "' (should be space)\n")
+        Ifj.write("chr(32): '")
+        Ifj.write(chr4)
+        Ifj.write("' (should be space)\n")
         
         Ifj.write("\n=== All tests completed ===\n")
     }

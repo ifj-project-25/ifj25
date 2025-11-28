@@ -10,6 +10,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+bool in_main = false;
+
 // Track emitted DEFVARs per frame to avoid duplicate definitions
 typedef struct VarDefNode {
     char name[128];
@@ -232,6 +234,11 @@ int var_decl (ASTNode *node, FILE *output) {
         identifier(node->left, output);
         fprintf(output, "\n");
         remember_var_def(vname, scope_num);
+
+        fprintf(output, "MOVE ");
+        identifier(node->left, output);
+        fprintf(output, " nil@nil\n");
+        fprintf(output, "\n");
     }
 
     if (node->right) {
@@ -459,18 +466,22 @@ int func_call(ASTNode *node, FILE *output) {
 
 int return_stmt(ASTNode *node, FILE *output) {
     if (!node) return -1;
-    
-    // Evaluate return expression (result on stack)
-    if (node->left) {
-        expression(node->left, output);
+    if (!in_main) {
+        // Evaluate return expression (result on stack)
+        if (node->left) {
+            expression(node->left, output);
+        } else {
+            // No return value - push nil
+            fprintf(output, "PUSHS nil@nil\n");
+        }
+        
+        // Return value is already on stack
+        fprintf(output, "POPFRAME\n");
+        fprintf(output, "RETURN\n");
     } else {
-        // No return value - push nil
-        fprintf(output, "PUSHS nil@nil\n");
+        fprintf(output, "POPFRAME\n");
+        fprintf(output, "EXIT int@0\n");
     }
-    
-    // Return value is already on stack
-    fprintf(output, "POPFRAME\n");
-    fprintf(output, "RETURN\n");
     
     return 0;
 }
@@ -1468,6 +1479,7 @@ int main_def(ASTNode *node, FILE *output) {
     if (main_emitted) {
         return 0; // skip duplicate main emission
     }
+    in_main = true;
     main_emitted = true;
     reset_var_defs();
     fprintf(output, "LABEL $$main\n");
@@ -1481,6 +1493,7 @@ int main_def(ASTNode *node, FILE *output) {
     }
     fprintf(output, "POPFRAME\n");
 
+    
     // Continue with next node (other functions)
     if (node->right) {
         return next_step(node->right->right, output);
