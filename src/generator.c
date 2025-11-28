@@ -402,25 +402,25 @@ int func_call(ASTNode *node, FILE *output) {
     if (!node || !node->name) return -1;
     
     // Check if it's a built-in function
-    if (strcmp(node->name, "Ifj.write") == 0) {
+    if (strcmp(node->name, "Ifj.write$1") == 0) {
         return write_func(node, output);
-    } else if (strcmp(node->name, "Ifj.read_num") == 0) {
+    } else if (strcmp(node->name, "Ifj.read_num$0") == 0) {
         return read_num_func(node, output);
-    } else if (strcmp(node->name, "Ifj.read_str") == 0) {
+    } else if (strcmp(node->name, "Ifj.read_str$0") == 0) {
         return read_str_func(node, output);
-    } else if (strcmp(node->name, "Ifj.floor") == 0) {
+    } else if (strcmp(node->name, "Ifj.floor$1") == 0) {
         return floor_func(node, output);
-    } else if (strcmp(node->name, "Ifj.str") == 0) {
+    } else if (strcmp(node->name, "Ifj.str$1") == 0) {
         return str_func(node, output);
-    } else if (strcmp(node->name, "Ifj.substring") == 0) {
+    } else if (strcmp(node->name, "Ifj.substring$3") == 0) {
         return substring_func(node, output);
-    } else if (strcmp(node->name, "Ifj.ord") == 0) {
+    } else if (strcmp(node->name, "Ifj.ord$2") == 0) {
         return ord_func(node, output);
-    } else if (strcmp(node->name, "Ifj.chr") == 0) {
+    } else if (strcmp(node->name, "Ifj.chr$1") == 0) {
         return chr_func(node, output);
-    } else if (strcmp(node->name, "Ifj.strcmp") == 0) {
+    } else if (strcmp(node->name, "Ifj.strcmp$2") == 0) {
         return strcmp_func(node, output);
-    } else if (strcmp(node->name, "Ifj.length") == 0) {
+    } else if (strcmp(node->name, "Ifj.length$1") == 0) {
         return length_func(node, output);
     }
     
@@ -624,6 +624,7 @@ int write_func(ASTNode *node, FILE *output) {
         arg = arg->left;  // Next argument
     }
     fprintf(output, "POPFRAME\n");
+    fprintf(output, "PUSHS nil@nil\n"); //change to avoid shit - to avoid stack underflow
     return 0;
 }
 

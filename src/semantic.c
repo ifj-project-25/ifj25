@@ -446,28 +446,22 @@ int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type) {
 
                 // Arithmetic operators - NULL not allowed
                 case OP_ADD:
-                    if (left == TYPE_NULL || right == TYPE_NULL) {
-                        fprintf(stderr, "[SEMANTIC] TYPE_NULL not allowed in arithmetic operator ADD\n");
-                        return SEM_ERROR_TYPE_COMPATIBILITY;
-                    }
+                    
                     if (left == TYPE_NUM && right == TYPE_NUM) { *out_type = TYPE_NUM; return NO_ERROR; }
-                    if (left == TYPE_STRING && right == TYPE_STRING) { *out_type = TYPE_STRING; return NO_ERROR; }
+                    else if (left == TYPE_STRING && right == TYPE_STRING) { *out_type = TYPE_STRING; return NO_ERROR; }
+                    else if(left == TYPE_STRING && right == TYPE_NUM) { *out_type = TYPE_UNDEF; return SEM_ERROR_TYPE_COMPATIBILITY; }
+                    else if(left == TYPE_NUM && right == TYPE_STRING) { *out_type = TYPE_UNDEF; return SEM_ERROR_TYPE_COMPATIBILITY; }
+                    return NO_ERROR;
                     break;
 
                 case OP_SUB:
                 case OP_DIV:
-                    if (left == TYPE_NULL || right == TYPE_NULL) {
-                        fprintf(stderr, "[SEMANTIC] TYPE_NULL not allowed in arithmetic operator %d\n", op);
-                        return SEM_ERROR_TYPE_COMPATIBILITY;
-                    }
+                    
                     if (left == TYPE_NUM && right == TYPE_NUM) { *out_type = TYPE_NUM; return NO_ERROR; }
                     break;
 
                 case OP_MUL:
-                    if (left == TYPE_NULL || right == TYPE_NULL) {
-                        fprintf(stderr, "[SEMANTIC] TYPE_NULL not allowed in arithmetic operator MUL\n");
-                        return SEM_ERROR_TYPE_COMPATIBILITY;
-                    }
+                   
                     if (left == TYPE_NUM && right == TYPE_NUM) { *out_type = TYPE_NUM; return NO_ERROR; }
                     if (left == TYPE_STRING && right == TYPE_NUM) { *out_type = TYPE_STRING; return NO_ERROR; }
                     break;
@@ -1310,6 +1304,10 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 char overload_key[128];
                 snprintf(overload_key, sizeof(overload_key), "%s$%d", func_name, param_count);
 
+                // Update node->name to include parameter count suffix for code generation
+                /*free(node->name);
+                node->name = my_strdup(overload_key);*/
+
                 // Ensure the function symbol exists (insert if missing)
                 SymTableData *existing = lookup_symbol(current_scope, overload_key);
                 if (!existing) {
@@ -1881,11 +1879,17 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
             case AST_FUNC_CALL: {
                 
                 const char *func_name = node->name;
+                
                 int argc = count_arguments(node->left);
 
                 // Zložíme lookup key
                 char keybuf[128];
                 snprintf(keybuf, sizeof(keybuf), "%s$%d", func_name, argc);
+
+                // Update node->name to include parameter count suffix for code generation
+                free(node->name);
+                node->name = my_strdup(keybuf);
+                
 
                 // Hľadáme presné preťaženie
                 SymTableData *func_symbol = lookup_symbol(current_scope, keybuf);
@@ -1898,6 +1902,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         fprintf(stderr, "[SEMANTIC] Undefined function '%s' with %d arguments\n", func_name, argc);
                         return SEM_ERROR_UNDEFINED;
                     }
+                
                 int err =  check_user_function_call(node, current_scope, func_symbol);
                 
                 if(err != NO_ERROR) return err;
