@@ -12,77 +12,6 @@
 
 bool in_main = false;
 
-// Track emitted DEFVARs per frame to avoid duplicate definitions
-typedef struct VarDefNode {
-    char name[128];
-    int scope_num;
-    struct VarDefNode *next;
-} VarDefNode;
-
-static VarDefNode *var_defs_head = NULL;
-static bool main_emitted = false;
-
-typedef struct VisitedNode {
-    const ASTNode *node;
-    struct VisitedNode *next;
-} VisitedNode;
-
-static VisitedNode *visited_head = NULL;
-
-static void reset_visited(void) {
-    VisitedNode *cur = visited_head;
-    while (cur) {
-        VisitedNode *tmp = cur;
-        cur = cur->next;
-        free(tmp);
-    }
-    visited_head = NULL;
-}
-
-static bool already_visited(const ASTNode *node) {
-    for (VisitedNode *cur = visited_head; cur; cur = cur->next) {
-        if (cur->node == node) return true;
-    }
-    return false;
-}
-
-static void mark_visited(const ASTNode *node) {
-    VisitedNode *v = malloc(sizeof(VisitedNode));
-    if (!v) return;
-    v->node = node;
-    v->next = visited_head;
-    visited_head = v;
-}
-
-static void reset_var_defs(void) {
-    VarDefNode *cur = var_defs_head;
-    while (cur) {
-        VarDefNode *tmp = cur;
-        cur = cur->next;
-        free(tmp);
-    }
-    var_defs_head = NULL;
-}
-
-static bool var_already_defined(const char *name, int scope_num) {
-    for (VarDefNode *cur = var_defs_head; cur; cur = cur->next) {
-        if (cur->scope_num == scope_num && strcmp(cur->name, name) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static void remember_var_def(const char *name, int scope_num) {
-    VarDefNode *n = malloc(sizeof(VarDefNode));
-    if (!n) return;
-    strncpy(n->name, name, sizeof(n->name) - 1);
-    n->name[sizeof(n->name) - 1] = '\0';
-    n->scope_num = scope_num;
-    n->next = var_defs_head;
-    var_defs_head = n;
-}
-
 
 
 void print_convert_string(const char* input , FILE *output) {
@@ -227,19 +156,13 @@ int expr_identifier (ExprNode *node, FILE *output) {
 }
 
 int var_decl (ASTNode *node, FILE *output) {
-    const char *vname = node->left && node->left->name ? node->left->name : "";
-    int scope_num = get_scope_number(node->left);
-    if (!var_already_defined(vname, scope_num)) {
-        fprintf(output, "DEFVAR ");
-        identifier(node->left, output);
-        fprintf(output, "\n");
-        remember_var_def(vname, scope_num);
-
-        fprintf(output, "MOVE ");
-        identifier(node->left, output);
-        fprintf(output, " nil@nil\n");
-        fprintf(output, "\n");
-    }
+    fprintf(output, "DEFVAR ");
+    identifier(node->left, output);
+    fprintf(output, "\n");
+    fprintf(output, "MOVE ");
+    identifier(node->left, output);
+    fprintf(output, " nil@nil\n");
+    fprintf(output, "\n");
 
     if (node->right) {
         return 0;
@@ -363,7 +286,6 @@ int block(ASTNode *node, FILE *output) {
 
 int func_def(ASTNode *node, FILE *output) {
     if (!node || !node->name) return -1;
-    reset_var_defs();
     
     // Create function label
     fprintf(output, "JUMP $endfunc_%s\n", node->name);
@@ -489,7 +411,6 @@ int return_stmt(ASTNode *node, FILE *output) {
 int getter_def(ASTNode *node, FILE *output) {
     // Similar to func_def but no parameters
     if (!node || !node->name) return -1;
-    reset_var_defs();
     
     // Create function label
     fprintf(output, "JUMP $endgetter_%s\n", node->name);
@@ -519,7 +440,6 @@ int getter_def(ASTNode *node, FILE *output) {
 int setter_def(ASTNode *node, FILE *output) {
     // Similar to func_def but no parameters
     if (!node || !node->name) return -1;
-    reset_var_defs();
     
     // Create function label
     fprintf(output, "JUMP $endsetter_%s\n", node->name);
@@ -1476,12 +1396,7 @@ void generate_builtin_functions(FILE *output) {
 // Main function definition
 int main_def(ASTNode *node, FILE *output) {
     if (!node) return -1;
-    if (main_emitted) {
-        return 0; // skip duplicate main emission
-    }
     in_main = true;
-    main_emitted = true;
-    reset_var_defs();
     fprintf(output, "LABEL $$main\n");
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
@@ -1518,8 +1433,6 @@ int vars_def(ASTNode *node, FILE *output) {
 // Code generation function
 int generate_code(ASTNode *root, FILE *output) {
     if (!root || !output) return -1;
-    main_emitted = false;
-    reset_visited();
     
     // 1. Write IFJcode25 header
     fprintf(output, ".IFJcode25\n");
@@ -1554,8 +1467,7 @@ int generate_code(ASTNode *root, FILE *output) {
 
 int next_step(ASTNode *node, FILE *output) {
     if (!node) return 0;
-    if (already_visited(node)) return 0;
-    mark_visited(node);
+
     
     switch(node->type) {
         case AST_VAR_DECL:
