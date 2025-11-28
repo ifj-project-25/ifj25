@@ -48,6 +48,69 @@ int token_output = NO_ERROR;
  * @brief Skips EOL tokens.
  * @return int Error code.
  */
+static const char *token_type_to_string(TokenType type) {
+    switch (type) {
+    case TOKEN_UNDEFINED:
+        return "TOKEN_UNDEFINED";
+    case TOKEN_EOF:
+        return "TOKEN_EOF";
+    case TOKEN_EOL:
+        return "TOKEN_EOL";
+    case TOKEN_GLOBAL_VAR:
+        return "TOKEN_GLOBAL_VAR";
+    case TOKEN_IDENTIFIER:
+        return "TOKEN_IDENTIFIER";
+    case TOKEN_KEYWORD:
+        return "TOKEN_KEYWORD";
+    case TOKEN_INTEGER:
+        return "TOKEN_INTEGER";
+    case TOKEN_DOUBLE:
+        return "TOKEN_DOUBLE";
+    case TOKEN_STRING:
+        return "TOKEN_STRING";
+    case TOKEN_PLUS:
+        return "TOKEN_PLUS";
+    case TOKEN_MINUS:
+        return "TOKEN_MINUS";
+    case TOKEN_MULTIPLY:
+        return "TOKEN_MULTIPLY";
+    case TOKEN_DIVIDE:
+        return "TOKEN_DIVIDE";
+    case TOKEN_EQUAL:
+        return "TOKEN_EQUAL";
+    case TOKEN_NEQUAL:
+        return "TOKEN_NEQUAL";
+    case TOKEN_LESSER:
+        return "TOKEN_LESSER";
+    case TOKEN_GREATER:
+        return "TOKEN_GREATER";
+    case TOKEN_LESSER_EQUAL:
+        return "TOKEN_LESSER_EQUAL";
+    case TOKEN_GREATER_EQUAL:
+        return "TOKEN_GREATER_EQUAL";
+    case TOKEN_NOT:
+        return "TOKEN_NOT";
+    case TOKEN_LOGIC_EQUAL:
+        return "TOKEN_LOGIC_EQUAL";
+    case TOKEN_LPAREN:
+        return "TOKEN_LPAREN";
+    case TOKEN_RPAREN:
+        return "TOKEN_RPAREN";
+    case TOKEN_LCURLY:
+        return "TOKEN_LCURLY";
+    case TOKEN_RCURLY:
+        return "TOKEN_RCURLY";
+    case TOKEN_DOT:
+        return "TOKEN_DOT";
+    case TOKEN_COMMA:
+        return "TOKEN_COMMA";
+    case TOKEN_DOLLAR:
+        return "TOKEN_DOLLAR";
+    default:
+        return "UNKNOWN_TOKEN";
+    }
+}
+
 static int skip_eol(void) {
     while (token.type == TOKEN_EOL) {
         next_token(&token);
@@ -74,6 +137,9 @@ static void token_control(TokenType expected_type, const void *expected_value) {
     if (rc != NO_ERROR)
         return;
     if (token.type != expected_type) {
+        printf("Expected token type %s but got %s \n",
+               token_type_to_string(expected_type),
+               token_type_to_string(token.type));
         rc = SYNTAX_ERROR;
 
         return;
@@ -82,6 +148,10 @@ static void token_control(TokenType expected_type, const void *expected_value) {
     case TOKEN_KEYWORD:
         if (token.value.keyword != *(const Keyword *)expected_value) {
             rc = SYNTAX_ERROR;
+            printf("Expected token type %s but got %s \n",
+                   token_type_to_string(expected_type),
+                   token_type_to_string(token.type));
+
             return;
         }
         return;
@@ -89,6 +159,9 @@ static void token_control(TokenType expected_type, const void *expected_value) {
         if (token.value.string == NULL ||
             d_string_cmp(token.value.string, expected_value)) {
             rc = SYNTAX_ERROR;
+            printf("Expected token type %s but got %s \n",
+                   token_type_to_string(expected_type),
+                   token_type_to_string(token.type));
             return;
         }
         return;
@@ -131,7 +204,7 @@ static ASTNode *EXPRESSION() {
     int error_code = NO_ERROR;
     ASTNode *expressionTree = main_precedence_parser(&token, &error_code);
     if (expressionTree == NULL || error_code != NO_ERROR) {
-        // printf("Error: Failed to parse expression\n");
+        printf("Error: Failed to parse expression\n");
         rc = SYNTAX_ERROR;
         return NULL;
     }

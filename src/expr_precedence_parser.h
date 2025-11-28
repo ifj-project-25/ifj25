@@ -5,10 +5,10 @@
  */
 #ifndef EXPR_STACK_PRECEDENCE_H
 #define EXPR_STACK_PRECEDENCE_H
+#include "ast.h"
+#include "expr_ast.h"
 #include "scanner.h"
 #include <stdbool.h>
-#include "expr_ast.h"
 
-
-ASTNode* main_precedence_parser();
-#endif //EXPR_STACK_PRECEDENCE_H
+ASTNode *main_precedence_parser(Token *token, int *rc);
+#endif // EXPR_STACK_PRECEDENCE_H
