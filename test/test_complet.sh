@@ -72,8 +72,8 @@ passed=0
 compiler_errors=0
 runtime_errors=0
 
-echo -e "${BLUE}=== Testing files that should PASS (codes-OK) ===${NC}"
-for file in test/codes-OK/*.wren; do
+echo -e "${BLUE}=== Testing files that should PASS (codes-COMPLET) ===${NC}"
+for file in test/codes-COMPLET/*.wren; do
     [ -f "$file" ] || continue
     total=$((total + 1))
     

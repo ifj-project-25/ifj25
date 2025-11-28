@@ -1639,7 +1639,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                         }
 
                         DataType setter_param = sym->data.setter_data->param_type;
-                        if (right_type != TYPE_UNDEF && setter_param != TYPE_UNDEF && right_type != setter_param) {
+                        // If setter expects TYPE_UNDEF or TYPE_NULL, accept any type (wildcard)
+                        if (setter_param != TYPE_UNDEF && setter_param != TYPE_NULL && right_type != TYPE_UNDEF && right_type != setter_param) {
                             fprintf(stderr, "[SEMANTIC] Type mismatch in setter call to '%s': expected %d, got %d\n", node->name, setter_param, right_type);
                             return SEM_ERROR_TYPE_COMPATIBILITY;
                         }
@@ -1698,7 +1699,8 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 }
 
                 DataType setter_param = sym->data.setter_data->param_type;
-                if (right_type != TYPE_UNDEF && setter_param != TYPE_UNDEF && right_type != setter_param) {
+                // If setter expects TYPE_UNDEF, accept any type
+                if (setter_param != TYPE_UNDEF && right_type != TYPE_UNDEF && right_type != setter_param) {
                     fprintf(stderr, "[SEMANTIC] Type mismatch in setter call to '%s': expected %d, got %d\n", node->name, setter_param, right_type);
                     return SEM_ERROR_TYPE_COMPATIBILITY;
                 }
