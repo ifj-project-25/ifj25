@@ -360,6 +360,7 @@ static ASTNode *IFJ() {
 }
 
 static ASTNode *STML(ASTNode *function) {
+    (void)function;
     ASTNode *statement = NULL;
 
     switch (token.type) {

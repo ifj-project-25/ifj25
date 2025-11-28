@@ -4,18 +4,16 @@
  * @brief Main function of interpret
  */
 
+#include "ast.h"
 #include "error.h"
+#include "expr_ast.h"
+#include "expr_precedence_parser.h"
+#include "generator.h"
+#include "parser.h"
 #include "scanner.h"
 #include "semantic.h"
-#include <stdio.h>
-#include "parser.h"
 #include "symtable.h"
-#include "expr_precedence_parser.h"
-#include "expr_ast.h"
-#include "ast.h"
-#include "generator.h"
-
-
+#include <stdio.h>
 
 /* static void symtable_dump_node(SNode *node, int depth) {
     if (!node) return;
@@ -45,8 +43,8 @@ static void expr_ast_dump_node(const ExprNode *node, int depth) {
         printf("id(%s)\n", node->data.identifier_name);
         break;
     case EXPR_BINARY_OP:
-        printf("op(%d)\n", node->data.binary.op);  // map enum to text if you like
-        expr_ast_dump_node(node->data.binary.left,  depth + 1);
+        printf("op(%d)\n", node->data.binary.op);  // map enum to text if you
+like expr_ast_dump_node(node->data.binary.left,  depth + 1);
         expr_ast_dump_node(node->data.binary.right, depth + 1);
         return;
     default:
@@ -63,20 +61,22 @@ int main() {
 
     FILE *source_file;
     source_file = stdin;
- 
+
     set_source_file(source_file);
-    ASTNode* PROGRAM = create_ast_node(AST_PROGRAM, NULL);
-    
+
+    // print_token_types();
+
+    ASTNode *PROGRAM = create_ast_node(AST_PROGRAM, NULL);
+
     int error_code = parser(PROGRAM);
 
     /* if (PROGRAM) {
         print_ast_tree(PROGRAM);
     }  */
     if (error_code != NO_ERROR) {
-        //fprintf(stderr, "Error during parsing: %d\n", error_code);
+        // fprintf(stderr, "Error during parsing: %d\n", error_code);
         return error_code;
-    }
-    else{
+    } else {
         FILE *fileOut;
         fileOut = stdout;
         /* FILE *fileOut;
@@ -87,18 +87,20 @@ int main() {
         } */
         error_code = semantic_analyze(PROGRAM);
         if (error_code != NO_ERROR) {
-            //fprintf(stderr, "Error during semantic analysis: %d\n", error_code);
+            // fprintf(stderr, "Error during semantic analysis: %d\n",
+            // error_code);
             return error_code;
         }
         error_code = generate_code(PROGRAM, fileOut);
         if (error_code != NO_ERROR) {
-            //fprintf(stderr, "Error during code generation: %d\n", error_code);
+            // fprintf(stderr, "Error during code generation: %d\n",
+            // error_code);
             return error_code;
         }
-        
+
         fclose(source_file);
         fclose(fileOut);
     }
-    
+
     return error_code;
 }

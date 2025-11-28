@@ -73,6 +73,7 @@ static int check_keyword(DynamicString *d_string, Token *token) {
             token->type = TOKEN_GLOBAL_VAR;
         } else {
             if (d_string->str[0] == '_') {
+                exit(SCANNER_ERROR);
                 return SCANNER_ERROR; // Invalid identifier starting with single
                                       // _
             }
@@ -210,6 +211,7 @@ int get_token(Token *token) {
                 token->type = TOKEN_COMMA;
                 return NO_ERROR;
             } else {
+                exit(SCANNER_ERROR);
                 return SCANNER_ERROR; // Unknown character
             }
             break;
@@ -217,10 +219,23 @@ int get_token(Token *token) {
         case STATE_IDENTIFY_WORD:
             if (isalnum(c) || c == '_') {
                 d_string_add_char(&d_string, c);
-            } else { // check if word is 'ifj' and is followed by dot
+            } else { // check if word is 'Ifj' and is followed by dot
                 if (d_string_cmp(&d_string, "Ifj") == 0) {
+
+                    while (c == ' ') {
+                        c = fgetc(source_file);
+                    }
+
                     if (c == '.') {
                         d_string_add_char(&d_string, c);
+
+                        // Skip whitespace after the dot
+                        c = fgetc(source_file);
+                        while (c == ' ') {
+                            c = fgetc(source_file);
+                        }
+                        d_string_add_char(&d_string, c);
+
                     } else {
                         ungetc(c, source_file);
                         return check_keyword(&d_string, token);
@@ -263,6 +278,7 @@ int get_token(Token *token) {
             } else {
                 ungetc(c, source_file);
                 if (d_string.length <= 2) { // Only "0x" without digits
+                    exit(SCANNER_ERROR);
                     return SCANNER_ERROR;
                 }
                 // Convert hexadecimal to integer
@@ -301,6 +317,7 @@ int get_token(Token *token) {
                 char last_char = d_string.str[d_string.length - 1];
                 if (last_char == 'e' || last_char == 'E' || last_char == '+' ||
                     last_char == '-') {
+                    exit(SCANNER_ERROR);
                     return SCANNER_ERROR; // Incomplete exponent
                 }
                 token->type = TOKEN_DOUBLE;
@@ -311,6 +328,7 @@ int get_token(Token *token) {
 
         case STATE_STRING:
             if (c == EOF) {
+                exit(SCANNER_ERROR);
                 return SCANNER_ERROR; // Unterminated string
             } else if (c == '"') {
                 // End of string
@@ -338,6 +356,7 @@ int get_token(Token *token) {
             } else if (c == '\\') {
                 state = STATE_ESCAPE_SEQ;
             } else if (c == '\n') {
+                exit(SCANNER_ERROR);
                 return SCANNER_ERROR; // Newline in string not allowed
             } else {
                 d_string_add_char(&d_string, c);
@@ -365,6 +384,7 @@ int get_token(Token *token) {
                 hex_value = 0;
                 state = STATE_HEXADECIMAL2;
             } else {
+                exit(SCANNER_ERROR);
                 return SCANNER_ERROR; // Invalid escape sequence
             }
             break;
@@ -388,12 +408,14 @@ int get_token(Token *token) {
                     state = STATE_STRING;
                 }
             } else {
+                exit(SCANNER_ERROR);
                 return SCANNER_ERROR; // Invalid hexadecimal escape
             }
             break;
 
         case STATE_MULTILINE_STRING:
             if (c == EOF) {
+                exit(SCANNER_ERROR);
                 return SCANNER_ERROR; // Unterminated multiline string
             } else if (c == '"') {
                 // Check for closing """
@@ -451,6 +473,7 @@ int get_token(Token *token) {
                 while (block_depth > 0) {
                     c = fgetc(source_file);
                     if (c == EOF) {
+                        exit(SCANNER_ERROR);
                         return SCANNER_ERROR; // Unterminated block comment
                     } else if (c == '/' && fgetc(source_file) == '*') {
                         block_depth++; // Nested block comment
@@ -519,6 +542,7 @@ int get_token(Token *token) {
             break;
 
         default:
+            exit(SCANNER_ERROR);
             return SCANNER_ERROR;
         }
     }

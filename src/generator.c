@@ -691,6 +691,7 @@ int str_func(ASTNode *node, FILE *output) {
 }
 
 int read_num_func(ASTNode *node, FILE *output) {
+    (void)node;
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
     
@@ -849,6 +850,7 @@ int length_func(ASTNode *node, FILE *output) {
 }
 
 int read_str_func(ASTNode *node, FILE *output) {
+    (void)node;
     fprintf(output, "CREATEFRAME\n");
     fprintf(output, "PUSHFRAME\n");
 
@@ -1424,6 +1426,7 @@ void def_global(SNode *sym, FILE *output) {
 }
 
 int gen_globals(ASTNode *node, Scope *scope, FILE *output){
+    (void)node;
     if (!scope) return 0;
     SymTable *table = &scope->symbols;
     SNode *current = table->root;
