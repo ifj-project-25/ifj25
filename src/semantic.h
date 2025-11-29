@@ -1,7 +1,15 @@
 /**
  * @file semantic.h
- * @brief Header for semantic analysis phase
+ * @brief Header for semantic analysis phase of IFJ25 compiler
  * @author xmalikm00
+ * 
+ * This file defines the interface for semantic analysis, which validates
+ * the AST (Abstract Syntax Tree) for semantic correctness and preparing for code generation, including:
+ * - Type checking and type inference
+ * - Symbol table management and scope resolution
+ * - Function overloading validation
+ * - Variable initialization checking
+ * - Built-in function validation
  */
 
 #ifndef SEMANTIC_H
@@ -11,79 +19,317 @@
 #include "ast.h"
 #include "error.h"
 
-extern int semantic_visit_count;
-
-//---------- Scope structure for symbol tables ----------
-// Scope structure for symbol tables
-typedef struct Scope {
-    SymTable symbols;        // symboly v tomto scope
-    struct Scope *parent;    // nadradený scope
-} Scope;
-
-//---------- Function declarations ----------
-
-// Function to initialize a new scope
-Scope* init_scope();
-
-// Function to free a scope and its symbol table
-void free_scope(Scope* scope);
-
-// Function to free all semantic resources including AST and symbol tables
-
-void free_semantic_resources(ASTNode *root, Scope *global_scope);
-void free_scope(Scope* scope);
-
-//---------- Utility functions ----------
-
-// strdup replacement (not in C standard)
-char* my_strdup(const char* s);
-
-// print all symbols in the symbol table (for debugging)
-void print_all_symbols(ASTNode *node);
-
-// Convert AST node type to string for debugging
-const char* ast_node_type_to_string(ASTNodeType type);
-
-// Look up symbol in current and parent scopes
-SymTableData* lookup_symbol(Scope *scope, const char *name);
-
-// Preload built-in functions into global scope
-void preload_builtins(Scope *global_scope);
-
-// Check of uninitialized variables
-int check_uninitialized_usage(ExprNode* expr, Scope* scope);
-
-// Infer data type of an expression
-int infer_expression_type(ASTNode *expr, Scope *scope, DataType *out_type);
-
-// Count arguments in function call
-int count_arguments(ASTNode *arg_list);
-
-// Check built-in function call
-int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_name);
-
-// Check user function call
-int check_user_function_call(ASTNode *node, Scope *scope, SymTableData *func_symbol);
-
-// Collect function definitions into the global scope
-int collect_function_definitions(ASTNode *node, Scope *global_scope);
-
-//---------- Semantic analysis functions ----------
+// ========== Scope Structure ==========
 
 /**
- * @brief Performs semantic analysis on the given symbol tree.
- *
- * @param root Root node of the symbol table or parsed program structure.
- * @return SemanticResult error code or NO_ERROR if everything is valid.
+ * @struct Scope
+ * @brief Represents a lexical scope for symbol resolution
+ * 
+ * Scopes form a hierarchical structure (tree) where each scope has a parent
+ * (except the global scope). This allows for proper symbol resolution that
+ * searches from inner to outer scopes.
+ * 
+ * Example scope hierarchy:
+ * - Global scope (parent = NULL)
+ *   - Function scope (parent = global)
+ *     - Block scope (parent = function)
+ *       - Nested block scope (parent = block)
+ */
+typedef struct Scope {
+    /** @brief Symbol table for this scope (AVL tree) */
+    SymTable symbols;
+    
+    /** @brief Parent scope (outer scope), NULL for global scope */
+    struct Scope *parent;
+} Scope;
+
+// ========== Scope Management Functions ==========
+
+/**
+ * @brief Initializes a new scope with an empty symbol table
+ * 
+ * Creates and initializes a new Scope structure with an empty symbol table.
+ * The parent pointer is set to NULL and should be assigned by the caller
+ * to establish the scope hierarchy.
+ * 
+ * @return Pointer to newly created scope
+ * @retval NULL if memory allocation fails
+ * 
+ * @note The returned scope must be freed using free_scope() when no longer needed
+ * @note Remember to set the parent pointer to establish scope hierarchy
+ * 
+ * Example:
+ * @code
+ * Scope *global = init_scope();
+ * Scope *local = init_scope();
+ * local->parent = global;  // Establish hierarchy
+ * @endcode
+ */
+Scope* init_scope();
+
+/**
+ * @brief Frees a scope and its associated symbol table
+ * 
+ * Deallocates memory for a scope structure and its symbol table.
+ * Does NOT free the parent scope - that must be managed separately.
+ * 
+ * @param scope Pointer to scope to free (may be NULL)
+ * 
+ * @note Safe to call with NULL pointer (no-op)
+ * @note This does NOT free parent scopes - manage scope lifetime carefully
+ * @warning Do not access the scope after calling this function
+ */
+void free_scope(Scope* scope);
+
+/**
+ * @brief Frees all semantic analysis resources including AST and scopes
+ * 
+ * Complete cleanup function that frees both the AST tree and the global
+ * scope (which contains all symbol tables). Should be called at the end
+ * of compilation to prevent memory leaks.
+ * 
+ * @param root Root node of the AST tree (may be NULL)
+ * @param global_scope Global scope containing all symbol tables (may be NULL)
+ * 
+ * @note Safe to call with NULL pointers
+ * @note This is the recommended way to clean up after semantic analysis
+ */
+void free_semantic_resources(ASTNode *root, Scope *global_scope);
+
+// ========== Symbol Table Utility Functions ==========
+
+/**
+ * @brief Looks up a symbol in current and parent scopes
+ * 
+ * Searches for a symbol by name, starting from the given scope and
+ * traversing up through parent scopes until found or global scope is reached.
+ * This implements the standard scoping rules where inner scopes shadow
+ * outer scopes.
+ * 
+ * @param scope Starting scope for the search (typically current scope)
+ * @param name Name of the symbol to find
+ * 
+ * @return Pointer to symbol data if found
+ * @retval NULL if symbol not found in any scope
+ * 
+ * @note The returned pointer is owned by the symbol table, do not free it
+ * @note Search order: current scope → parent → grandparent → ... → global
+ */
+SymTableData* lookup_symbol(Scope *scope, const char *name);
+
+/**
+ * @brief Preloads all built-in functions into the global scope
+ * 
+ * Inserts symbol table entries for all IFJ25 built-in functions:
+ * - Ifj.read_str() -> String
+ * - Ifj.read_num() -> Num
+ * - Ifj.write(term) -> Null
+ * - Ifj.floor(term: Num) -> Num
+ * - Ifj.str(term) -> String
+ * - Ifj.length(s: String) -> Num
+ * - Ifj.substring(s: String, i: Num, j: Num) -> String
+ * - Ifj.strcmp(s1: String, s2: String) -> Num
+ * - Ifj.ord(s: String, i: Num) -> Num
+ * - Ifj.chr(i: Num) -> String
+ * 
+ * @param global_scope The global scope to populate with built-in functions
+ * 
+ * @note Must be called before semantic analysis begins
+ * @note Each function is stored with overload key format "name$argc"
+ */
+void preload_builtins(Scope *global_scope);
+
+// ========== Type Inference Functions ==========
+
+/**
+ * @brief Infers the data type of an expression node
+ * 
+ * Recursively analyzes an expression tree to determine its result type.
+ * Handles literals, identifiers, binary operations, and getter calls.
+ * Performs type compatibility checking for operators.
+ * 
+ * @param expr Expression node to analyze (from expr_ast.h)
+ * @param scope Current scope for identifier resolution
+ * @param out_type Output parameter for the inferred type
+ * 
+ * @return Error code
+ * @retval NO_ERROR if type inference succeeded
+ * @retval SEM_ERROR_UNDEFINED if identifier not found
+ * @retval SEM_ERROR_TYPE_COMPATIBILITY if type mismatch in operation
+ * @retval ERROR_INTERNAL if invalid parameters
+ * 
+ * @note Sets *out_type to TYPE_UNDEF if type cannot be determined
+ * @note For binary operations, checks type compatibility of operands
+ */
+int infer_expr_node_type(ExprNode *expr, Scope *scope, DataType *out_type);
+
+// ========== Function Call Validation ==========
+
+/**
+ * @brief Counts the number of arguments in a function call
+ * 
+ * Traverses the AST_FUNC_ARG linked list to count arguments.
+ * 
+ * @param arg_list Head of the argument list (AST_FUNC_ARG chain)
+ * 
+ * @return Number of arguments in the list
+ * @retval 0 if arg_list is NULL (no arguments)
+ */
+int count_arguments(ASTNode *arg_list);
+
+/**
+ * @brief Validates a built-in function call
+ * 
+ * Checks that a call to a built-in function has the correct number
+ * and types of arguments according to the IFJ25 specification.
+ * Also sets the return type on the function call node.
+ * 
+ * Built-in functions validated:
+ * - Ifj.read_str/read_num: 0 arguments
+ * - Ifj.write/str: 1 argument (any type)
+ * - Ifj.floor: 1 argument (must be Num)
+ * - Ifj.chr: 1 argument (must be Num)
+ * - Ifj.length: 1 argument (must be String)
+ * - Ifj.substring: 3 arguments (String, Num, Num)
+ * - Ifj.strcmp: 2 arguments (String, String)
+ * - Ifj.ord: 2 arguments (String, Num)
+ * 
+ * @param node Function call AST node
+ * @param scope Current scope for type inference
+ * @param func_name Name of the built-in function
+ * 
+ * @return Error code
+ * @retval NO_ERROR if call is valid
+ * @retval SEM_ERROR_WRONG_PARAMS if wrong number or types of arguments
+ * @retval SEM_ERROR_OTHER if unknown built-in function
+ */
+int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_name);
+
+/**
+ * @brief Validates a user-defined function call
+ * 
+ * Checks that a call to a user-defined function matches the function's
+ * signature (parameter count and types). Sets the return type on the
+ * function call node.
+ * 
+ * @param node Function call AST node
+ * @param scope Current scope for type inference
+ * @param func_symbol Symbol table entry for the function
+ * 
+ * @return Error code
+ * @retval NO_ERROR if call is valid
+ * @retval SEM_ERROR_WRONG_PARAMS if parameter count or types don't match
+ * @retval SEM_ERROR_OTHER if symbol is not a function
+ */
+int check_user_function_call(ASTNode *node, Scope *scope, SymTableData *func_symbol);
+
+// ========== Helper Functions ==========
+
+/**
+ * @brief Adds a variable declaration node to the function's variable list
+ * 
+ * Links a variable declaration node into the function's var_next chain.
+ * Used by the code generator to emit variable definitions at function start.
+ * 
+ * @param node Variable declaration node to add (AST_VAR_DECL)
+ * @param func_node Function definition node (AST_FUNC_DEF or AST_MAIN_DEF)
+ * 
+ * @note Modifies func_node->var_next to include the new variable
+ */
+void add_node_to_func_node(ASTNode *node, ASTNode *func_node);
+
+// ========== Main Semantic Analysis Functions ==========
+
+/**
+ * @brief First pass: Collects all function, getter, and setter definitions
+ * 
+ * Traverses the AST to register all function, getter, and setter definitions
+ * in the symbol table before the main semantic analysis pass. This allows
+ * forward references and function overloading to work correctly.
+ * 
+ * For each function:
+ * - Validates parameter names (no duplicates)
+ * - Checks for redefinition
+ * - Inserts into symbol table with overload key "name$argc"
+ * - Creates function scope and inserts parameters
+ * - Handles special case of main() with 0 parameters
+ * 
+ * For each getter/setter:
+ * - Checks for redefinition
+ * - Inserts with special key "name$get" or "name$set"
+ * - Creates scope and inserts parameters (for setters)
+ * 
+ * @param node Program AST node (AST_PROGRAM)
+ * @param current_scope Global scope for definitions
+ * 
+ * @return Error code
+ * @retval NO_ERROR if all definitions are valid
+ * @retval SEM_ERROR_REDEFINED if duplicate definition found
+ * @retval ERROR_INTERNAL if invalid AST structure or allocation fails
+ */
+int semantic_definition(ASTNode *node, Scope *current_scope);
+
+/**
+ * @brief Main semantic analysis function - entry point
+ * 
+ * Performs complete semantic analysis on the parsed AST:
+ * 1. Initializes global scope
+ * 2. Preloads built-in functions
+ * 3. First pass: Collects function/getter/setter definitions
+ * 4. Second pass: Validates all statements and expressions
+ * 5. Verifies main() with 0 parameters exists
+ * 
+ * Validation includes:
+ * - Type checking and inference
+ * - Variable initialization tracking
+ * - Function call validation
+ * - Scope resolution
+ * - Control flow validation
+ * 
+ * @param root Root node of the AST (AST_PROGRAM)
+ * 
+ * @return Error code
+ * @retval NO_ERROR if program is semantically valid
+ * @retval SEM_ERROR_UNDEFINED if main() not defined or symbol not found
+ * @retval SEM_ERROR_REDEFINED if duplicate symbol definition
+ * @retval SEM_ERROR_TYPE_COMPATIBILITY if type mismatch
+ * @retval SEM_ERROR_WRONG_PARAMS if function call parameter mismatch
+ * @retval SEM_ERROR_OTHER if other semantic error
+ * @retval ERROR_INTERNAL if invalid AST or internal error
+ * 
+ * @note Sets root->current_scope to global scope for code generator
+ * @note The global scope contains all symbols and must be freed after use
  */
 int semantic_analyze(ASTNode *root);
 
 /**
- * @brief Visits a node in the symbol tree for semantic analysis.
- *
- * @param node The current node to visit.
- * @param current_scope The current symbol table scope.
- * @return SemanticResult error code or NO_ERROR if everything is valid.
+ * @brief Recursive AST visitor for semantic analysis
+ * 
+ * Traverses and validates an AST node and its children. Different node
+ * types are handled differently:
+ * 
+ * - AST_PROGRAM: Analyzes function definitions
+ * - AST_FUNC_DEF/MAIN_DEF: Creates function scope, validates parameters
+ * - AST_GETTER_DEF/SETTER_DEF: Creates scope, validates bodies
+ * - AST_VAR_DECL: Registers variable in scope
+ * - AST_ASSIGN/EQUALS: Validates assignments, handles setters
+ * - AST_IDENTIFIER: Checks variable exists and is initialized
+ * - AST_FUNC_CALL: Validates function calls (built-in and user)
+ * - AST_IF/WHILE: Validates conditions and bodies
+ * - AST_RETURN: Validates return types
+ * - AST_BLOCK: Creates new scope for block
+ * - AST_EXPRESSION: Infers expression types
+ * 
+ * @param node Current AST node to visit
+ * @param current_scope Current scope for symbol resolution
+ * 
+ * @return Error code
+ * @retval NO_ERROR if node and children are valid
+ * @retval SEM_ERROR_* if semantic error found (see semantic_analyze)
+ * @retval ERROR_INTERNAL if invalid AST structure
+ * 
+ * @note Recursively visits children nodes as appropriate
+ * @note Creates new scopes for functions, getters, setters, and blocks
  */
 int semantic_visit(ASTNode *node, Scope *current_scope);
 
