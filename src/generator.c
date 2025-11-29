@@ -1408,7 +1408,7 @@ int main_def(ASTNode *node, FILE *output) {
     }
     fprintf(output, "POPFRAME\n");
 
-    
+    in_main = false;
     // Continue with next node (other functions)
     if (node->right) {
         return next_step(node->right->right, output);
