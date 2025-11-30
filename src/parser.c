@@ -5,10 +5,8 @@
  * the abstract syntax tree (AST).
  * @details
  * This module implements a recursive descent parser for the IFJ25 programming
- * language. It reads tokens from the scanner creates nodes and fills the AST
- * tree.
- * @return int Error code
- *
+ * language. It reads tokens from the scanner, creates nodes, and fills the AST
+ * tree using recursive descent parsing technique.
  */
 #include "parser.h"
 #include "ast.h"
@@ -151,7 +149,6 @@ static ASTNode *EXPRESSION() {
     int error_code = NO_ERROR;
     ASTNode *expressionTree = main_precedence_parser(&token, &error_code);
     if (expressionTree == NULL || error_code != NO_ERROR) {
-        // printf("Error: Failed to parse expression\n");
         rc = SYNTAX_ERROR;
         return NULL;
     }
@@ -250,10 +247,7 @@ static ASTNode *IF() {
         return NULL;
     }
 
-    /**
-     * @brief Funcion to parse an else statement, creating an AST node for it.
-     * @return ASTNode* The AST node representing the else statement.
-     */
+    // Create else node and attach to if statement
     ASTNode *else_node = create_ast_node(AST_ELSE, NULL);
     if (node == NULL) {
         rc = ERROR_INTERNAL;
@@ -632,6 +626,11 @@ ASTNode *PARAMETER_TAIL(ASTNode *argument_node) {
     return NULL;
 }
 
+/**
+ * @brief Function to parse a list of parameters in a function call
+ * or definition, creating AST nodes for them.
+ * @return ASTNode* The AST node representing the list of parameters.
+ */
 ASTNode *PARAMETER_LIST() {
     if (token.type != TOKEN_RPAREN) {
         ASTNode *argument_node = create_ast_node(AST_FUNC_ARG, NULL);
@@ -655,6 +654,12 @@ ASTNode *PARAMETER_LIST() {
     return NULL;
 }
 
+/**
+ * @brief Function to parse a setter function definition, creating an AST node
+ * for it.
+ * @param function The AST node representing the setter function.
+ * @return int Error code.
+ */
 static int SETTER(ASTNode *function) {
     next_token(&token);
     if (rc != NO_ERROR)
@@ -703,6 +708,13 @@ static int SETTER(ASTNode *function) {
 
     return NO_ERROR;
 }
+
+/**
+ * @brief Function to parse the tail of an argument list in a function call,
+ * creating AST nodes for each argument.
+ * @param node The AST node representing the current argument.
+ * @return ASTNode* The AST node representing the argument list tail.
+ */
 static ASTNode *ARGUMENT_TAIL(ASTNode *node) {
     if (token.type != TOKEN_RPAREN) {
         node->left = create_ast_node(AST_FUNC_ARG, NULL);
@@ -743,6 +755,12 @@ static ASTNode *ARGUMENT_TAIL(ASTNode *node) {
     return NULL;
 }
 
+/**
+ * @brief Function to parse a list of arguments in a function call,
+ * creating AST nodes for them.
+ * @return ASTNode* The AST node representing the list of arguments.
+ */
+
 static ASTNode *ARGUMENT_LIST() {
     if (token.type != TOKEN_RPAREN) {
         token_control(TOKEN_IDENTIFIER, NULL);
@@ -774,6 +792,12 @@ static ASTNode *ARGUMENT_LIST() {
     }
     return NULL;
 }
+/**
+ * @brief Function to parse the tail of a function definition,
+ * creating an AST node for it.
+ * @param id_name The name of the function identifier.
+ * @return ASTNode* The AST node representing the function definition tail.
+ */
 static ASTNode *DEF_FUN_TAIL(char *id_name) {
     ASTNode *function = NULL;
 
@@ -859,6 +883,11 @@ static ASTNode *DEF_FUN_TAIL(char *id_name) {
         return NULL;
     }
 }
+/**
+ * @brief Function to parse a function definition,
+ * creating an AST node for it.
+ * @return ASTNode* The AST node representing the function definition.
+ */
 static ASTNode *DEF_FUN() {
     expected_keyword = KEYWORD_STATIC;
     token_control(TOKEN_KEYWORD, &expected_keyword);
@@ -881,6 +910,13 @@ static ASTNode *DEF_FUN() {
 
     return new_function;
 }
+
+/**
+ * @brief Function to parse a list of function definitions,
+ * creating AST nodes for them.
+ * @param current_node The AST node representing the current function.
+ * @return ASTNode* The AST node representing the list of function definitions.
+ */
 static ASTNode *DEF_FUN_LIST(ASTNode *current_node) {
     if (((token.type == TOKEN_KEYWORD) &&
          (token.value.keyword == KEYWORD_STATIC))) {
@@ -905,6 +941,13 @@ static ASTNode *DEF_FUN_LIST(ASTNode *current_node) {
     }
     return NULL;
 }
+
+/**
+ * @brief Function to parse the main class structure of the program,
+ * creating AST nodes for it.
+ * @param PROGRAM Pointer to the root ASTNode representing the program.
+ * @return int Error code.
+ */
 static int CLASS(ASTNode *PROGRAM) {
 
     expected_keyword = KEYWORD_CLASS;
@@ -949,7 +992,13 @@ static int CLASS(ASTNode *PROGRAM) {
 
     return rc;
 }
-static int PROLOG() { // CORRECT
+
+/**
+ * @brief Function to parse the prolog of the IFJ25 program,
+ * ensuring correct import statements.
+ * @return int Error code.
+ */
+static int PROLOG() {
 
     skip_eol();
     if (rc != NO_ERROR)

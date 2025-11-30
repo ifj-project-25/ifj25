@@ -1,18 +1,27 @@
 /**
  * @file parser.h
  * @author xmikusm00
- * @brief Headder file for parser
+ * @brief Header file for syntactic parser of IFJ25 language
+ * @details
+ * Provides the main parser entry point and utility functions for parsing
+ * the IFJ25 source code and constructing the abstract syntax tree.
  */
 #ifndef PARSER_H
 #define PARSER_H
+#include "ast.h"
 #include "scanner.h"
 #include "symtable.h"
-#include "ast.h"
 
-int parser(ASTNode* PROGRAM);
-void parser_next_token(void);
-const Token *parser_current_token(void);
-ASTNode* PARAMETER_LIST();
-void debug_print_token(const char *prefix, const Token *t);
+/**
+ * @brief Main parser entry point that performs syntactic analysis.
+ * @param PROGRAM Pointer to the root AST node representing the program.
+ * @return Error code (NO_ERROR on success, SYNTAX_ERROR or ERROR_INTERNAL on
+ * failure).
+ * @details
+ * Parses the IFJ25 source code using recursive descent parsing, validates
+ * syntax according to the language grammar, and constructs the abstract syntax
+ * tree.
+ */
+int parser(ASTNode *PROGRAM);
 
 #endif
