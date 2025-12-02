@@ -79,7 +79,12 @@ clean:
 	rm -f *.exe log.txt *.ifj25
 	rm -f $(ZIP_NAME).zip
 
-.PHONY: all clean zip test_complet 
+# Count lines of code by category
+count_lines:
+	@chmod +x count_lines.sh
+	@./count_lines.sh
+
+.PHONY: all clean zip test_complet count_lines 
 
 ZIP_NAME = xklusaa00
 zip:
