@@ -2,6 +2,14 @@
  * @file ast.c
  * @brief Abstract Syntax Tree implementation for IFJ25 language
  * @author xmalikm00
+ * 
+ * This file implements the core AST (Abstract Syntax Tree) functionality for
+ * the IFJ25 compiler. It provides functions for creating and destroying AST nodes,
+ * which represent the hierarchical structure of the parsed source code.
+ * 
+ * The AST is a tree-based representation of the source program's syntactic
+ * structure, built by the parser and used by semantic analysis and code
+ * generation phases.
  */
 
 #include "ast.h"
@@ -12,251 +20,135 @@
 #include <stdio.h>
 
 // Forward declaration for my_strdup from symtable.c
+// (Used to duplicate strings safely)
 char *my_strdup(const char *s);
 
-
-// helper function to create a new AST node
-#include "ast.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-
-#define MAX_TREE_DEPTH 500  // Maximum tree depth to prevent buffer overflow
-
+/**
+ * @brief Creates and initializes a new AST node
+ * 
+ * This function allocates memory for a new AST node and initializes all
+ * its fields to safe default values. The node's type is set according to
+ * the parameter, and if a name is provided, it is duplicated and stored.
+ * 
+ * Memory initialization details:
+ * - type: Set to provided value
+ * - name: Duplicated from parameter (or NULL)
+ * - left: NULL
+ * - right: NULL
+ * - expr: NULL
+ * - data_type: TYPE_UNDEF
+ * - current_table: NULL
+ * - current_scope: NULL
+ * - var_next: NULL
+ * 
+ * @param type The type of AST node to create (from ASTNodeType enum)
+ * @param name Optional name/identifier for the node (will be duplicated using my_strdup)
+ *             May be NULL for nodes that don't require names
+ * 
+ * @return Pointer to the newly created and initialized AST node
+ * @retval NULL if memory allocation fails
+ * 
+ * @note The returned node must be freed using free_ast_tree() when no longer needed
+ * @note The name parameter is copied, so the caller retains ownership of the original
+ * 
+ * @warning Always check for NULL return value before using the node
+ * 
+ * Example usage:
+ * @code
+ * ASTNode *var_node = create_ast_node(AST_VAR_DECL, "myVariable");
+ * if (!var_node) {
+ *     // Handle allocation error
+ * }
+ * @endcode
+ */
 ASTNode* create_ast_node(ASTNodeType type, const char* name) {
+    // Allocate memory for the new node
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
-    if (!node) return NULL;
+    if (!node) return NULL;  // Allocation failed
     
+    // Initialize node type
     node->type = type;
+    
+    // Duplicate name if provided, otherwise set to NULL
     node->name = name ? my_strdup(name) : NULL;
+    
+    // Initialize tree structure pointers to NULL
     node->left = NULL;
     node->right = NULL;
     node->expr = NULL;
-    node->data_type = TYPE_UNDEF;
+    
+    // Initialize type information
+    node->data_type = TYPE_UNDEF;  // Undefined until semantic analysis
+    
+    // Initialize scope and symbol table pointers
     node->current_table = NULL;
     node->current_scope = NULL;
+    
+    // Initialize variable declaration list pointer
     node->var_next = NULL;
+    
     return node;
 }
 
+/**
+ * @brief Recursively frees an entire AST tree and all associated resources
+ * 
+ * This function performs a post-order traversal of the AST tree, freeing all
+ * child nodes before freeing the parent. It also deallocates all associated
+ * resources including:
+ * - Left and right subtrees (recursively)
+ * - Expression trees (expr field)
+ * - Node names (dynamically allocated strings)
+ * - Symbol tables (current_table)
+ * - The node structure itself
+ * 
+ * The function uses post-order traversal to ensure that parent nodes are only
+ * freed after all their children have been freed, preventing access to freed
+ * memory.
+ * 
+ * @param node Pointer to the root node of the tree to free
+ *             May be NULL (function safely handles NULL pointers)
+ * 
+ * @note This function does NOT free:
+ *       - The current_scope field (scopes are managed by semantic analysis)
+ *       - The var_next chain (caller's responsibility if needed)
+ * 
+ * @warning After calling this function:
+ *          - Do not access the node or any of its descendants
+ *          - Any pointers to nodes in the freed tree become invalid
+ *          - Using freed nodes results in undefined behavior
+ * 
+ * @note Safe to call with NULL pointer (no-op)
+ * 
+ * Example usage:
+ * @code
+ * ASTNode *tree = parse_program();
+ * // Use the tree...
+ * free_ast_tree(tree);  // Clean up when done
+ * tree = NULL;          // Good practice to prevent dangling pointer
+ * @endcode
+ */
 void free_ast_tree(ASTNode* node) {
+    // Base case: NULL pointer - nothing to free
     if (!node) return;
     
+    // Recursively free left subtree (post-order traversal)
     free_ast_tree(node->left);
+    
+    // Recursively free right subtree (post-order traversal)
     free_ast_tree(node->right);
+    
+    // Free expression tree if present
     if(node->expr) free_expr_node(node->expr);
+    
+    // Free node name (dynamically allocated string)
     if (node->name) free(node->name);
+    
+    // Free symbol table if present
     if (node->current_table) symtable_free(node->current_table);
+    
+    // Finally, free the node itself
     free(node);
 }
 
-/* // Helper to get node type name as string
-static const char* get_node_type_name(ASTNodeType type) {
-    switch (type) {
-        case AST_PROGRAM: return "PROGRAM";
-        case AST_FUNC_CALL: return "FUNC_CALL";
-        case AST_FUNC_ARG: return "FUNC_ARG";
-        case AST_BLOCK: return "BLOCK";
-        case AST_VAR_DECL: return "VAR_DECL";
-        case AST_IDENTIFIER: return "IDENTIFIER";
-        case AST_MAIN_DEF: return "MAIN_DEF";
-        case AST_FUNC_DEF: return "FUNC_DEF";
-        case AST_GETTER_DEF: return "GETTER_DEF";
-        case AST_SETTER_DEF: return "SETTER_DEF";
-        case AST_IF: return "IF";
-        case AST_ELSE: return "ELSE";
-        case AST_WHILE: return "WHILE";
-        case AST_RETURN: return "RETURN";
-        case AST_ASSIGN: return "ASSIGN";
-        case AST_EQUALS: return "EQUALS";
-        case AST_EXPRESSION: return "EXPRESSION";
-        default: return "UNKNOWN";
-    }
-}
 
-// Helper to print indentation with tree characters
-static void print_tree_indent(int depth, int is_last[], int is_right) {
-    for (int i = 0; i < depth - 1; i++) {
-        printf(is_last[i] ? "    " : "│   ");
-    }
-    if (depth > 0) {
-        const char* branch = is_last[depth - 1] ? "└── " : "├── ";
-        const char* side = is_right ? "R - " : "L - ";
-        printf("%s%s", branch, side);
-    }
-}
-
-// Forward declaration for expression inline printing
-static void print_expr_inline(ExprNode* expr, int depth, int is_last[]);
-
-// Recursive helper to print AST tree
-static void print_ast_node(ASTNode* node, int depth, int is_last[], int is_right_child) {
-    if (!node) {
-        print_tree_indent(depth, is_last, is_right_child);
-        printf("(null)\n");
-        return;
-    }
-    
-    // Safety check for depth
-    if (depth >= MAX_TREE_DEPTH - 1) {
-        print_tree_indent(depth, is_last, is_right_child);
-        printf("... (max depth reached)\n");
-        return;
-    }
-    
-    print_tree_indent(depth, is_last, is_right_child);
-    printf("%s", get_node_type_name(node->type));
-    
-    // Print node name if it exists
-    if (node->name) {
-        printf(" [%s]", node->name);
-    }
-    
-    // Print data type if defined
-    if (node->data_type != TYPE_UNDEF) {
-        printf(" (type: ");
-        switch (node->data_type) {
-            case TYPE_NULL: printf("NULL"); break;
-            case TYPE_NUM: printf("NUM"); break;
-            case TYPE_STRING: printf("STRING"); break;
-            //case TYPE_BOOL: printf("BOOL"); break;
-            default: printf("UNDEF"); break;
-        }
-        printf(")");
-    }
-    
-    printf("\n");
-    
-    // Recursively print children (print RIGHT first, then LEFT)
-    // But also include EXPR as a pseudo-child if present
-    int has_expr = (node->expr != NULL);
-    int has_left = (node->left != NULL);
-    int has_right = (node->right != NULL);
-    int total_children = has_expr + has_left + has_right;
-    
-    if (total_children > 0) {
-        // Update is_last array for next level
-        is_last[depth] = 0;
-        int children_printed = 0;
-
-        // Print right child first
-        if (node->right) {
-            children_printed++;
-            is_last[depth] = (children_printed == total_children) ? 1 : 0;
-            print_ast_node(node->right, depth + 1, is_last, 1);
-        }
-
-        // Print expr as a pseudo-child (label depends on node type)
-        if (node->expr) {
-            children_printed++;
-            is_last[depth] = (children_printed == total_children) ? 1 : 0;
-            print_tree_indent(depth + 1, is_last, 0);
-            
-            // Choose appropriate label based on parent node type
-            switch (node->type) {
-                case AST_IF:
-                case AST_WHILE:
-                    printf("CONDITION:\n");
-                    break;
-                case AST_ASSIGN:
-                    printf("EXPR:\n");
-                    break;
-                default:
-                    printf("EXPR:\n");
-                    break;
-            }
-            
-            // Print expression tree inline with proper tree connectors
-            print_expr_inline(node->expr, depth + 2, is_last);
-        }
-
-        // Then print left child
-        if (node->left) {
-            children_printed++;
-            is_last[depth] = 1; // Left is always last in this ordering
-            print_ast_node(node->left, depth + 1, is_last, 0);
-        }
-    }
-}
-
-// Helper to print expression tree with AST-style connectors
-static void print_expr_inline(ExprNode* expr, int depth, int is_last[]) {
-    if (!expr) return;
-    
-    for (int i = 0; i < depth - 1; i++) {
-        printf(is_last[i] ? "    " : "│   ");
-    }
-    
-    switch (expr->type) {
-        case EXPR_NUM_LITERAL:
-            printf("NUM: %.2f\n", expr->data.num_literal);
-            break;
-        case EXPR_STRING_LITERAL:
-            printf("STRING: \"%s\"\n", expr->data.string_literal);
-            break;
-        case EXPR_NULL_LITERAL:
-            printf("NULL\n");
-            break;
-        case EXPR_TYPE_LITERAL:
-            printf("TYPE: %s\n", expr->data.identifier_name);
-            break;
-        case EXPR_IDENTIFIER:
-            printf("ID: %s\n", expr->data.identifier_name);
-            break;
-        case EXPR_GETTER_CALL:
-            printf("GETTER_CALL: %s()\n", expr->data.getter_name);
-            break;
-        case EXPR_BINARY_OP: {
-            const char* ops[] = {"+", "-", "*", "/", "==", "!=", "<", ">", "<=", ">=", "IS"};
-            printf("OP: %s\n", ops[expr->data.binary.op]);
-            if (expr->data.binary.left) {
-                for (int i = 0; i < depth - 1; i++) {
-                    printf(is_last[i] ? "    " : "│   ");
-                }
-                printf("├── L: ");
-                // Print left operand inline
-                switch (expr->data.binary.left->type) {
-                    case EXPR_NUM_LITERAL:
-                        printf("%.2f\n", expr->data.binary.left->data.num_literal);
-                        break;
-                    case EXPR_IDENTIFIER:
-                        printf("%s\n", expr->data.binary.left->data.identifier_name);
-                        break;
-                    default:
-                        printf("\n");
-                        print_expr_inline(expr->data.binary.left, depth + 1, is_last);
-                        break;
-                }
-            }
-            if (expr->data.binary.right) {
-                for (int i = 0; i < depth - 1; i++) {
-                    printf(is_last[i] ? "    " : "│   ");
-                }
-                printf("└── R: ");
-                // Print right operand inline
-                switch (expr->data.binary.right->type) {
-                    case EXPR_NUM_LITERAL:
-                        printf("%.2f\n", expr->data.binary.right->data.num_literal);
-                        break;
-                    case EXPR_IDENTIFIER:
-                        printf("%s\n", expr->data.binary.right->data.identifier_name);
-                        break;
-                    default:
-                        printf("\n");
-                        print_expr_inline(expr->data.binary.right, depth + 1, is_last);
-                        break;
-                }
-            }
-            break;
-        }
-    }
-}
-
-// Public function to print AST tree with visual connections
-void print_ast_tree(ASTNode* node) {
-    printf("\n========== AST Tree Structure ==========\n");
-    int is_last[MAX_TREE_DEPTH] = {0}; // Track which levels are last children
-    print_ast_node(node, 0, is_last, 0);
-    printf("========================================\n\n");
-}
- */
