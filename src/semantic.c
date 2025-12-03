@@ -138,27 +138,6 @@ static bool any_arity_function_exists(Scope *scope, const char *func_name) {
 /** @brief Global flag tracking whether main() with 0 parameters is defined */
 static bool main_zero_defined = false;
 
-void free_scope(Scope* scope) {
-    if (!scope) return;
-    
-    symtable_free(&scope->symbols);
-    free(scope);
-}
-
-/**
- * @brief Frees all semantic analysis resources including AST and symbol tables
- * @param root Root node of the AST tree
- * @param global_scope Global scope to free (can be NULL)
- */
-void free_semantic_resources(ASTNode *root, Scope *global_scope) {
-    if (global_scope) {
-        free_scope(global_scope);
-    }
-    
-    if (root) {
-        free_ast_tree(root);
-    }
-}
 
 Scope* init_scope(){
     Scope* scope = (Scope*)malloc(sizeof(Scope));
