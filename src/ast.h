@@ -34,8 +34,8 @@ typedef enum {
 
     /**
      * @brief Root node of the entire program
-     * - left:  Global variable declarations (linked list via var_next)
-     * - right: First function definition (linked list via right)
+     * - left:  First function definition (linked list via right)
+     * - right: NULL
      * - name:  NULL
      */
     AST_PROGRAM,
@@ -45,7 +45,7 @@ typedef enum {
     /**
      * @brief Function call expression
      * - left:  First argument (AST_FUNC_ARG chain)
-     * - right: Next statement in sequence
+     * - right: Next code statements
      * - name:  Function name with overload suffix (e.g., "foo$2" for 2 params)
      */
     AST_FUNC_CALL,
@@ -60,7 +60,7 @@ typedef enum {
     AST_FUNC_ARG,
 
     /**
-     * @brief Getter call (legacy, mostly moved to expr tree)
+     * @brief Getter call (moved to Expression nodes)
      * - left:  NULL
      * - right: NULL
      * - name:  Getter name

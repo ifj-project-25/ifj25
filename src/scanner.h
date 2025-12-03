@@ -1,7 +1,11 @@
 /**
  * @file scanner.h
  * @author xcernoj00
- * @brief Header file for scanner
+ * @brief Scanner (lexical analyzer) public interface for IFJ25.
+ *
+ * This header declares token types, scanner states and the minimal
+ * API used by the rest of the compiler to obtain lexical tokens from
+ * a source stream.
  */
 
 #ifndef _SCANNER_H
@@ -12,6 +16,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+/**
+ * @brief Internal scanner states used by the DFA.
+ */
 typedef enum {
     STATE_START,
     STATE_NUMBER,
@@ -26,83 +33,118 @@ typedef enum {
     STATE_DECIMAL,
     STATE_EXPONENT,
     STATE_ESCAPE_SEQ,
-    STATE_HEXADECIMAL,      // 0x prefix for hex numbers
-    STATE_HEXADECIMAL2,     // \xNN escape sequence
-    STATE_MULTILINE_STRING, // """..."""
+    STATE_HEXADECIMAL,      ///< 0x prefix for hex numbers
+    STATE_HEXADECIMAL2,     ///< \xNN escape sequence parsing
+    STATE_MULTILINE_STRING, ///< """..."""
 } State;
 
+/**
+ * @brief Token types produced by the scanner.
+ */
 typedef enum {
-    TOKEN_UNDEFINED,  // default state
-    TOKEN_EOF,        // end of file
-    TOKEN_EOL,        // end of line
-    TOKEN_GLOBAL_VAR, // global variable (starts with __)
-    TOKEN_IDENTIFIER, // identifier
-    TOKEN_KEYWORD,    // keyword
+    TOKEN_UNDEFINED,  ///< default/invalid
+    TOKEN_EOF,        ///< end of file
+    TOKEN_EOL,        ///< end of line
+    TOKEN_GLOBAL_VAR, ///< global variable (starts with __)
+    TOKEN_IDENTIFIER, ///< identifier
+    TOKEN_KEYWORD,    ///< keyword
 
-    TOKEN_INTEGER, // integer
-    TOKEN_DOUBLE,  // double
-    TOKEN_STRING,  // string
+    TOKEN_INTEGER, ///< integer literal
+    TOKEN_DOUBLE,  ///< floating-point literal
+    TOKEN_STRING,  ///< string literal
 
-    TOKEN_PLUS,     // plus +
-    TOKEN_MINUS,    // minus -
-    TOKEN_MULTIPLY, // multiplication *
-    TOKEN_DIVIDE,   // division /
+    TOKEN_PLUS,     ///< +
+    TOKEN_MINUS,    ///< -
+    TOKEN_MULTIPLY, ///< *
+    TOKEN_DIVIDE,   ///< /
 
-    TOKEN_EQUAL,         // equal =
-    TOKEN_NEQUAL,        // not equal !=
-    TOKEN_LESSER,        // lesser than <
-    TOKEN_GREATER,       // greater than >
-    TOKEN_LESSER_EQUAL,  // lesser or equal <=
-    TOKEN_GREATER_EQUAL, // greater or equal >=
-    TOKEN_NOT,           // not !
-    TOKEN_LOGIC_EQUAL,   // ==
+    TOKEN_EQUAL,         ///< =
+    TOKEN_NEQUAL,        ///< !=
+    TOKEN_LESSER,        ///< <
+    TOKEN_GREATER,       ///< >
+    TOKEN_LESSER_EQUAL,  ///< <=
+    TOKEN_GREATER_EQUAL, ///< >=
+    TOKEN_NOT,           ///< !
+    TOKEN_LOGIC_EQUAL,   ///< ==
 
-    TOKEN_LPAREN, // (
-    TOKEN_RPAREN, // )
-    TOKEN_LCURLY, // {
-    TOKEN_RCURLY, // }
-    TOKEN_DOT,    // .
-    TOKEN_COMMA,  // ,
-    TOKEN_DOLLAR // $ bottom-of-stack marker for operator stack
+    TOKEN_LPAREN, ///< '('
+    TOKEN_RPAREN, ///< ')'
+    TOKEN_LCURLY, ///< '{'
+    TOKEN_RCURLY, ///< '}'
+    TOKEN_DOT,    ///< '.'
+    TOKEN_COMMA,  ///< ','
+    TOKEN_DOLLAR  ///< '$' bottom-of-stack marker for operator stack
 } TokenType;
 
+/**
+ * @brief Language keywords recognized by the scanner.
+ */
 typedef enum {
-    KEYWORD_CLASS,  // class
-    KEYWORD_IF,     // if
-    KEYWORD_ELSE,   // else
-    KEYWORD_IS,     // is
-    KEYWORD_NULL_L, // null (lowercase)
-    KEYWORD_RETURN, // return
-    KEYWORD_VAR,    // var
-    KEYWORD_WHILE,  // while
-    KEYWORD_IFJ,    // Ifj
-    KEYWORD_STATIC, // static
-    KEYWORD_IMPORT, // import
-    KEYWORD_FOR,    // for
-    KEYWORD_NUM,    // Num
-    KEYWORD_STRING, // String
-    KEYWORD_NULL_C, // Null (Capitalized)
+    KEYWORD_CLASS,
+    KEYWORD_IF,
+    KEYWORD_ELSE,
+    KEYWORD_IS,
+    KEYWORD_NULL_L, ///< lowercase 'null'
+    KEYWORD_RETURN,
+    KEYWORD_VAR,
+    KEYWORD_WHILE,
+    KEYWORD_IFJ, ///< 'Ifj' namespace identifier
+    KEYWORD_STATIC,
+    KEYWORD_IMPORT,
+    KEYWORD_FOR,
+    KEYWORD_NUM,
+    KEYWORD_STRING,
+    KEYWORD_NULL_C ///< capitalized 'Null'
 } Keyword;
 
-// Value of the token
+/**
+ * @brief Token payload. Only the field matching the token type is valid.
+ *
+ * - For identifiers, global variables and string literals the `string`
+ *   field holds a pointer to a `DynamicString` with the textual value.
+ */
 typedef union {
-    Keyword keyword;
-    int integer;
-    double decimal;
-    DynamicString *string;
+    Keyword keyword; ///< for TOKEN_KEYWORD
+    int integer;     ///< for TOKEN_INTEGER
+    double decimal;  ///< for TOKEN_DOUBLE
+    DynamicString
+        *string; ///< for TOKEN_IDENTIFIER/TOKEN_GLOBAL_VAR/TOKEN_STRING
 } TokenValue;
 
-// Token structure
+/**
+ * @brief Scanner token structure.
+ */
 typedef struct Token {
-    TokenType type;
-    TokenValue value;
+    TokenType type;   /**< token kind */
+    TokenValue value; /**< token payload */
 } Token;
 
+/**
+ * @brief Set the source file used by the scanner.
+ *
+ * @param f Input file stream (e.g. stdin or fopen result).
+ */
 void set_source_file(FILE *f);
 
-void print_token_types();
- 
+/**
+ * @brief Simple debug helper that prints token types until EOF.
+ *
+ * Intended for development/testing; not used by the parser.
+ */
+void print_token_types(void);
 
+/**
+ * @brief Obtain the next token from the input stream.
+ *
+ * On success the function initializes the provided `Token` structure.
+ * For token types that allocate a `DynamicString` (identifiers, global
+ * variables, string literals) the caller is responsible for freeing
+ * the `DynamicString` when it is no longer needed.
+ *
+ * @param token Pointer to Token structure to populate.
+ * @return NO_ERROR on success, SCANNER_ERROR on lexical error or
+ *         ERROR_INTERNAL on internal failures (allocation etc.).
+ */
 int get_token(Token *token);
 
 #endif // _SCANNER_H

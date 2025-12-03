@@ -7,13 +7,7 @@
  * including type checking, symbol resolution, scope management, and validation
  * of all semantic rules defined in the IFJ25 language specification.
  * 
- * Key responsibilities:
- * - Symbol table and scope management
- * - Type inference and compatibility checking
- * - Function overloading resolution
- * - Variable initialization tracking
- * - Built-in function validation
- * - Control flow validation
+ * 
  */
 
 #include "semantic.h"
@@ -185,6 +179,14 @@ SymTableData* lookup_symbol(Scope *scope, const char *name) {
     return NULL;
 }
 
+/**
+ * @brief Preloads all built-in functions into the global scope
+ * @param global_scope The global scope to populate with built-in functions
+ * 
+ * @note Must be called before semantic analysis begins
+ * @note Each function is stored with overload key format "name$argc"
+ * 
+ */
 void preload_builtins(Scope *global_scope) {
     char keybuf[MAX_BUILTIN_KEY_LENGTH];
 
@@ -513,251 +515,7 @@ int count_arguments(ASTNode *arg_list) {
     return count;
 }
 
-int check_builtin_function_call(ASTNode *node, Scope *scope, const char *func_name) {
-    int arg_count = count_arguments(node->left);
-    
-    if (strcmp(func_name, "Ifj.write") == 0 || strcmp(func_name, "Ifj.str") == 0) {
-        if (arg_count != 1) {
-            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 1 argument, got %d\n", func_name, arg_count);
-            return SEM_ERROR_WRONG_PARAMS;
-        }
-    }
-    else if (strcmp(func_name, "Ifj.floor") == 0 || strcmp(func_name, "Ifj.chr") == 0) {
-        if (arg_count != 1) {
-            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 1 argument, got %d\n", func_name, arg_count);
-            return SEM_ERROR_WRONG_PARAMS;
-        }
-        ASTNode *first_arg = node->left;
-        if (first_arg && first_arg->right) {
-            DataType arg_type = TYPE_UNDEF;
-            if (first_arg->right->expr) {
-                int ierr = infer_expr_node_type(first_arg->right->expr, scope, &arg_type);
-                if (ierr != NO_ERROR) return ierr;
-            } else if (first_arg->right->left && first_arg->right->left->type == AST_FUNC_CALL) {
-                int err = semantic_visit(first_arg->right->left, scope);
-                if (err != NO_ERROR) return err;
-                arg_type = first_arg->right->left->data_type;
-            } else {
-                fprintf(stderr, "[SEMANTIC] Invalid argument expression for '%s'\n", func_name);
-                return SEM_ERROR_OTHER;
-            }
 
-            if (arg_type != TYPE_NUM) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires numeric argument, got type %d\n", func_name, arg_type);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-
-            if (strcmp(func_name, "Ifj.chr") == 0) {
-                if (first_arg->right->expr && first_arg->right->expr->type == EXPR_NUM_LITERAL) {
-                    double v = first_arg->right->expr->data.num_literal;
-                    if ((double)(long long)v != v) {
-                        fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires integer literal argument\n", func_name);
-                        return SEM_ERROR_WRONG_PARAMS;
-                    }
-                }
-            }
-        }
-    }
-    else if (strcmp(func_name, "Ifj.length") == 0) {
-        if (arg_count != 1) {
-            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 1 argument, got %d\n", func_name, arg_count);
-            return SEM_ERROR_WRONG_PARAMS;
-        }
-        ASTNode *first_arg = node->left;
-        if (first_arg && first_arg->right) {
-            DataType arg_type = TYPE_UNDEF;
-            if (first_arg->right->expr) {
-                int ierr = infer_expr_node_type(first_arg->right->expr, scope, &arg_type);
-                if (ierr != NO_ERROR) return ierr;
-            } else if (first_arg->right->left && first_arg->right->left->type == AST_FUNC_CALL) {
-                int err = semantic_visit(first_arg->right->left, scope);
-                if (err != NO_ERROR) return err;
-                arg_type = first_arg->right->left->data_type;
-            } else {
-                fprintf(stderr, "[SEMANTIC] Invalid argument expression for '%s'\n", func_name);
-                return SEM_ERROR_OTHER;
-            }
-            
-            if (arg_type != TYPE_STRING) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' requires string argument, got type %d\n", func_name, arg_type);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-        }
-    }
-    else if (strcmp(func_name, "Ifj.substring") == 0) {
-        if (arg_count != 3) {
-            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 3 arguments, got %d\n", func_name, arg_count);
-            return SEM_ERROR_WRONG_PARAMS;
-        }
-        ASTNode *arg = node->left;
-        if (arg && arg->right) {
-            DataType arg1_type = TYPE_UNDEF;
-            if (arg->right->expr) {
-                int ierr = infer_expr_node_type(arg->right->expr, scope, &arg1_type);
-                if (ierr != NO_ERROR) return ierr;
-            } else if (arg->right->left && arg->right->left->type == AST_FUNC_CALL) {
-                int err = semantic_visit(arg->right->left, scope);
-                if (err != NO_ERROR) return err;
-                arg1_type = arg->right->left->data_type;
-            } else {
-                fprintf(stderr, "[SEMANTIC] Invalid first argument expression for '%s'\n", func_name);
-                return SEM_ERROR_OTHER;
-            }
-            
-            if (arg1_type != TYPE_STRING) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string, got type %d\n", func_name, arg1_type);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-        }
-        if (arg && arg->left && arg->left->right) {
-            DataType arg2_type = TYPE_UNDEF;
-            if (arg->left->right->expr) {
-                int ierr = infer_expr_node_type(arg->left->right->expr, scope, &arg2_type);
-                if (ierr != NO_ERROR) return ierr;
-            } else if (arg->left->right->left && arg->left->right->left->type == AST_FUNC_CALL) {
-                int err = semantic_visit(arg->left->right->left, scope);
-                if (err != NO_ERROR) return err;
-                arg2_type = arg->left->right->left->data_type;
-            } else {
-                fprintf(stderr, "[SEMANTIC] Invalid second argument expression for '%s'\n", func_name);
-                return SEM_ERROR_OTHER;
-            }
-
-            if (arg2_type != TYPE_NUM) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be numeric, got type %d\n", func_name, arg2_type);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-        }
-        if (arg && arg->left && arg->left->left && arg->left->left->right) {
-            DataType arg3_type = TYPE_UNDEF;
-            if (arg->left->left->right->expr) {
-                int ierr = infer_expr_node_type(arg->left->left->right->expr, scope, &arg3_type);
-                if (ierr != NO_ERROR) return ierr;
-            } else if (arg->left->left->right->left && arg->left->left->right->left->type == AST_FUNC_CALL) {
-                int err = semantic_visit(arg->left->left->right->left, scope);
-                if (err != NO_ERROR) return err;
-                arg3_type = arg->left->left->right->left->data_type;
-            } else {
-                fprintf(stderr, "[SEMANTIC] Invalid third argument expression for '%s'\n", func_name);
-                return SEM_ERROR_OTHER;
-            }
-
-            if (arg3_type != TYPE_NUM) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' third argument must be numeric, got type %d\n", func_name, arg3_type);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-        }
-    }
-    else if (strcmp(func_name, "Ifj.strcmp") == 0) {
-        if (arg_count != 2) {
-            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 2 arguments, got %d\n", func_name, arg_count);
-            return SEM_ERROR_WRONG_PARAMS;
-        }
-        ASTNode *arg = node->left;
-        if (arg && arg->right) {
-            DataType arg1_type = TYPE_UNDEF;
-            if (arg->right->expr) {
-                int ierr = infer_expr_node_type(arg->right->expr, scope, &arg1_type);
-                if (ierr != NO_ERROR) return ierr;
-            } else if (arg->right->left && arg->right->left->type == AST_FUNC_CALL) {
-                int err = semantic_visit(arg->right->left, scope);
-                if (err != NO_ERROR) return err;
-                arg1_type = arg->right->left->data_type;
-            } else {
-                fprintf(stderr, "[SEMANTIC] Invalid first argument expression for '%s'\n", func_name);
-                return SEM_ERROR_OTHER;
-            }
-            
-            if (arg1_type != TYPE_STRING) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string, got type %d\n", func_name, arg1_type);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-        }
-        if (arg && arg->left && arg->left->right) {
-            DataType arg2_type = TYPE_UNDEF;
-            if (arg->left->right->expr) {
-                int ierr = infer_expr_node_type(arg->left->right->expr, scope, &arg2_type);
-                if (ierr != NO_ERROR) return ierr;
-            } else if (arg->left->right->left && arg->left->right->left->type == AST_FUNC_CALL) {
-                int err = semantic_visit(arg->left->right->left, scope);
-                if (err != NO_ERROR) return err;
-                arg2_type = arg->left->right->left->data_type;
-            } else {
-                fprintf(stderr, "[SEMANTIC] Invalid second argument expression for '%s'\n", func_name);
-                return SEM_ERROR_OTHER;
-            }
-            
-            if (arg2_type != TYPE_STRING) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be string, got type %d\n", func_name, arg2_type);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-        }
-    }
-    else if (strcmp(func_name, "Ifj.ord") == 0) {
-        if (arg_count != 2) {
-            fprintf(stderr, "[SEMANTIC] Built-in function '%s' takes 2 arguments, got %d\n", func_name, arg_count);
-            return SEM_ERROR_WRONG_PARAMS;
-        }
-        ASTNode *arg = node->left;
-        if (arg && arg->right) {
-            DataType arg1_type = TYPE_UNDEF;
-            if (arg->right->expr) {
-                int ierr = infer_expr_node_type(arg->right->expr, scope, &arg1_type);
-                if (ierr != NO_ERROR) return ierr;
-            } else if (arg->right->left && arg->right->left->type == AST_FUNC_CALL) {
-                int err = semantic_visit(arg->right->left, scope);
-                if (err != NO_ERROR) return err;
-                arg1_type = arg->right->left->data_type;
-            } else {
-                fprintf(stderr, "[SEMANTIC] Invalid first argument expression for '%s'\n", func_name);
-                return SEM_ERROR_OTHER;
-            }
-            
-            if (arg1_type != TYPE_STRING) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' first argument must be string, got type %d\n", func_name, arg1_type);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-        }
-        if (arg && arg->left && arg->left->right) {
-            DataType arg2_type = TYPE_UNDEF;
-            if (arg->left->right->expr) {
-                int ierr = infer_expr_node_type(arg->left->right->expr, scope, &arg2_type);
-                if (ierr != NO_ERROR) return ierr;
-            } else if (arg->left->right->left && arg->left->right->left->type == AST_FUNC_CALL) {
-                int err = semantic_visit(arg->left->right->left, scope);
-                if (err != NO_ERROR) return err;
-                arg2_type = arg->left->right->left->data_type;
-            } else {
-                fprintf(stderr, "[SEMANTIC] Invalid second argument expression for '%s'\n", func_name);
-                return SEM_ERROR_OTHER;
-            }
-            
-            if (arg2_type != TYPE_NUM) {
-                fprintf(stderr, "[SEMANTIC] Built-in function '%s' second argument must be numeric, got type %d\n", func_name, arg2_type);
-                return SEM_ERROR_WRONG_PARAMS;
-            }
-        }
-    }
-    else {
-        fprintf(stderr, "[SEMANTIC] Unknown built-in function '%s'\n", func_name);
-        return SEM_ERROR_OTHER;
-    }
-    
-    if (strcmp(func_name, "Ifj.read_str") == 0 || strcmp(func_name, "Ifj.str") == 0 || 
-        strcmp(func_name, "Ifj.substring") == 0 || strcmp(func_name, "Ifj.chr") == 0) {
-        node->data_type = TYPE_STRING;
-    }
-    else if (strcmp(func_name, "Ifj.read_num") == 0 || strcmp(func_name, "Ifj.floor") == 0 ||
-             strcmp(func_name, "Ifj.length") == 0 || strcmp(func_name, "Ifj.strcmp") == 0 ||
-             strcmp(func_name, "Ifj.ord") == 0) {
-        node->data_type = TYPE_NUM;
-    }
-    else if (strcmp(func_name, "Ifj.write") == 0) {
-        node->data_type = TYPE_NULL;
-    }
-    
-    return NO_ERROR;
-}
 
 void add_node_to_func_node(ASTNode *node, ASTNode *func_node){
     ASTNode *tmp = func_node;
@@ -2027,10 +1785,7 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
                 annotate_expr_scopes(node->expr, current_scope);
 
                 // Check if expression type inference failed
-            /* if (expr_type == TYPE_UNDEF) {
-                fprintf(stderr, "[SEMANTIC] Expression type inference failed\n");
-                return SEM_ERROR_TYPE_COMPATIBILITY;
-            }*/
+            
                 
                 
             } else if (node->left && node->left->type == AST_FUNC_CALL) {
@@ -2065,7 +1820,12 @@ int semantic_visit(ASTNode *node, Scope *current_scope) {
 
 
 /**
- * @brief Performs a semantic analysis .
+ * @brief main semantic analysis entry point, performs full semantic checks on the AST
+ * 
+ * - first initializes the global scope and preloads built-in functions
+ * - then processes all definitions (functions, getters, setters, global vars)
+ * - finally traverses the AST to perform semantic checks and type inference
+ * 
  * @param root Root node of the symbol table or parsed program structure.
  * @return SemanticResult error code or NO_ERROR if everything is valid.
  */
