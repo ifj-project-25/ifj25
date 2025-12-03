@@ -108,7 +108,7 @@ static Sym token_to_sym(const Token *token) {
  * for the `is` operator. On success replaces the TERM with a NONTERM containing
  * the created node.
  */
-ExprNode *reduce_term_to_node(ExprPstack *stack, int *rc) {
+ExprNode *reduce_term_to_node(ExprPstack *stack, int *error_code) {
     ExprNode *node = NULL;
     switch (stack->top->type) {
     case SYM_TERM:
@@ -144,8 +144,9 @@ ExprNode *reduce_term_to_node(ExprPstack *stack, int *rc) {
         }
         if (node) {
             expr_Pstack_pop(stack);
-            expr_Pstack_push_nonterm(stack, node, rc);
-            if (*rc != NO_ERROR) {
+            int return_value = expr_Pstack_push_nonterm(stack, node);
+            if (return_value != NO_ERROR) {
+                *error_code = ERROR_INTERNAL;
                 return NULL;
             }
         }
@@ -210,7 +211,7 @@ static const char prec_table[15][15] = {
  * Pops right expression, operator token, left expression and pushes a binary
  * operator NONTERM.
  */
-int reduce_expr_op_expr(ExprPstack *stack, int *rc) {
+int reduce_expr_op_expr(ExprPstack *stack) {
     if (expr_Pstack_is_empty(stack)) {
         return SYNTAX_ERROR;
     }
@@ -285,12 +286,10 @@ int reduce_expr_op_expr(ExprPstack *stack, int *rc) {
     // Create binary operation node
     ExprNode *new_node = create_binary_op_node(op, left, right);
     if (!new_node) {
-        return SYNTAX_ERROR;
+        return ERROR_INTERNAL;
     }
-    expr_Pstack_push_nonterm(stack, new_node, rc);
-    if (*rc != NO_ERROR) {
-        return SYNTAX_ERROR;
-    }
+    expr_Pstack_push_nonterm(stack, new_node);
+
     return NO_ERROR;
 }
 
@@ -305,7 +304,7 @@ int reduce_expr_op_expr(ExprPstack *stack, int *rc) {
  *  2. TERM   -> E
  *  3. E op E -> E
  */
-int reduce(ExprPstack *stack, int *rc) {
+int reduce(ExprPstack *stack) {
     if (expr_Pstack_is_empty(stack)) {
         return SYNTAX_ERROR;
     }
@@ -336,10 +335,8 @@ int reduce(ExprPstack *stack, int *rc) {
         }
         expr_Pstack_pop(stack); // Pop (
 
-        expr_Pstack_push_nonterm(stack, node, rc); // Push E
-        if (*rc != NO_ERROR) {
-            return SYNTAX_ERROR;
-        }
+        expr_Pstack_push_nonterm(stack, node); // Push E
+
     }
     // Reduce TERM -> E
     else if (stack->top->type == SYM_TERM) {
@@ -351,15 +348,19 @@ int reduce(ExprPstack *stack, int *rc) {
             stack->top->sym == PS_IS) {
             return SYNTAX_ERROR;
         }
-        ExprNode *node = reduce_term_to_node(stack, rc);
+        int *tmp_err = NO_ERROR;
+        ExprNode *node = reduce_term_to_node(stack, tmp_err);
+        if (tmp_err != NO_ERROR) {
+            return ERROR_INTERNAL;
+        }
         if (node == NULL) {
             return SYNTAX_ERROR;
         }
     }
     // Reduce E op E -> E
     else if (stack->top->type == SYM_NONTERM) {
-        reduce_expr_op_expr(stack, rc);
-        if (*rc != NO_ERROR) {
+        int rc = reduce_expr_op_expr(stack);
+        if (rc != NO_ERROR) {
             return SYNTAX_ERROR;
         }
     } else {
@@ -383,7 +384,7 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
     ExprPstack stack;
     ASTNode *ast_expr = NULL;
 
-    expr_Pstack_init(&stack, rc);
+    expr_Pstack_init(&stack);
     if (*rc != NO_ERROR) {
         expr_Pstack_free(&stack);
         return NULL;
@@ -410,9 +411,10 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
                               // parser - EXPRESSION
         }
 
-        expr_Pstack_push_term(&stack, &id_token, PS_TERM, rc);
-        if (*rc != NO_ERROR) {
+        int return_value = expr_Pstack_push_term(&stack, &id_token, PS_TERM);
+        if (return_value != NO_ERROR) {
             expr_Pstack_free(&stack);
+            *rc = return_value;
             return NULL;
         }
     }
@@ -426,9 +428,11 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
 
         // Logic based on precedence table
         if (prec_table[stack_sym][current_sym] == '<') { // Shift
-            expr_Pstack_push_term(&stack, token, current_sym, rc);
-            if (*rc != NO_ERROR) {
+            int return_value =
+                expr_Pstack_push_term(&stack, token, current_sym);
+            if (return_value != NO_ERROR) {
                 expr_Pstack_free(&stack);
+                *rc = return_value;
                 return NULL;
             }
             get_token(token);
@@ -436,20 +440,22 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
                 return NULL;
 
         } else if (prec_table[stack_sym][current_sym] == '>') { // Reduce
-            reduce(&stack, rc);
+            *rc = reduce(&stack);
             if (*rc != NO_ERROR)
                 return NULL;
         } else if (prec_table[stack_sym][current_sym] ==
                    '=') { // Shift then reduce
-            expr_Pstack_push_term(&stack, token, current_sym, rc);
-            if (*rc != NO_ERROR) {
+            int return_value =
+                expr_Pstack_push_term(&stack, token, current_sym);
+            if (return_value != NO_ERROR) {
                 expr_Pstack_free(&stack);
+                *rc = return_value;
                 return NULL;
             }
             get_token(token);
             if (*rc != NO_ERROR)
                 return NULL;
-            reduce(&stack, rc);
+            *rc = reduce(&stack);
             if (*rc != NO_ERROR)
                 return NULL;
         } else if (prec_table[stack_sym][current_sym] == 'T') // Terminate
@@ -476,7 +482,7 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
             *rc = SYNTAX_ERROR;
             return NULL;
         } else if (prec_table[stack_sym][current_sym] == '>') {
-            reduce(&stack, rc);
+            *rc = reduce(&stack);
             if (*rc != NO_ERROR)
                 return NULL;
         } else if (prec_table[stack_sym][current_sym] == '=') {
