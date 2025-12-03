@@ -23,15 +23,18 @@
  * Error Handling:
  * The compiler follows a fail-fast approach. If any phase encounters an error,
  * resources are cleaned up and an appropriate error code is returned:
- * - LEXICAL_ERROR (1): Invalid token structure
- * - SYNTAX_ERROR (2): Grammar rule violation
- * - SEMANTIC_ERROR_UNDEFINED (3): Undefined variable/function
- * - SEMANTIC_ERROR_REDEFINE (4): Redefinition of identifier
- * - SEMANTIC_ERROR_TYPE (5): Type mismatch or invalid operation
- * - SEMANTIC_ERROR_INFERENCE (6): Type inference failure
- * - SEMANTIC_ERROR_COMPATIBILITY (7): Incompatible types
- * - SEMANTIC_ERROR_OTHER (8): Other semantic errors
- * - INTERNAL_ERROR (99): Internal compiler error
+ * - NO_ERROR (0): Successful compilation
+ * - SCANNER_ERROR (1): Lexical analysis error - invalid token structure
+ * - SYNTAX_ERROR (2): Syntax analysis error - grammar rule violation
+ * - SEM_ERROR_UNDEFINED (3): Undefined variable or function
+ * - SEM_ERROR_REDEFINED (4): Redefinition of variable or function
+ * - SEM_ERROR_WRONG_PARAMS (5): Incorrect parameter type in function call
+ * - SEM_ERROR_TYPE_COMPATIBILITY (6): Type incompatibility in expression
+ * - SEM_ERROR_OTHER (10): Other semantic errors
+ * - SEM_RUNTIME_WRONG_PARAM (25): Runtime error - wrong built-in function
+ * parameter
+ * - SEM_RUNTIME_TYPE_COMPATIBILITY (26): Runtime error - type incompatibility
+ * - ERROR_INTERNAL (99): Internal compiler error (memory allocation, etc.)
  */
 
 #include "ast.h"
