@@ -25,36 +25,14 @@ char *my_strdup(const char *s);
 
 /**
  * @brief Creates and initializes a new AST node
- *
- * This function allocates memory for a new AST node and initializes all
- * its fields to safe default values. The node's type is set according to
- * the parameter, and if a name is provided, it is duplicated and stored.
- *
- * Memory initialization details:
- * - type: Set to provided value
- * - name: Duplicated from parameter (or NULL)
- * - left: NULL
- * - right: NULL
- * - expr: NULL
- * - data_type: TYPE_UNDEF
- * - current_table: NULL
- * - current_scope: NULL
- * - var_next: NULL
- *
+ * 
  * @param type The type of AST node to create (from ASTNodeType enum)
  * @param name Optional name/identifier for the node (will be duplicated using
  * my_strdup) May be NULL for nodes that don't require names
  *
  * @return Pointer to the newly created and initialized AST node
  * @retval NULL if memory allocation fails
- *
- * @note The returned node must be freed using free_ast_tree() when no longer
- * needed
- * @note The name parameter is copied, so the caller retains ownership of the
- * original
- *
- * @warning Always check for NULL return value before using the node
- *
+ * 
  * Example usage:
  * @code
  * ASTNode *var_node = create_ast_node(AST_VAR_DECL, "myVariable");
@@ -95,41 +73,13 @@ ASTNode *create_ast_node(ASTNodeType type, const char *name) {
 
 /**
  * @brief Recursively frees an entire AST tree and all associated resources
- *
- * This function performs a post-order traversal of the AST tree, freeing all
- * child nodes before freeing the parent. It also deallocates all associated
- * resources including:
- * - Left and right subtrees (recursively)
- * - Expression trees (expr field)
- * - Node names (dynamically allocated strings)
- * - Symbol tables (current_table)
- * - The node structure itself
- *
+ * 
  * The function uses post-order traversal to ensure that parent nodes are only
  * freed after all their children have been freed, preventing access to freed
  * memory.
  *
  * @param node Pointer to the root node of the tree to free
  *             May be NULL (function safely handles NULL pointers)
- *
- * @note This function does NOT free:
- *       - The current_scope field (scopes are managed by semantic analysis)
- *       - The var_next chain (caller's responsibility if needed)
- *
- * @warning After calling this function:
- *          - Do not access the node or any of its descendants
- *          - Any pointers to nodes in the freed tree become invalid
- *          - Using freed nodes results in undefined behavior
- *
- * @note Safe to call with NULL pointer (no-op)
- *
- * Example usage:
- * @code
- * ASTNode *tree = parse_program();
- * // Use the tree...
- * free_ast_tree(tree);  // Clean up when done
- * tree = NULL;          // Good practice to prevent dangling pointer
- * @endcode
  */
 void free_ast_tree(ASTNode *node) {
     // Base case: NULL pointer - nothing to free
