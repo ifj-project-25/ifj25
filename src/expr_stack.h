@@ -5,8 +5,8 @@
  * @details Defines data structures and functions for the stack used in
  *          precedence-based expression parsing.
  */
-#ifndef EXPR_PARSER_PRECEDENCE_H
-#define EXPR_PARSER_PRECEDENCE_H
+#ifndef EXPR_STACK_H
+#define EXPR_STACK_H
 #include "expr_ast.h"
 #include "scanner.h"
 #include "symtable.h"
@@ -136,4 +136,4 @@ bool expr_Pstack_is_empty(ExprPstack *stack);
  */
 struct ASTNode *expression_parser_main(Token *token, int *error_code);
 
-#endif // EXPR_PARSER_PRECEDENCE_H
+#endif // EXPR_STACK_H
