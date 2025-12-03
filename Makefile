@@ -79,7 +79,6 @@ clean:
 	rm -f *.exe log.txt *.ifj25
 	rm -f $(ZIP_NAME).zip
 
-# Count lines of code by category
 count_lines:
 	@chmod +x count_lines.sh
 	@./count_lines.sh
@@ -93,4 +92,5 @@ zip:
 		src/*.h \
 		rozdeleni \
 		dokumentace.pdf \
+		rozsireni \
 		Makefile
