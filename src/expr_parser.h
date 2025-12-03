@@ -1,5 +1,5 @@
 /**
- * @file expr_precedence_parser.h
+ * @file expr_parser.h
  * @author xmikusm00
  * @brief Precedence-based expression parser public interface
  * @details
@@ -19,19 +19,23 @@
 
 /**
  * @brief Parses an expression using operator precedence parsing.
- * @param token Pointer to the current token (the function advances it past the expression).
- * @param rc Pointer to error code; set to SYNTAX_ERROR or ERROR_INTERNAL on failure.
- * @return Pointer to an `AST_EXPRESSION` node wrapping the parsed expression subtree, or
- *         a function call node (`AST_FUNC_CALL`) when the first token is an identifier followed
- *         immediately by `(`. Returns NULL on error (and sets *rc accordingly).
+ * @param token Pointer to the current token (the function advances it past the
+ * expression).
+ * @param rc Pointer to error code; set to SYNTAX_ERROR or ERROR_INTERNAL on
+ * failure.
+ * @return Pointer to an `AST_EXPRESSION` node wrapping the parsed expression
+ * subtree, or a function call node (`AST_FUNC_CALL`) when the first token is an
+ * identifier followed immediately by `(`. Returns NULL on error (and sets *rc
+ * accordingly).
  * @details
  * Grammar (simplified):
  *    EXPR -> TERM ( op TERM )*
  *    TERM -> identifier | literal | ( EXPR )
  * Supported binary operators: + - * / < > <= >= == != is
  * The `is` operator compares against type literals: `Null`, `Num`, `String`.
- * Function-call short form: if the first token is identifier followed by '(', the parser
- * returns an `AST_FUNC_CALL` node (argument list parsed by higher-level parser).
+ * Function-call short form: if the first token is identifier followed by '(',
+ * the parser returns an `AST_FUNC_CALL` node (argument list parsed by
+ * higher-level parser).
  */
 ASTNode *main_precedence_parser(Token *token, int *rc);
-#endif //EXPR_STACK_PRECEDENCE_H
+#endif // EXPR_PARSER_H

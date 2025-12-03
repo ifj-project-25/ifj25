@@ -16,8 +16,8 @@ SRCS =  $(SRC_DIR)main.c \
         $(SRC_DIR)expr_ast.c \
         $(SRC_DIR)ast.c \
 		$(SRC_DIR)semantic.c \
-		$(SRC_DIR)expr_precedence_parser.c \
-		$(SRC_DIR)expr_precedence_stack.c \
+		$(SRC_DIR)expr_parser.c \
+		$(SRC_DIR)expr_stack.c \
 		$(SRC_DIR)generator.c
 
 TEST_SYMTABLE_SRCS = test/test_symtable.c \

@@ -7,10 +7,10 @@
  * for expression evaluation. The stack stores both terminal symbols (tokens)
  * and non-terminal symbols (expression AST nodes) during bottom-up parsing.
  */
-#include "expr_precedence_stack.h"
+#include "expr_stack.h"
 #include "error.h"
 #include "expr_ast.h"
-#include "expr_precedence_parser.h"
+#include "expr_parser.h"
 #include "parser.h"
 #include "scanner.h"
 #include <stdbool.h>

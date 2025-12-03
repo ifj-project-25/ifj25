@@ -1,5 +1,5 @@
 /**
- * @file expr_precedence_stack.h
+ * @file expr_stack.h
  * @author xmikusm00
  * @brief Expression precedence parser stack header file
  * @details
@@ -128,4 +128,4 @@ ExprNode *expr_Pstack_top(ExprPstack *stack);
  */
 bool expr_Pstack_is_empty(ExprPstack *stack);
 
-#endif // EXPR_PARSER_PRECEDENCE_H
+#endif // EXPR_STACK_H

@@ -1,5 +1,5 @@
 /**
- * @file expr_precedence_parser.c
+ * @file expr_parser.c
  * @author xmikusm00
  * @brief Implementation of operator-precedence based expression parser.
  * @details
@@ -23,11 +23,11 @@
  *  3. Reduce according to rules TERM->E and E op E -> E until a single
  * expression remains.
  */
-#include "expr_precedence_parser.h"
+#include "expr_parser.h"
 #include "ast.h"
 #include "error.h"
 #include "expr_ast.h"
-#include "expr_precedence_stack.h"
+#include "expr_stack.h"
 #include "parser.h"
 #include "scanner.h"
 #include "symtable.h"
@@ -163,8 +163,8 @@ ExprNode *reduce_term_to_node(ExprPstack *stack, int *rc) {
  *  '<' shift (push incoming)
  *  '>' reduce
  *  '=' shift then reduce grouping (parentheses)
- *  'T' terminate expression parsing (return control to parent parser to validate context of outside logic of parser )
- *  ' ' invalid / not applicable
+ *  'T' terminate expression parsing (return control to parent parser to
+ * validate context of outside logic of parser ) ' ' invalid / not applicable
  */
 static const char prec_table[15][15] = {
     //         TERM   +   -   *   /   (   )   <   >  <=  >=  is  ==  !=   $
@@ -406,7 +406,8 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
                 return NULL;
             }
             expr_Pstack_free(&stack);
-            return call_node; // return AST_FUNC_CALL directly, handeled in parser - EXPRESSION
+            return call_node; // return AST_FUNC_CALL directly, handeled in
+                              // parser - EXPRESSION
         }
 
         expr_Pstack_push_term(&stack, &id_token, PS_TERM, rc);

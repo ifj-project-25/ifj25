@@ -11,7 +11,7 @@
 #include "parser.h"
 #include "ast.h"
 #include "error.h"
-#include "expr_precedence_parser.h"
+#include "expr_parser.h"
 #include "scanner.h"
 #include "symtable.h"
 #include <stdio.h>

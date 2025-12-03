@@ -7,7 +7,7 @@
 #include "ast.h"
 #include "error.h"
 #include "expr_ast.h"
-#include "expr_precedence_parser.h"
+#include "expr_parser.h"
 #include "generator.h"
 #include "parser.h"
 #include "scanner.h"
