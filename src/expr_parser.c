@@ -425,7 +425,7 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
         Sym current_sym = token_to_sym(token);
 
         // Logic based on precedence table
-        if (prec_table[stack_sym][current_sym] == '<') {
+        if (prec_table[stack_sym][current_sym] == '<') { // Shift
             expr_Pstack_push_term(&stack, token, current_sym, rc);
             if (*rc != NO_ERROR) {
                 expr_Pstack_free(&stack);
@@ -434,11 +434,13 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
             get_token(token);
             if (*rc != NO_ERROR)
                 return NULL;
-        } else if (prec_table[stack_sym][current_sym] == '>') {
+
+        } else if (prec_table[stack_sym][current_sym] == '>') { // Reduce
             reduce(&stack, rc);
             if (*rc != NO_ERROR)
                 return NULL;
-        } else if (prec_table[stack_sym][current_sym] == '=') {
+        } else if (prec_table[stack_sym][current_sym] ==
+                   '=') { // Shift then reduce
             expr_Pstack_push_term(&stack, token, current_sym, rc);
             if (*rc != NO_ERROR) {
                 expr_Pstack_free(&stack);
@@ -450,16 +452,18 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
             reduce(&stack, rc);
             if (*rc != NO_ERROR)
                 return NULL;
-        } else if (prec_table[stack_sym][current_sym] == 'T')
+        } else if (prec_table[stack_sym][current_sym] == 'T') // Terminate
             break;
         else {
             *rc = SYNTAX_ERROR;
             return NULL;
         }
 
+        // Stop parsing on EOL, COMMA, EOF
     } while (token->type != TOKEN_EOF && token->type != TOKEN_EOL &&
              token->type != TOKEN_COMMA);
-    while (true) {
+    // Final reductions
+    while (true) { // Reduce until only single expression remains
         if (stack.top->type == SYM_NONTERM && stack.top->next != NULL &&
             stack.top->next->sym == PS_DOLLAR) {
             break;
@@ -484,7 +488,8 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
             return NULL;
         }
     }
-    // Wrap final expression in AST node if we have one
+    // Final expression node wrapper
+    // wraps ExprNode into AST_EXPRESSION
     ExprNode *final_expr = expr_Pstack_top(&stack);
     if (final_expr) {
         ast_expr = create_ast_node(AST_EXPRESSION, NULL);
