@@ -1,0 +1,29 @@
+Archive:  xklusaa00.zip
+  inflating: ast.c                   
+  inflating: dynamic_string.c        
+  inflating: expr_ast.c              
+  inflating: expr_parser.c           
+  inflating: expr_stack.c            
+  inflating: generator.c             
+  inflating: main.c                  
+  inflating: parser.c                
+  inflating: scanner.c               
+  inflating: semantic.c              
+  inflating: symtable.c              
+  inflating: ast.h                   
+  inflating: dynamic_string.h        
+  inflating: error.h                 
+  inflating: expr_ast.h              
+  inflating: expr_parser.h           
+  inflating: expr_stack.h            
+  inflating: generator.h             
+  inflating: parser.h                
+  inflating: scanner.h               
+  inflating: semantic.h              
+  inflating: symtable.h              
+  inflating: rozdeleni               
+  inflating: dokumentace.pdf         
+ extracting: rozsireni               
+  inflating: Makefile                
+gcc -g -std=c11 -Wall -Werror -Wextra -o main main.c scanner.c dynamic_string.c parser.c symtable.c expr_ast.c ast.c semantic.c expr_parser.c expr_stack.c generator.c
+dos2unix: converting file rozsireni to file rozsireni.lf in Unix format...
