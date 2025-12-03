@@ -101,14 +101,14 @@ static Sym token_to_sym(const Token *token) {
 /**
  * @brief Reduces the top TERM symbol on the stack into an expression node.
  * @param stack Pointer to precedence stack (top must be SYM_TERM).
- * @param rc Pointer to error code (set on allocation failure).
+ * @param rc Pointer to error code.
  * @return Newly created `ExprNode` pointer, or NULL on error.
  * @details
  * Handles identifiers, literals (number, string, null) and type keywords mapped
  * for the `is` operator. On success replaces the TERM with a NONTERM containing
  * the created node.
  */
-ExprNode *reduce_term_to_node(ExprPstack *stack, int *error_code) {
+ExprNode *reduce_term_to_node(ExprPstack *stack, int *rc) {
     ExprNode *node = NULL;
     switch (stack->top->type) {
     case SYM_TERM:
@@ -146,7 +146,7 @@ ExprNode *reduce_term_to_node(ExprPstack *stack, int *error_code) {
             expr_Pstack_pop(stack);
             int return_value = expr_Pstack_push_nonterm(stack, node);
             if (return_value != NO_ERROR) {
-                *error_code = ERROR_INTERNAL;
+                *rc = ERROR_INTERNAL;
                 return NULL;
             }
         }
@@ -203,29 +203,35 @@ static const char prec_table[15][15] = {
 
 /**
  * @brief Reduces pattern E op E into a single expression node.
- * @param stack Precedence stack (top  must be NONTERM, below operator TERM,
+ * @param stack Precedence stack (top must be NONTERM, below operator TERM,
  * below NONTERM).
- * @param rc Pointer to error code (set on allocation failure).
- * @return NO_ERROR on success, SYNTAX_ERROR on structural mismatch or failure.
+ * @param rc Pointer to error code.
+ * @return void (errors reported via rc pointer).
  * @details
  * Pops right expression, operator token, left expression and pushes a binary
  * operator NONTERM.
  */
-int reduce_expr_op_expr(ExprPstack *stack) {
+void reduce_expr_op_expr(ExprPstack *stack, int *rc) {
     if (expr_Pstack_is_empty(stack)) {
-        return SYNTAX_ERROR;
+        *rc = SYNTAX_ERROR;
+        return;
     }
-    if (stack->top->type != SYM_NONTERM)
-        return SYNTAX_ERROR;
+    if (stack->top->type != SYM_NONTERM) {
+        *rc = SYNTAX_ERROR;
+        return;
+    }
     // Extract right operand E
     ExprNode *right = stack->top->node;
     expr_Pstack_pop(stack);
 
     if (expr_Pstack_is_empty(stack)) {
-        return SYNTAX_ERROR;
+        *rc = SYNTAX_ERROR;
+        return;
     }
-    if (stack->top->type != SYM_TERM)
-        return SYNTAX_ERROR;
+    if (stack->top->type != SYM_TERM) {
+        *rc = SYNTAX_ERROR;
+        return;
+    }
 
     BinaryOpType op;
     switch (stack->top->token.type) {
@@ -264,21 +270,26 @@ int reduce_expr_op_expr(ExprPstack *stack) {
             op = OP_IS;
             break;
         } else {
-            return SYNTAX_ERROR;
+            *rc = SYNTAX_ERROR;
+            return;
         }
 
     default:
-        return SYNTAX_ERROR;
+        *rc = SYNTAX_ERROR;
+        return;
     }
 
     // Extract left operand E
     expr_Pstack_pop(stack);
 
     if (expr_Pstack_is_empty(stack)) {
-        return SYNTAX_ERROR;
+        *rc = SYNTAX_ERROR;
+        return;
     }
-    if (stack->top->type != SYM_NONTERM)
-        return SYNTAX_ERROR;
+    if (stack->top->type != SYM_NONTERM) {
+        *rc = SYNTAX_ERROR;
+        return;
+    }
     ExprNode *left = stack->top->node;
     // Extract operator
     expr_Pstack_pop(stack);
@@ -286,27 +297,29 @@ int reduce_expr_op_expr(ExprPstack *stack) {
     // Create binary operation node
     ExprNode *new_node = create_binary_op_node(op, left, right);
     if (!new_node) {
-        return ERROR_INTERNAL;
+        *rc = ERROR_INTERNAL;
+        return;
     }
     expr_Pstack_push_nonterm(stack, new_node);
 
-    return NO_ERROR;
+    return;
 }
 
 /**
  * @brief Performs one reduction step based on current stack top pattern.
  * @param stack Precedence stack.
  * @param rc Pointer to error code.
- * @return NO_ERROR if a reduction succeeded, SYNTAX_ERROR if pattern invalid.
+ * @return void (errors reported via rc pointer).
  * @details
  * Reduction forms:
  *  1. ( E )  -> E
  *  2. TERM   -> E
  *  3. E op E -> E
  */
-int reduce(ExprPstack *stack) {
+void reduce(ExprPstack *stack, int *rc) {
     if (expr_Pstack_is_empty(stack)) {
-        return SYNTAX_ERROR;
+        *rc = SYNTAX_ERROR;
+        return;
     }
     // Reduce ( E ) -> E
     if (stack->top->type == SYM_TERM &&
@@ -319,19 +332,23 @@ int reduce(ExprPstack *stack) {
         expr_Pstack_pop(stack); // Pop )
 
         if (expr_Pstack_is_empty(stack)) {
-            return SYNTAX_ERROR;
+            *rc = SYNTAX_ERROR;
+            return;
         }
         if (stack->top->type != SYM_NONTERM) {
-            return SYNTAX_ERROR;
+            *rc = SYNTAX_ERROR;
+            return;
         }
         ExprNode *node = stack->top->node;
         expr_Pstack_pop(stack); // Pop E
 
         if (expr_Pstack_is_empty(stack)) {
-            return SYNTAX_ERROR;
+            *rc = SYNTAX_ERROR;
+            return;
         }
         if (stack->top->sym != PS_LPAREN) {
-            return SYNTAX_ERROR;
+            *rc = SYNTAX_ERROR;
+            return;
         }
         expr_Pstack_pop(stack); // Pop (
 
@@ -346,36 +363,38 @@ int reduce(ExprPstack *stack) {
             stack->top->sym == PS_LTE || stack->top->sym == PS_GTE ||
             stack->top->sym == PS_EQ || stack->top->sym == PS_NEQ ||
             stack->top->sym == PS_IS) {
-            return SYNTAX_ERROR;
+            *rc = SYNTAX_ERROR;
+            return;
         }
-        int *tmp_err = NO_ERROR;
-        ExprNode *node = reduce_term_to_node(stack, tmp_err);
-        if (tmp_err != NO_ERROR) {
-            return ERROR_INTERNAL;
+        ExprNode *node = reduce_term_to_node(stack, rc);
+        if (*rc != NO_ERROR) {
+            return;
         }
         if (node == NULL) {
-            return SYNTAX_ERROR;
+            *rc = SYNTAX_ERROR;
+            return;
         }
     }
     // Reduce E op E -> E
     else if (stack->top->type == SYM_NONTERM) {
-        int rc = reduce_expr_op_expr(stack);
-        if (rc != NO_ERROR) {
-            return SYNTAX_ERROR;
+        reduce_expr_op_expr(stack, rc);
+        if (*rc != NO_ERROR) {
+            return;
         }
     } else {
-        return SYNTAX_ERROR;
+        *rc = SYNTAX_ERROR;
+        return;
     }
 
-    return NO_ERROR;
+    return;
 }
 
 /**
  * @brief Entry point for precedence expression parsing.
  * @param token Pointer to current token; advanced past parsed expression.
- * @param rc Pointer to error code (NO_ERROR on success).
+ * @param rc Pointer to error code.
  * @return `AST_EXPRESSION` wrapping internal expression tree or `AST_FUNC_CALL`
- * shortcut.
+ * shortcut, or NULL on error. Stack is properly freed on all error paths.
  * @details
  * Drives the shift/reduce loop using `prec_table`. Stops on EOL, COMMA, EOF.
  * After completion, converts final `ExprNode` stack content into an AST node.
@@ -436,13 +455,17 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
                 return NULL;
             }
             get_token(token);
-            if (*rc != NO_ERROR)
+            if (*rc != NO_ERROR) {
+                expr_Pstack_free(&stack);
                 return NULL;
+            }
 
         } else if (prec_table[stack_sym][current_sym] == '>') { // Reduce
-            *rc = reduce(&stack);
-            if (*rc != NO_ERROR)
+            reduce(&stack, rc);
+            if (*rc != NO_ERROR) {
+                expr_Pstack_free(&stack);
                 return NULL;
+            }
         } else if (prec_table[stack_sym][current_sym] ==
                    '=') { // Shift then reduce
             int return_value =
@@ -453,15 +476,20 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
                 return NULL;
             }
             get_token(token);
-            if (*rc != NO_ERROR)
+            if (*rc != NO_ERROR) {
+                expr_Pstack_free(&stack);
                 return NULL;
-            *rc = reduce(&stack);
-            if (*rc != NO_ERROR)
+            }
+            reduce(&stack, rc);
+            if (*rc != NO_ERROR) {
+                expr_Pstack_free(&stack);
                 return NULL;
+            }
         } else if (prec_table[stack_sym][current_sym] == 'T') // Terminate
             break;
         else {
             *rc = SYNTAX_ERROR;
+            expr_Pstack_free(&stack);
             return NULL;
         }
 
@@ -480,17 +508,21 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
         if (prec_table[stack_sym][current_sym] == '<') {
             // Should not happen
             *rc = SYNTAX_ERROR;
+            expr_Pstack_free(&stack);
             return NULL;
         } else if (prec_table[stack_sym][current_sym] == '>') {
-            *rc = reduce(&stack);
-            if (*rc != NO_ERROR)
+            reduce(&stack, rc);
+            if (*rc != NO_ERROR) {
+                expr_Pstack_free(&stack);
                 return NULL;
+            }
         } else if (prec_table[stack_sym][current_sym] == '=') {
             break; // Finished
         }
 
         else {
             *rc = SYNTAX_ERROR;
+            expr_Pstack_free(&stack);
             return NULL;
         }
     }
