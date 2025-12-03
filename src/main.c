@@ -29,6 +29,7 @@ int main() {
 
     int error_code = parser(PROGRAM); ///< Call the parser
     if (error_code != NO_ERROR) {
+        free_ast_tree(PROGRAM); ///< Free the AST tree on error
         fclose(source_file);
         return error_code;
     }
@@ -37,17 +38,19 @@ int main() {
 
     error_code = semantic_analyze(PROGRAM); ///< Call the semantic analyzer
     if (error_code != NO_ERROR) {
+        free_ast_tree(PROGRAM); ///< Free the AST tree on error
         fclose(source_file);
         fclose(fileOut);
         return error_code;
     }
     error_code = generate_code(PROGRAM, fileOut); ///< Call the code generator
     if (error_code != NO_ERROR) {
+        free_ast_tree(PROGRAM); ///< Free the AST tree on error
         fclose(source_file);
         fclose(fileOut);
         return error_code;
     }
-
+    free_ast_tree(PROGRAM); ///< Free the AST tree on success
     fclose(source_file);
     fclose(fileOut);
 

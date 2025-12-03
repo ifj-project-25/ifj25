@@ -163,7 +163,7 @@ ExprNode *reduce_term_to_node(ExprPstack *stack, int *rc) {
  *  '<' shift (push incoming)
  *  '>' reduce
  *  '=' shift then reduce grouping (parentheses)
- *  'T' termination marker when encountering end ($)
+ *  'T' terminate expression parsing (return control to parent parser to validate context of outside logic of parser )
  *  ' ' invalid / not applicable
  */
 static const char prec_table[15][15] = {
@@ -202,7 +202,7 @@ static const char prec_table[15][15] = {
 
 /**
  * @brief Reduces pattern E op E into a single expression node.
- * @param stack Precedence stack (top must be NONTERM, below operator TERM,
+ * @param stack Precedence stack (top  must be NONTERM, below operator TERM,
  * below NONTERM).
  * @param rc Pointer to error code (set on allocation failure).
  * @return NO_ERROR on success, SYNTAX_ERROR on structural mismatch or failure.
@@ -216,6 +216,7 @@ int reduce_expr_op_expr(ExprPstack *stack, int *rc) {
     }
     if (stack->top->type != SYM_NONTERM)
         return SYNTAX_ERROR;
+    // Extract right operand E
     ExprNode *right = stack->top->node;
     expr_Pstack_pop(stack);
 
@@ -269,7 +270,7 @@ int reduce_expr_op_expr(ExprPstack *stack, int *rc) {
         return SYNTAX_ERROR;
     }
 
-    // Extract left operand
+    // Extract left operand E
     expr_Pstack_pop(stack);
 
     if (expr_Pstack_is_empty(stack)) {
@@ -278,6 +279,7 @@ int reduce_expr_op_expr(ExprPstack *stack, int *rc) {
     if (stack->top->type != SYM_NONTERM)
         return SYNTAX_ERROR;
     ExprNode *left = stack->top->node;
+    // Extract operator
     expr_Pstack_pop(stack);
 
     // Create binary operation node
@@ -386,7 +388,7 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
         expr_Pstack_free(&stack);
         return NULL;
     }
-
+    // Check for function call shortcut: ID (
     if (token->type == TOKEN_IDENTIFIER) {
         Token id_token = *token;
         get_token(token);
@@ -394,6 +396,7 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
             expr_Pstack_free(&stack);
             return NULL;
         }
+        // Function call shortcut detected
         if (token->type == TOKEN_LPAREN) {
             ASTNode *call_node =
                 create_ast_node(AST_FUNC_CALL, id_token.value.string->str);
@@ -403,7 +406,7 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
                 return NULL;
             }
             expr_Pstack_free(&stack);
-            return call_node;
+            return call_node; // return AST_FUNC_CALL directly, handeled in parser - EXPRESSION
         }
 
         expr_Pstack_push_term(&stack, &id_token, PS_TERM, rc);
@@ -419,6 +422,8 @@ ASTNode *main_precedence_parser(Token *token, int *rc) {
         }
         Sym stack_sym = scan ? token_to_sym(&scan->token) : PS_DOLLAR;
         Sym current_sym = token_to_sym(token);
+
+        // Logic based on precedence table
         if (prec_table[stack_sym][current_sym] == '<') {
             expr_Pstack_push_term(&stack, token, current_sym, rc);
             if (*rc != NO_ERROR) {
