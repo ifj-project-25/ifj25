@@ -595,7 +595,7 @@ static ASTNode *BLOCK() {
 
     return block;
 }
- /**
+/**
  * @brief Function to parse a list of parameters in a function call
  * or definition, creating AST nodes for them.
  * @param argument_node The AST node representing the current argument.
@@ -1059,5 +1059,16 @@ int parser(ASTNode *PROGRAM) {
     CLASS(PROGRAM);
     if (rc != NO_ERROR)
         return rc;
+
+    next_token(&token);
+    if (rc != NO_ERROR)
+        return rc;
+    skip_eol();
+    if (rc != NO_ERROR)
+        return rc;
+
+    if (token.type != TOKEN_EOF) {
+        rc = SYNTAX_ERROR;
+    }
     return rc;
 }

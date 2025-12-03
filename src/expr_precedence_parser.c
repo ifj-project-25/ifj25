@@ -200,9 +200,6 @@ static const char prec_table[15][15] = {
     {'<', '<', '<', '<', '<', '<', 'T', '<', '<', '<', '<', '<', '<', '<',
      ' '}};
 
-// Rules:
-//  TERM -> E
-//  E op E -> E
 /**
  * @brief Reduces pattern E op E into a single expression node.
  * @param stack Precedence stack (top must be NONTERM, below operator TERM,
@@ -307,7 +304,6 @@ int reduce_expr_op_expr(ExprPstack *stack, int *rc) {
  *  3. E op E -> E
  */
 int reduce(ExprPstack *stack, int *rc) {
-    // print_stack(stack);
     if (expr_Pstack_is_empty(stack)) {
         return SYNTAX_ERROR;
     }
